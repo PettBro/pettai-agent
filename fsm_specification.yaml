@@ -1,0 +1,42 @@
+alphabet_in:
+  - CONNECT_TO_PETT
+  - USER_REQUEST
+  - PET_ACTION_NEEDED
+  - TRANSACTION_NEEDED
+  - ERROR_OCCURRED
+  - RESET
+
+default_start_state: ConnectToPettRound
+
+final_states:
+  - FinishedPettAgentRound
+
+label: PettAgentAbciApp
+
+start_states:
+  - ConnectToPettRound
+
+states:
+  - ConnectToPettRound
+  - WaitForUserRequestRound
+  - ProcessPetActionRound
+  - ExecuteTransactionRound
+  - HandleErrorRound
+  - FinishedPettAgentRound
+
+transition_func:
+  (ConnectToPettRound, CONNECT_TO_PETT): WaitForUserRequestRound
+  (ConnectToPettRound, ERROR_OCCURRED): HandleErrorRound
+  (WaitForUserRequestRound, USER_REQUEST): ProcessPetActionRound
+  (WaitForUserRequestRound, ERROR_OCCURRED): HandleErrorRound
+  (WaitForUserRequestRound, RESET): ConnectToPettRound
+  (ProcessPetActionRound, PET_ACTION_NEEDED): ProcessPetActionRound
+  (ProcessPetActionRound, TRANSACTION_NEEDED): ExecuteTransactionRound
+  (ProcessPetActionRound, USER_REQUEST): WaitForUserRequestRound
+  (ProcessPetActionRound, ERROR_OCCURRED): HandleErrorRound
+  (ProcessPetActionRound, RESET): ConnectToPettRound
+  (ExecuteTransactionRound, USER_REQUEST): WaitForUserRequestRound
+  (ExecuteTransactionRound, ERROR_OCCURRED): HandleErrorRound
+  (ExecuteTransactionRound, RESET): ConnectToPettRound
+  (HandleErrorRound, RESET): ConnectToPettRound
+  (HandleErrorRound, ERROR_OCCURRED): FinishedPettAgentRound

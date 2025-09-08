@@ -2,7 +2,7 @@ import asyncio
 import websockets
 import json
 import logging
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, Callable, List, Union
 from datetime import datetime
 import os
 from dotenv import load_dotenv
@@ -16,20 +16,27 @@ logger = logging.getLogger(__name__)
 class PettWebSocketClient:
     def __init__(
         self,
-        websocket_url: str = "wss://petbot-monorepo-websocket-333713154917.europe-west1.run.app",
+        websocket_url: str = os.getenv(
+            "WEBSOCKET_URL",
+            (
+                "ws://petbot-monorepo-websocket-333713154917.europe-west1.run.app"
+                if os.getenv("NODE_ENV") == "production"
+                else "ws://localhost:3005"
+            ),
+        ),
     ):
         self.websocket_url = websocket_url
-        self.websocket = None
+        self.websocket: Optional[Any] = None
         self.authenticated = False
-        self.pet_data = None
-        self.message_handlers = {}
+        self.pet_data: Optional[Dict[str, Any]] = None
+        self.message_handlers: Dict[str, List[Callable]] = {}
         self.connection_established = False
         self.privy_token = os.getenv("PRIVY_TOKEN")
-        self.data_message = None
-        self.ai_search_future = None  # Add this to track AI search Future
-        self.kitchen_future = None  # Add this to track kitchen data Future
-        self.mall_future = None  # Add this to track mall data Future
-        self.closet_future = None  # Add this to track closet data Future
+        self.data_message: Optional[Dict[str, Any]] = None
+        self.ai_search_future: Optional[asyncio.Future[str]] = None
+        self.kitchen_future: Optional[asyncio.Future[str]] = None
+        self.mall_future: Optional[asyncio.Future[str]] = None
+        self.closet_future: Optional[asyncio.Future[str]] = None
         if not self.privy_token:
             logger.error("PRIVY_TOKEN environment variable is not set")
             raise ValueError("Privy token is required")
@@ -195,27 +202,29 @@ class PettWebSocketClient:
 
                 # Log pet information
                 pet = self.pet_data
-                logger.info(f"🐾 Pet: {pet.get('name', 'Unknown')}")
-                logger.info(f"🆔 Pet ID: {pet.get('id', 'Unknown')}")
-                logger.info(
-                    f"💰 Balance: {pet.get('PetTokens', {}).get('tokens', '0')}"
-                )
-                logger.info(f"🏨 Hotel Tier: {pet.get('currentHotelTier', 0)}")
-                logger.info(f"💀 Dead: {pet.get('dead', False)}")
-                logger.info(f"😴 Sleeping: {pet.get('sleeping', False)}")
-
-                # Log pet stats
-                pet_stats = pet.get("PetStats", {})
-                if pet_stats:
-                    logger.info("📊 Pet Stats:")
-                    logger.info(f"   🍽️  Hunger: {pet_stats.get('hunger', 0)}")
-                    logger.info(f"   ❤️  Health: {pet_stats.get('health', 0)}")
-                    logger.info(f"   ⚡ Energy: {pet_stats.get('energy', 0)}")
-                    logger.info(f"   😊 Happiness: {pet_stats.get('happiness', 0)}")
-                    logger.info(f"   🧼 Hygiene: {pet_stats.get('hygiene', 0)}")
+                if pet:
+                    logger.info(f"🐾 Pet: {pet.get('name', 'Unknown')}")
+                    logger.info(f"🆔 Pet ID: {pet.get('id', 'Unknown')}")
                     logger.info(
-                        f"   🎯 XP: {pet_stats.get('xp', 0)}/{pet_stats.get('xpMax', 0)} (Level {pet_stats.get('level', 1)})"
+                        f"💰 Balance: {pet.get('PetTokens', {}).get('tokens', '0')}"
                     )
+                    logger.info(f"🏨 Hotel Tier: {pet.get('currentHotelTier', 0)}")
+                    logger.info(f"💀 Dead: {pet.get('dead', False)}")
+                    logger.info(f"😴 Sleeping: {pet.get('sleeping', False)}")
+
+                    # Log pet stats
+                    pet_stats = pet.get("PetStats", {})
+                    if pet_stats:
+                        logger.info("📊 Pet Stats:")
+                        logger.info(f"   🍽️  Hunger: {pet_stats.get('hunger', 0)}")
+                        logger.info(f"   ❤️  Health: {pet_stats.get('health', 0)}")
+                        logger.info(f"   ⚡ Energy: {pet_stats.get('energy', 0)}")
+                        logger.info(f"   😊 Happiness: {pet_stats.get('happiness', 0)}")
+                        logger.info(f"   🧼 Hygiene: {pet_stats.get('hygiene', 0)}")
+                        logger.info(
+                            f"   🎯 XP: {pet_stats.get('xp', 0)}/"
+                            f"{pet_stats.get('xpMax', 0)} (Level {pet_stats.get('level', 1)})"
+                        )
 
             else:
                 self.pet_data = {}
@@ -392,7 +401,12 @@ class PettWebSocketClient:
         """Buy a consumable item for the pet.
 
         Args:
-            consumable_id: The ID of the consumable to buy. Allowed values: "BURGER", "SALAD", "STEAK", "COOKIE", "PIZZA", "SUSHI", "ENERGIZER", "POTION", "XP_POTION", "SUPER_XP_POTION", "SMALL_POTION", "LARGE_POTION", "REVIVE_POTION", "POISONOUS_ARROW", "REINFORCED_SHIELD", "BATTLE_SWORD", "ACCOUNTANT"
+            consumable_id: The ID of the consumable to buy. Allowed values:
+                "BURGER", "SALAD", "STEAK", "COOKIE", "PIZZA", "SUSHI",
+                "ENERGIZER", "POTION", "XP_POTION", "SUPER_XP_POTION",
+                "SMALL_POTION", "LARGE_POTION", "REVIVE_POTION",
+                "POISONOUS_ARROW", "REINFORCED_SHIELD", "BATTLE_SWORD",
+                "ACCOUNTANT"
             amount: The number of consumables to buy (default: 1).
         """
         if not consumable_id or not consumable_id.strip():
@@ -443,7 +457,9 @@ class PettWebSocketClient:
 
             # Wait for the result with timeout
             try:
-                result = await asyncio.wait_for(self.kitchen_future, timeout=timeout)
+                result: str = await asyncio.wait_for(
+                    self.kitchen_future, timeout=timeout
+                )
                 return result
 
             except asyncio.TimeoutError:
@@ -487,7 +503,7 @@ class PettWebSocketClient:
 
             # Wait for the result with timeout
             try:
-                result = await asyncio.wait_for(self.mall_future, timeout=timeout)
+                result: str = await asyncio.wait_for(self.mall_future, timeout=timeout)
                 return result
 
             except asyncio.TimeoutError:
@@ -529,7 +545,9 @@ class PettWebSocketClient:
 
             # Wait for the result with timeout
             try:
-                result = await asyncio.wait_for(self.closet_future, timeout=timeout)
+                result: str = await asyncio.wait_for(
+                    self.closet_future, timeout=timeout
+                )
                 return result
 
             except asyncio.TimeoutError:
@@ -605,7 +623,9 @@ class PettWebSocketClient:
 
             # Wait for the result with timeout
             try:
-                result = await asyncio.wait_for(self.ai_search_future, timeout=timeout)
+                result: str = await asyncio.wait_for(
+                    self.ai_search_future, timeout=timeout
+                )
                 return result
 
             except asyncio.TimeoutError:

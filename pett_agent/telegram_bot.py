@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class PetTelegramBot:
-    def __init__(self):
+    def __init__(self, is_prod: bool = False):
         """Initialize the Telegram bot with LangChain agent and Pett.ai WebSocket tools."""
         # Setup API keys
         os.environ["OPENAI_API_KEY"] = os.environ.get(
@@ -42,6 +42,7 @@ class PetTelegramBot:
         self.websocket_client = None
         self.pett_tools = None
         self.agent = None
+        self.is_prod = is_prod
 
         # Initialize Telegram bot
         self.token = os.environ.get("TELEGRAM_BOT_TOKEN")

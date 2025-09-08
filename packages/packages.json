@@ -1,0 +1,7 @@
+{
+    "dev": {
+        "agent/pettai/pett_autonomy_agent/0.1.0": "bafybeihash1",
+        "skill/pettai/pett_agent_skill_abci/0.1.0": "bafybeihash2"
+    },
+    "third_party": {}
+}

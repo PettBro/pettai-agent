@@ -1,0 +1,27 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+python-dotenv = "*"
+langchain-community = "*"
+langgraph = "*"
+langchain-anthropic = "*"
+tavily-python = "*"
+langgraph-checkpoint-sqlite = "*"
+langchain-openai = "*"
+safe-eth-py = "*"
+web3 = "*"
+hexbytes = "*"
+python-telegram-bot = "*"
+websockets = "*"
+aiohttp = "*"
+langchain = "*"
+
+[dev-packages]
+mypy = "*"
+
+[requires]
+python_version = "3.12"
+python_full_version = "3.12.8"

@@ -1,0 +1,27 @@
+alphabet_in:
+  - DONE
+  - NO_MAJORITY
+  - ROUND_TIMEOUT
+
+default_start_state: HelloWorldRound
+
+final_states:
+  - FinishedHelloWorldRound
+
+label: HelloWorldAbciApp
+
+start_states:
+  - HelloWorldRound
+
+states:
+  - HelloWorldRound
+  - PrintMessageRound
+  - FinishedHelloWorldRound
+
+transition_func:
+  (HelloWorldRound, DONE): PrintMessageRound
+  (HelloWorldRound, NO_MAJORITY): HelloWorldRound
+  (HelloWorldRound, ROUND_TIMEOUT): HelloWorldRound
+  (PrintMessageRound, DONE): FinishedHelloWorldRound
+  (PrintMessageRound, NO_MAJORITY): PrintMessageRound
+  (PrintMessageRound, ROUND_TIMEOUT): PrintMessageRound

@@ -30,11 +30,15 @@ def privy_token():
 
 
 @pytest.fixture
-def websocket_url():
+def websocket_url(is_prod: bool = False):
     """Get the WebSocket URL for testing."""
     return os.getenv(
         "WEBSOCKET_URL",
-        "wss://petbot-monorepo-websocket-333713154917.europe-west1.run.app",
+        (
+            "wss://petbot-monorepo-websocket-333713154917.europe-west1.run.app"
+            if is_prod
+            else "wss://localhost:3005"
+        ),
     )
 
 
