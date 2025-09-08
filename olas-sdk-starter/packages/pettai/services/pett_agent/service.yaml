@@ -1,0 +1,34 @@
+name: pett_agent
+author: pettaidev
+version: 0.1.0
+description: Pett.ai autonomous agent service for virtual pet management.
+aea_version: '>=1.0.0, <2.0.0'
+license: Apache-2.0
+fingerprint:
+  README.md: bafybeigkh3bwwjzgbl3jlcbovrf67ikisndygihsutgqlijhgie3z44ao4
+fingerprint_ignore_patterns: []
+agent: pettai/pett_agent:0.1.0:bafybeiflrnzs4hxbo77k3opnplmq3keyajzfqk3v4zl7pwphsxmeflgz5m
+number_of_agents: 1
+deployment: {}
+---
+public_id: valory/ledger:0.19.0
+type: connection
+config:
+  ledger_apis:
+    gnosis:
+      address: ${GNOSIS_LEDGER_RPC:str:http://localhost:8545}
+      chain_id: ${GNOSIS_CHAIN_ID:int:100}
+      poa_chain: ${IS_POA_CHAIN:bool:false}
+      default_gas_price_strategy: ${DEFAULT_GAS_PRICE_STRATEGY:str:eip1559}
+---
+public_id: valory/configs:0.19.0
+type: connection
+config:
+  MY_API_KEY: ${MY_API_KEY:str:yyyyyyyy}
+  SAFE_CONTRACT_ADDRESSES: ${SAFE_CONTRACT_ADDRESSES:str:0x0000000000000000000000000000000000000000}
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:str:}
+  PRIVY_TOKEN: ${PRIVY_TOKEN:str:}
+  WEBSOCKET_URL: ${WEBSOCKET_URL:str:wss://petbot-monorepo-websocket-333713154917.europe-west1.run.app}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:str:}
+  LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:str:}
+  WITHDRAWAL_MODE: ${WITHDRAWAL_MODE:bool:false}

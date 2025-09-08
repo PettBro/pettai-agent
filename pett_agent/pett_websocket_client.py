@@ -251,7 +251,6 @@ class PettWebSocketClient:
         # Update pet data
         if pet_data:
             self.pet_data = pet_data
-            logger.info("Pet updated")
             logger.info(f"Updated pet data: {self.pet_data}")
         elif user_data:
             # If we got user data, extract pet from it

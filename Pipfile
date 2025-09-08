@@ -18,6 +18,7 @@ python-telegram-bot = "*"
 websockets = "*"
 aiohttp = "*"
 langchain = "*"
+setuptools = "*"
 
 [dev-packages]
 mypy = "*"

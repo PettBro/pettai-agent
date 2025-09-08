@@ -1,0 +1,10 @@
+{
+    "dev": {
+        "agent/pettai/pett_agent/0.1.0": "bafybeiflrnzs4hxbo77k3opnplmq3keyajzfqk3v4zl7pwphsxmeflgz5m",
+        "service/pettai/pett_agent/0.1.0": "bafybeig6d5be23lake5driqdpgwth7222dzawnzhamubj6kpju7k2o2xze"
+    },
+    "third_party": {
+        "agent/pettaidev/pett_agent/0.1.0": "bafybeibkw2vqnbkpyhdf3x4qmzop5fx7vlnh3urkm4puw4bycx26swxsvu",
+        "service/pettaidev/pett_agent/0.1.0": "bafybeibspljb44hqpuwnzhb3hy5td2xuzvlpk64iub3kh5w6eukulwr6om"
+    }
+}
