@@ -1,10 +1,10 @@
 import asyncio
-import websockets
 import json
 import logging
-from typing import Dict, Any, Optional, Callable, List, Union
-from datetime import datetime
 import os
+from typing import Any, Callable, Dict, List, Optional
+
+import websockets
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -13,17 +13,43 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def format_wei_to_eth(wei_value: str | int, decimals: int = 4) -> str:
+    """
+    Convert wei value to ETH with specified decimal places.
+
+    Args:
+        wei_value: The wei value as string or int
+        decimals: Number of decimal places to show (default: 4)
+
+    Returns:
+        Formatted ETH value as string
+    """
+    try:
+        # Convert to int if it's a string
+        if isinstance(wei_value, str):
+            wei_value = int(wei_value)
+
+        # Convert wei to ETH (1 ETH = 10^18 wei)
+        eth_value = wei_value / (10**18)
+
+        # Format with specified decimal places
+        return f"{eth_value:.{decimals}f}"
+    except (ValueError, TypeError, ZeroDivisionError):
+        return "0.0000"
+
+
 class PettWebSocketClient:
     def __init__(
         self,
-        websocket_url: str = os.getenv(
+        websocket_url: str | None = os.getenv(
             "WEBSOCKET_URL",
             (
-                "ws://petbot-monorepo-websocket-333713154917.europe-west1.run.app"
+                "wss://ws.pett.ai"
                 if os.getenv("NODE_ENV") == "production"
                 else "ws://localhost:3005"
             ),
         ),
+        privy_token: Optional[str] = None,
     ):
         self.websocket_url = websocket_url
         self.websocket: Optional[Any] = None
@@ -31,59 +57,154 @@ class PettWebSocketClient:
         self.pet_data: Optional[Dict[str, Any]] = None
         self.message_handlers: Dict[str, List[Callable]] = {}
         self.connection_established = False
-        self.privy_token = os.getenv("PRIVY_TOKEN")
+        self.privy_token = (privy_token or os.getenv("PRIVY_TOKEN") or "").strip()
         self.data_message: Optional[Dict[str, Any]] = None
         self.ai_search_future: Optional[asyncio.Future[str]] = None
         self.kitchen_future: Optional[asyncio.Future[str]] = None
         self.mall_future: Optional[asyncio.Future[str]] = None
         self.closet_future: Optional[asyncio.Future[str]] = None
+        self.auth_future: Optional[asyncio.Future[bool]] = None
+        self._last_auth_error: Optional[str] = None
+        self._listener_task: Optional[asyncio.Task] = None
+        self._jwt_expired: bool = False
+        # Outgoing message telemetry recorder: (message, success, error)
+        self._telemetry_recorder: Optional[
+            Callable[[Dict[str, Any], bool, Optional[str]], None]
+        ] = None
         if not self.privy_token:
-            logger.error("PRIVY_TOKEN environment variable is not set")
-            raise ValueError("Privy token is required")
+            logger.warning(
+                "Privy token not provided during initialization; authentication will be disabled until a token is set."
+            )
+
+    def set_telemetry_recorder(
+        self, recorder: Optional[Callable[[Dict[str, Any], bool, Optional[str]], None]]
+    ) -> None:
+        """Set a callback to record outgoing messages and outcomes."""
+        self._telemetry_recorder = recorder
 
     async def connect(self) -> bool:
         """Establish WebSocket connection to Pett.ai server."""
         try:
-            self.websocket = await websockets.connect(self.websocket_url)
+            if not self.websocket_url:
+                logger.error("WebSocket URL is not set")
+                return False
+
+            logger.info(f"🔌 Connecting to WebSocket: {self.websocket_url}")
+            self.websocket = await websockets.connect(
+                self.websocket_url, ping_interval=20, ping_timeout=10, close_timeout=10
+            )
             self.connection_established = True
-            logger.info("WebSocket connection established")
+            logger.info("✅ WebSocket connection established")
             return True
+        except websockets.exceptions.InvalidURI as e:
+            logger.error(f"❌ Invalid WebSocket URL: {e}")
+            return False
+        except websockets.exceptions.ConnectionClosed as e:
+            logger.error(f"❌ WebSocket connection closed: {e}")
+            return False
         except Exception as e:
-            logger.error(f"Failed to connect to WebSocket: {e}")
+            logger.error(f"❌ Failed to connect to WebSocket: {e}")
             return False
 
     async def disconnect(self) -> None:
         """Close WebSocket connection."""
+        if self._listener_task and not self._listener_task.done():
+            self._listener_task.cancel()
+            try:
+                await self._listener_task
+            except asyncio.CancelledError:
+                pass
+        self._listener_task = None
         if self.websocket:
             await self.websocket.close()
-            self.connection_established = False
-            logger.info("WebSocket connection closed")
+        self.websocket = None
+        self.connection_established = False
+        self.authenticated = False
+        logger.info("WebSocket connection closed")
 
-    async def authenticate(self) -> bool:
-        """Default authentication using Privy token."""
+    def set_privy_token(self, privy_token: str) -> None:
+        """Update the stored Privy token without reconnecting."""
+        token = (privy_token or "").strip()
+        if not token:
+            logger.error("Attempted to set an empty Privy token")
+            return
+        self.privy_token = token
+        self._jwt_expired = False
+        self._last_auth_error = None
+        logger.info("Privy token updated on WebSocket client")
+
+    async def refresh_token_and_reconnect(
+        self, privy_token: str, max_retries: int = 3, auth_timeout: int = 10
+    ) -> bool:
+        """Update token, reset state, and reconnect/authenticate."""
+        token = (privy_token or "").strip()
+        if not token:
+            logger.error("Cannot refresh connection with empty Privy token")
+            return False
+
+        self.set_privy_token(token)
+
+        await self.disconnect()
+        return await self.connect_and_authenticate(
+            max_retries=max_retries, auth_timeout=auth_timeout
+        )
+
+    async def authenticate(self, timeout: int = 10) -> bool:
+        """Default authentication using Privy token with timeout."""
         if not self.privy_token:
             logger.error("No Privy token available for authentication")
             return False
 
-        return await self.authenticate_privy(self.privy_token)
+        return await self.authenticate_privy(self.privy_token, timeout)
 
-    async def authenticate_privy(self, privy_auth_token: str) -> bool:
-        """Authenticate using Privy credentials."""
+    async def authenticate_privy(
+        self, privy_auth_token: str, timeout: int = 10
+    ) -> bool:
+        """Authenticate using Privy credentials with timeout and result waiting."""
         if not privy_auth_token or not privy_auth_token.strip():
             logger.error("Invalid Privy auth token provided")
             return False
 
-        auth_message = {
-            "type": "AUTH",
-            "data": {
-                "params": {
-                    "authHash": {"hash": "Bearer " + privy_auth_token.strip()},
-                    "authType": "privy",
-                }
-            },
-        }
+        try:
+            # Create a future to wait for the auth result
+            auth_future: asyncio.Future[bool] = asyncio.Future()
 
-        return await self._send_message(auth_message)
+            # Store the future so we can resolve it in the message handler
+            self.auth_future = auth_future
+
+            auth_message = {
+                "type": "AUTH",
+                "data": {
+                    "params": {
+                        "authHash": {"hash": "Bearer " + privy_auth_token.strip()},
+                        "authType": "privy",
+                    }
+                },
+            }
+
+            # Send the auth message
+            success = await self._send_message(auth_message)
+            if not success:
+                logger.error("Failed to send authentication message")
+                return False
+
+            logger.info("🔐 Authentication message sent, waiting for response...")
+
+            # Wait for the auth result with timeout
+            try:
+                auth_result = await asyncio.wait_for(auth_future, timeout=timeout)
+                logger.info(f"🔐 Authentication result: {auth_result}")
+                return auth_result
+            except asyncio.TimeoutError:
+                logger.error(f"❌ Authentication timed out after {timeout} seconds")
+                return False
+
+        except Exception as e:
+            logger.error(f"❌ Error during authentication: {e}")
+            return False
+        finally:
+            # Clean up the future
+            self.auth_future = None
 
     async def register_privy(self, pet_name: str, privy_auth_token: str) -> bool:
         """Register a new pet using Privy authentication."""
@@ -110,20 +231,81 @@ class PettWebSocketClient:
 
         return await self._send_message(register_message)
 
-    async def connect_and_authenticate(self) -> bool:
-        """Connect to WebSocket and authenticate using Privy token."""
-        if not await self.connect():
-            return False
+    async def connect_and_authenticate(
+        self, max_retries: int = 3, auth_timeout: int = 10
+    ) -> bool:
+        """Connect to WebSocket and authenticate using Privy token with retry logic."""
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"🔄 Connection attempt {attempt + 1}/{max_retries}")
 
-        if not await self.authenticate():
-            return False
+                # Try to connect
+                if not await self.connect():
+                    logger.warning(f"❌ Connection attempt {attempt + 1} failed")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(2**attempt)  # Exponential backoff
+                        continue
+                    return False
 
-        return True
+                logger.info("✅ WebSocket connected, starting message listener...")
+
+                # Start listening for messages BEFORE authentication
+                if self._listener_task and not self._listener_task.done():
+                    self._listener_task.cancel()
+                self._listener_task = asyncio.create_task(self.listen_for_messages())
+                logger.info("👂 Started WebSocket message listener")
+
+                logger.info("🔐 Attempting authentication...")
+                # Try to authenticate
+                auth_success = await self.authenticate(timeout=auth_timeout)
+                if not auth_success:
+                    logger.warning(f"❌ Authentication attempt {attempt + 1} failed")
+                    await self.disconnect()
+
+                    # Check if it's a JWT expiration error - don't retry in this case
+                    if hasattr(self, "_last_auth_error") and self._last_auth_error:
+                        if any(
+                            keyword in str(self._last_auth_error).lower()
+                            for keyword in [
+                                "exp",
+                                "jwt_expired",
+                                "timestamp check failed",
+                                "jwt",
+                            ]
+                        ):
+                            self._jwt_expired = True
+                            logger.critical(
+                                "💀 JWT token expired - awaiting new token before reconnecting."
+                            )
+                            return False
+
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(2**attempt)  # Exponential backoff
+                        continue
+                    return False
+
+                logger.info("✅ Connection and authentication successful!")
+                return True
+
+            except Exception as e:
+                logger.error(f"❌ Error in connection attempt {attempt + 1}: {e}")
+                await self.disconnect()
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2**attempt)  # Exponential backoff
+                    continue
+                return False
+
+        return False
 
     async def _send_message(self, message: Dict[str, Any]) -> bool:
         """Send a message to the WebSocket server."""
         if not self.websocket or not self.connection_established:
             logger.error("WebSocket not connected")
+            if self._telemetry_recorder:
+                try:
+                    self._telemetry_recorder(message, False, "WebSocket not connected")
+                except Exception:
+                    pass
             return False
 
         try:
@@ -131,30 +313,49 @@ class PettWebSocketClient:
             await self.websocket.send(message_json)
             logger.info(f"📤 Sent message type: {message['type']}")
             logger.debug(f"📤 Message content: {message_json}")
+            if self._telemetry_recorder:
+                try:
+                    self._telemetry_recorder(message, True, None)
+                except Exception:
+                    pass
             return True
         except Exception as e:
             logger.error(f"Failed to send message: {e}")
+            if self._telemetry_recorder:
+                try:
+                    self._telemetry_recorder(message, False, str(e))
+                except Exception:
+                    pass
             return False
 
     async def listen_for_messages(self) -> None:
         """Listen for incoming messages from the server."""
         if not self.websocket or not self.connection_established:
-            logger.error("WebSocket not connected")
+            logger.error("❌ WebSocket not connected - cannot listen for messages")
             return
 
+        logger.info("👂 Starting WebSocket message listener...")
         try:
             async for message in self.websocket:
-                await self._handle_message(json.loads(message))
+                try:
+                    message_data = json.loads(message)
+                    await self._handle_message(message_data)
+                except json.JSONDecodeError as e:
+                    logger.error(f"❌ Failed to parse WebSocket message: {e}")
+                    logger.error(f"❌ Raw message: {message}")
+                except Exception as e:
+                    logger.error(f"❌ Error handling WebSocket message: {e}")
+
         except websockets.exceptions.ConnectionClosed:
-            logger.info("WebSocket connection closed")
+            logger.warning("⚠️ WebSocket connection closed during message listening")
             self.connection_established = False
         except Exception as e:
-            logger.error(f"Error listening for messages: {e}")
+            logger.error(f"❌ Error in WebSocket message listener: {e}")
+            self.connection_established = False
 
     async def _handle_message(self, message: Dict[str, Any]) -> None:
         """Handle incoming messages from the server."""
         message_type = message.get("type")
-
         if message_type == "auth_result":
             await self._handle_auth_result(message)
         elif message_type == "pet_update":
@@ -190,6 +391,9 @@ class PettWebSocketClient:
 
         if success:
             self.authenticated = True
+            # Reset JWT expiration flag on successful auth
+            self._jwt_expired = False
+            self._last_auth_error = None  # Clear any previous errors
 
             # Extract pet data - now it's directly in the pet field
             if pet_data:
@@ -205,9 +409,10 @@ class PettWebSocketClient:
                 if pet:
                     logger.info(f"🐾 Pet: {pet.get('name', 'Unknown')}")
                     logger.info(f"🆔 Pet ID: {pet.get('id', 'Unknown')}")
-                    logger.info(
-                        f"💰 Balance: {pet.get('PetTokens', {}).get('tokens', '0')}"
-                    )
+                    # Format balance from wei to ETH
+                    raw_balance = pet.get("PetTokens", {}).get("tokens", "0")
+                    formatted_balance = format_wei_to_eth(raw_balance)
+                    logger.info(f"💰 Balance: {formatted_balance} $AIP")
                     logger.info(f"🏨 Hotel Tier: {pet.get('currentHotelTier', 0)}")
                     logger.info(f"💀 Dead: {pet.get('dead', False)}")
                     logger.info(f"😴 Sleeping: {pet.get('sleeping', False)}")
@@ -236,6 +441,29 @@ class PettWebSocketClient:
             logger.error(f"❌ Authentication failed: {error}")
             self.authenticated = False
 
+            # Store the error for retry logic
+            self._last_auth_error = str(error)
+
+            # Check if it's a JWT expiration error
+            if (
+                "exp" in str(error)
+                or "JWT_EXPIRED" in str(error)
+                or "timestamp check failed" in str(error)
+            ):
+                self._jwt_expired = True
+                logger.error(
+                    "🔑 JWT token has expired! Please get a new token from your authentication provider."
+                )
+                logger.error(
+                    "💡 This usually means you need to refresh your Privy token or get a new one."
+                )
+                logger.error(self.get_token_refresh_instructions())
+                logger.critical("💀 JWT token expired - waiting for refresh.")
+
+        # Resolve the auth future if it exists
+        if self.auth_future and not self.auth_future.done():
+            self.auth_future.set_result(success)
+
     async def _handle_pet_update(self, message: Dict[str, Any]) -> None:
         """Handle pet update message."""
         # Handle both message structures: with and without 'data' wrapper
@@ -251,6 +479,7 @@ class PettWebSocketClient:
         # Update pet data
         if pet_data:
             self.pet_data = pet_data
+            logger.info("Pet Status updated")
             logger.info(f"Updated pet data: {self.pet_data}")
         elif user_data:
             # If we got user data, extract pet from it
@@ -702,9 +931,13 @@ class PettWebSocketClient:
         return None
 
     def get_pet_balance(self) -> Optional[str]:
-        """Get current pet balance."""
+        """Get current pet balance formatted as ETH."""
         if self.pet_data:
-            return self.pet_data.get("balance", "0")
+            # Try to get balance from PetTokens first, then fallback to balance field
+            raw_balance = self.pet_data.get("PetTokens", {}).get(
+                "tokens", self.pet_data.get("balance", "0")
+            )
+            return format_wei_to_eth(raw_balance)
         return None
 
     def get_pet_hotel_tier(self) -> int:
@@ -764,3 +997,34 @@ class PettWebSocketClient:
     def is_connected(self) -> bool:
         """Check if client is connected."""
         return self.connection_established
+
+    def is_jwt_expired(self) -> bool:
+        """Check if JWT token has expired."""
+        return self._jwt_expired
+
+    def get_token_refresh_instructions(self) -> str:
+        """Get instructions for refreshing the JWT token."""
+        return """
+🔑 JWT Token Refresh Instructions:
+
+1. **For Privy Authentication:**
+   - Go to your Privy dashboard or authentication flow
+   - Generate a new access token
+   - Update your PRIVY_TOKEN environment variable
+
+2. **Common Token Sources:**
+   - Privy Dashboard → Access Tokens
+   - Your authentication provider's token endpoint
+   - Mobile app authentication flow
+
+3. **Environment Variable:**
+   - Update PRIVY_TOKEN in your .env file
+   - Restart the agent after updating the token
+
+4. **Token Format:**
+   - Ensure the token is valid and not expired
+   - Remove any "Bearer " prefix if present
+   - The token should be the raw JWT string
+
+💡 Tip: JWT tokens typically expire after 1-24 hours depending on your provider's settings.
+        """

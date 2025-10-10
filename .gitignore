@@ -8,3 +8,5 @@ langchain_agent.spec
 langchain_hello_world/__pycache__/*
 .DS_Store
 keys.json
+__pycache__/
+.mypy_cache/

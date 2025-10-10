@@ -32,7 +32,7 @@ def setup_olas_logging() -> logging.Logger:
 
     # Configure root logger
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format=log_format,
         datefmt=date_format,
         handlers=[
@@ -45,7 +45,7 @@ def setup_olas_logging() -> logging.Logger:
 
     # Configure specific logger for our agent
     logger = logging.getLogger("pett_agent")
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
 
     return logger
 

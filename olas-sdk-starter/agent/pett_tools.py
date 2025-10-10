@@ -144,7 +144,7 @@ BASE_ACTIONS = [
 
 
 class PettTools:
-    def __init__(self, websocket_client: Optional[PettWebSocketClient] = None):
+    def __init__(self, websocket_client: PettWebSocketClient):
         self.client = websocket_client
 
     def set_client(self, websocket_client: PettWebSocketClient) -> None:
@@ -201,12 +201,46 @@ class PettTools:
 
         return escaped_text
 
+    def get_pet_status(self) -> str:
+        """Get the current status and statistics of the pet.
+
+        Retrieves comprehensive information about the pet's current state,
+        including health, happiness, energy levels, and other vital statistics.
+        This is useful for monitoring your pet's well-being and making informed
+        care decisions.
+
+        Returns:
+            str: Formatted pet status information, or error message if retrieval fails.
+        """
+        if not self._validate_client():
+            return "❌ WebSocket client not available or connected."
+
+        try:
+            logger.info("[PetTools] Getting pet status and statistics")
+            if self.client is None:
+                return "❌ WebSocket client is None."
+
+            # At this point, self.client is guaranteed to be not None
+            client = self.client
+            pet_data = client.get_pet_data()
+            if pet_data:
+                logger.info("[TOOL] Successfully retrieved pet status data")
+                return (
+                    f"🐾 Pet Status:\n{self._escape_for_telegram(json.dumps(pet_data))}"
+                )
+            else:
+                logger.warning("[TOOL] No pet data available from client")
+                return "❌ No pet data available."
+        except Exception as e:
+            logger.error(f"[TOOL] Error getting pet status: {e}")
+            return f"❌ Error getting pet status: {str(e)}"
+
     def create_tools(self) -> List[BaseTool]:
         """Create tool functions that are bound to this instance."""
 
         @tool
         def rub_pet(
-            client: Annotated[PettWebSocketClient, InjectedToolArg] = None
+            client: Annotated[PettWebSocketClient, InjectedToolArg] = None,
         ) -> str:
             """Rub the pet to increase happiness and strengthen your bond.
 
@@ -243,7 +277,7 @@ class PettTools:
 
         @tool
         def shower_pet(
-            client: Annotated[PettWebSocketClient, InjectedToolArg] = None
+            client: Annotated[PettWebSocketClient, InjectedToolArg] = None,
         ) -> str:
             """Give the pet a refreshing shower to clean and revitalize them.
 
@@ -280,7 +314,7 @@ class PettTools:
 
         @tool
         def sleep_pet(
-            client: Annotated[PettWebSocketClient, InjectedToolArg] = None
+            client: Annotated[PettWebSocketClient, InjectedToolArg] = None,
         ) -> str:
             """Put the pet to sleep to restore their energy and promote healthy rest.
 
@@ -317,7 +351,7 @@ class PettTools:
 
         @tool
         def throw_ball(
-            client: Annotated[PettWebSocketClient, InjectedToolArg] = None
+            client: Annotated[PettWebSocketClient, InjectedToolArg] = None,
         ) -> str:
             """Throw a ball for the pet to play with and exercise.
 
@@ -461,7 +495,7 @@ class PettTools:
 
         @tool
         def get_consumables(
-            client: Annotated[PettWebSocketClient, InjectedToolArg] = None
+            client: Annotated[PettWebSocketClient, InjectedToolArg] = None,
         ) -> str:
             """Retrieve the current inventory of consumable items owned by the pet.
 
@@ -499,7 +533,7 @@ class PettTools:
 
         @tool
         def get_kitchen(
-            client: Annotated[PettWebSocketClient, InjectedToolArg] = None
+            client: Annotated[PettWebSocketClient, InjectedToolArg] = None,
         ) -> str:
             """Retrieve kitchen information and available food preparation options.
 
@@ -543,7 +577,7 @@ class PettTools:
 
         @tool
         def get_mall(
-            client: Annotated[PettWebSocketClient, InjectedToolArg] = None
+            client: Annotated[PettWebSocketClient, InjectedToolArg] = None,
         ) -> str:
             """Retrieve mall information and browse available items for purchase.
 
@@ -583,7 +617,7 @@ class PettTools:
 
         @tool
         def get_closet(
-            client: Annotated[PettWebSocketClient, InjectedToolArg] = None
+            client: Annotated[PettWebSocketClient, InjectedToolArg] = None,
         ) -> str:
             """Retrieve closet information and view available accessories and clothing.
 
@@ -770,7 +804,7 @@ class PettTools:
 
         @tool
         def get_personality(
-            client: Annotated[PettWebSocketClient, InjectedToolArg] = None
+            client: Annotated[PettWebSocketClient, InjectedToolArg] = None,
         ) -> str:
             """Retrieve detailed personality information and traits of your pet.
 
@@ -861,7 +895,7 @@ class PettTools:
 
         @tool
         def hotel_check_in(
-            client: Annotated[PettWebSocketClient, InjectedToolArg] = None
+            client: Annotated[PettWebSocketClient, InjectedToolArg] = None,
         ) -> str:
             """Check your pet into the hotel for premium care and services.
 
@@ -891,7 +925,9 @@ class PettTools:
                     return "🏨 Pet checked into the hotel!"
                 else:
                     # Log the failure and provide user-friendly feedback
-                    logger.warning("[TOOL] Failed to check pet into hotel - operation unsuccessful")
+                    logger.warning(
+                        "[TOOL] Failed to check pet into hotel - operation unsuccessful"
+                    )
                     return "❌ Failed to check pet into hotel."
             except Exception as e:
                 # Log the specific error for debugging purposes
@@ -900,7 +936,7 @@ class PettTools:
 
         @tool
         def hotel_check_out(
-            client: Annotated[PettWebSocketClient, InjectedToolArg] = None
+            client: Annotated[PettWebSocketClient, InjectedToolArg] = None,
         ) -> str:
             """Check your pet out of the hotel after their stay.
 
@@ -930,7 +966,9 @@ class PettTools:
                     return "🏨 Pet checked out of the hotel!"
                 else:
                     # Log the failure and provide user-friendly feedback
-                    logger.warning("[TOOL] Failed to check pet out of hotel - operation unsuccessful")
+                    logger.warning(
+                        "[TOOL] Failed to check pet out of hotel - operation unsuccessful"
+                    )
                     return "❌ Failed to check pet out of hotel."
             except Exception as e:
                 # Log the specific error for debugging purposes
@@ -982,7 +1020,9 @@ class PettTools:
                     return f"🏨 Bought hotel tier: {tier}"
                 else:
                     # Log the failure and provide user-friendly feedback
-                    logger.warning(f"[TOOL] Failed to buy hotel tier: {tier} - operation unsuccessful")
+                    logger.warning(
+                        f"[TOOL] Failed to buy hotel tier: {tier} - operation unsuccessful"
+                    )
                     return f"❌ Failed to buy hotel tier {tier}."
             except Exception as e:
                 # Log the specific error for debugging purposes
@@ -991,14 +1031,14 @@ class PettTools:
 
         @tool
         def get_office(
-            client: Annotated[PettWebSocketClient, InjectedToolArg] = None
+            client: Annotated[PettWebSocketClient, InjectedToolArg] = None,
         ) -> str:
             """Get office information and current status.
-            
+
             Retrieves information about the office environment, which may include
             work-related activities, office upgrades, or administrative details
             related to pet management.
-            
+
             Returns:
                 str: Success message with office information request confirmation, or error message.
             """
@@ -1008,7 +1048,9 @@ class PettTools:
 
             # Validate client connection before proceeding
             if not client or not client.is_connected():
-                logger.error("[TOOL] WebSocket client not available or connected for get_office")
+                logger.error(
+                    "[TOOL] WebSocket client not available or connected for get_office"
+                )
                 return "❌ WebSocket client not available or connected."
 
             try:
@@ -1019,7 +1061,9 @@ class PettTools:
                     return "🏢 Requested office information."
                 else:
                     # Log the failure and provide user-friendly feedback
-                    logger.warning("[TOOL] Failed to get office information - operation unsuccessful")
+                    logger.warning(
+                        "[TOOL] Failed to get office information - operation unsuccessful"
+                    )
                     return "❌ Failed to get office information."
             except Exception as e:
                 # Log the specific error for debugging purposes
@@ -1028,15 +1072,15 @@ class PettTools:
 
         @tool
         def get_pet_status(
-            client: Annotated[PettWebSocketClient, InjectedToolArg] = None
+            client: Annotated[PettWebSocketClient, InjectedToolArg] = None,
         ) -> str:
             """Get the current status and statistics of the pet.
-            
+
             Retrieves comprehensive information about the pet's current state,
             including health, happiness, energy levels, and other vital statistics.
             This is useful for monitoring your pet's well-being and making informed
             care decisions.
-            
+
             Returns:
                 str: Formatted pet status information, or error message if retrieval fails.
             """
@@ -1046,7 +1090,9 @@ class PettTools:
 
             # Validate client connection before proceeding
             if not client or not client.is_connected():
-                logger.error("[TOOL] WebSocket client not available or connected for get_pet_status")
+                logger.error(
+                    "[TOOL] WebSocket client not available or connected for get_pet_status"
+                )
                 return "❌ WebSocket client not available or connected."
 
             try:
@@ -1066,14 +1112,14 @@ class PettTools:
 
         @tool
         def random_action(
-            client: Annotated[PettWebSocketClient, InjectedToolArg] = None
+            client: Annotated[PettWebSocketClient, InjectedToolArg] = None,
         ) -> str:
             """Perform a random action with the pet for spontaneous interaction.
-            
+
             Selects and executes a random pet care action from available options.
             This adds variety and spontaneity to pet interactions, helping to keep
             your pet engaged and entertained with different activities.
-            
+
             Returns:
                 str: Description of the random action performed and its result.
             """
@@ -1083,7 +1129,9 @@ class PettTools:
 
             # Validate client connection before proceeding
             if not client or not client.is_connected():
-                logger.error("[TOOL] WebSocket client not available or connected for random_action")
+                logger.error(
+                    "[TOOL] WebSocket client not available or connected for random_action"
+                )
                 return "❌ WebSocket client not available or connected."
 
             try:
@@ -1111,10 +1159,14 @@ class PettTools:
 
                 # Provide feedback based on action result
                 if result:
-                    logger.info(f"[TOOL] Random action {action_name} completed successfully")
+                    logger.info(
+                        f"[TOOL] Random action {action_name} completed successfully"
+                    )
                     return f"{description}\n✅ Action completed successfully!"
                 else:
-                    logger.warning(f"[TOOL] Random action {action_name} failed to complete")
+                    logger.warning(
+                        f"[TOOL] Random action {action_name} failed to complete"
+                    )
                     return f"{description}\n❌ Action failed."
 
             except Exception as e:
@@ -1124,14 +1176,14 @@ class PettTools:
 
         @tool
         def get_available_tools(
-            client: Annotated[PettWebSocketClient, InjectedToolArg] = None
+            client: Annotated[PettWebSocketClient, InjectedToolArg] = None,
         ) -> str:
             """Get a comprehensive list of all available pet care tools and their descriptions.
-            
+
             Provides an overview of all tools available for pet care and interaction.
             This is helpful for understanding what actions can be performed with your pet
             and planning care activities.
-            
+
             Returns:
                 str: Comma-separated list of available tool names.
             """
@@ -1167,10 +1219,10 @@ class PettTools:
     # Legacy method for backward compatibility with older code
     def get_tools(self) -> List[BaseTool]:
         """Return all pet tools as a list.
-        
+
         This method provides backward compatibility for code that expects
         the older get_tools() method name instead of create_tools().
-        
+
         Returns:
             List[BaseTool]: List of all available pet care tools.
         """
