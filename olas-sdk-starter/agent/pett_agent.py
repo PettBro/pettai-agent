@@ -50,9 +50,13 @@ class PettAgent:
 
         self.logger.info("🐾 Pett Agent initialized")
         # Action scheduler configuration
-        self.action_interval_minutes: int = 30
+        self.action_interval_minutes: float = 30  # should be 30 minutes in prod
         self.next_action_at: Optional[datetime] = None
         self.last_action_at: Optional[datetime] = None
+
+        # Flag to indicate we're waiting for React login
+        self.waiting_for_react_login: bool = False
+        self._low_health_recovery_in_progress: bool = False
 
     # TypedDicts for pet data shape
     class PetTokensDict(TypedDict, total=False):
@@ -98,7 +102,7 @@ class PettAgent:
             # Start Olas web server for health checks
             await self.olas.start_web_server()
 
-            # Initialize WebSocket client
+            # Initialize WebSocket client (but don't fail if token is expired)
             if self.privy_token:
                 self.logger.info("🔌 Initializing WebSocket client...")
                 self.websocket_client = PettWebSocketClient(
@@ -116,7 +120,10 @@ class PettAgent:
                 except Exception:
                     pass
 
-                # Connect and authenticate
+                # Try to connect and authenticate (but don't fail if token expired)
+                self.logger.info(
+                    "🔐 Attempting authentication with environment token..."
+                )
                 connected = await self.websocket_client.connect_and_authenticate()
                 if connected:
                     self.logger.info("✅ WebSocket connected and authenticated")
@@ -152,6 +159,19 @@ class PettAgent:
                     self.pett_tools = self.decision_engine.pett_tools
                     self.logger.info("🛠️ Decision Engine and Pett Tools initialized")
 
+                    # React to server-side errors (e.g., low health) with recovery actions
+                    try:
+                        if self.websocket_client:
+                            self.websocket_client.register_message_handler(
+                                "error", self._on_client_error_message
+                            )
+                        # Keep Olas pet data in sync on live updates
+                        self.websocket_client.register_message_handler(
+                            "pet_update", self._on_client_pet_update_message
+                        )
+                    except Exception:
+                        pass
+
                     # Try to get pet status
                     try:
                         pet_status_result = self.pett_tools.get_pet_status()
@@ -186,12 +206,37 @@ class PettAgent:
                         self.olas.update_pet_status(False, "Unknown")
                         self.olas.update_pet_data(None)
                 else:
-                    self.logger.warning("⚠️ Failed to connect to WebSocket")
+                    self.logger.info(
+                        "⏸️  Environment token authentication failed (expired or invalid)"
+                    )
+                    self.logger.info(
+                        "✨ Waiting for user to login via React app at http://localhost:8776/"
+                    )
                     self.olas.update_websocket_status(
                         connected=False, authenticated=False
                     )
+                    # Keep websocket_client initialized for later use
+                    self.waiting_for_react_login = True
             else:
-                self.logger.warning("⚠️ No PRIVY_TOKEN found - WebSocket disabled")
+                self.logger.info("ℹ️  No PRIVY_TOKEN in environment")
+                self.logger.info(
+                    "✨ Waiting for user to login via React app at http://localhost:8776/"
+                )
+                # Initialize WebSocket client for later use
+                self.websocket_client = PettWebSocketClient(
+                    websocket_url=self.websocket_url
+                )
+                try:
+
+                    def _recorder_msg(
+                        m: Dict[str, Any], success: bool, err: Optional[str]
+                    ) -> None:
+                        self.olas.record_client_send(m, success=success, error=err)
+
+                    self.websocket_client.set_telemetry_recorder(_recorder_msg)
+                except Exception:
+                    pass
+                self.waiting_for_react_login = True
 
             # Initialize Telegram bot if token is available
             if self.telegram_token:
@@ -245,6 +290,14 @@ class PettAgent:
                 # Check WebSocket connection
                 if self.websocket_client:
                     if not self.websocket_client.is_connected():
+                        # Skip reconnection if waiting for React login
+                        if self.waiting_for_react_login:
+                            self.logger.debug(
+                                "⏸️  Waiting for user to login via React - skipping reconnection"
+                            )
+                            await asyncio.sleep(30)
+                            continue
+
                         self.logger.warning(
                             "⚠️ WebSocket disconnected, attempting reconnection..."
                         )
@@ -317,6 +370,9 @@ class PettAgent:
             return False
 
         self.logger.info("🔐 Updating Privy token and refreshing WebSocket connection")
+
+        # Clear waiting flag since we have a new token
+        self.waiting_for_react_login = False
 
         # Persist the token for other components
         self.privy_token = token
@@ -414,6 +470,52 @@ class PettAgent:
 
         return True
 
+    async def logout_privy(self) -> bool:
+        """Clear Privy token, disconnect, and return to pre-login state."""
+        try:
+            self.logger.info("🔓 Logging out: clearing Privy token and disconnecting")
+
+            # Enter waiting state for next React login
+            self.waiting_for_react_login = True
+
+            # Clear stored token and environment
+            self.privy_token = ""
+            try:
+                if "PRIVY_TOKEN" in os.environ:
+                    del os.environ["PRIVY_TOKEN"]
+            except Exception:
+                pass
+
+            # Update Olas visible env snapshot
+            try:
+                if "PRIVY_TOKEN" in self.olas.env_vars:
+                    self.olas.env_vars.pop("PRIVY_TOKEN", None)
+            except Exception:
+                pass
+
+            # Tear down websocket auth and disconnect
+            if self.websocket_client:
+                try:
+                    self.websocket_client.set_privy_token("")
+                except Exception:
+                    pass
+                try:
+                    await self.websocket_client.disconnect()
+                except Exception:
+                    pass
+
+            # Reset runtime status
+            self.olas.update_websocket_status(connected=False, authenticated=False)
+            self.olas.update_pet_status(False, "Disconnected")
+            self.olas.update_pet_data(None)
+            self.olas.update_health_status("running", is_transitioning=False)
+
+            self.logger.info("✅ Logout complete; awaiting React login")
+            return True
+        except Exception as e:
+            self.logger.error(f"❌ Logout failed: {e}")
+            return False
+
     async def _pet_action_loop(self):
         """Main pet action loop - your existing logic."""
         while self.running:
@@ -503,11 +605,113 @@ class PettAgent:
         except Exception:
             return 0.0
 
+    async def _recover_low_health(self) -> bool:
+        """Attempt to recover health using SMALL_POTION or SALAD.
+
+        Preference:
+        1) Use SMALL_POTION via CONSUMABLES_USE (blueprintID: SMALL_POTION)
+        2) Fallback to eat SALAD (blueprintID: SALAD) via use_consumable
+        """
+        if self._low_health_recovery_in_progress:
+            return False
+        self._low_health_recovery_in_progress = True
+        try:
+            if not self.websocket_client:
+                return False
+
+            # Try small health potion first
+            self.logger.info("🧪 Trying SMALL_POTION to restore health")
+            # The API path for potion use is via buy/use or direct consumable use when owned.
+            # We try direct consumable use by blueprint id.
+            try:
+                success = await self.websocket_client.use_consumable("SMALL_POTION")
+                if success:
+                    self.logger.info("✅ SMALL_POTION use confirmed")
+                    await asyncio.sleep(0.5)
+                    return True
+                # If use failed, try to buy one then use again
+                self.logger.info("🛒 SMALL_POTION not available; attempting to buy 1")
+                bought = await self.websocket_client.buy_consumable("SMALL_POTION", 1)
+                if bought:
+                    await asyncio.sleep(0.5)
+                    self.logger.info("🔁 Using SMALL_POTION after purchase")
+                    success = await self.websocket_client.use_consumable("SMALL_POTION")
+                    if success:
+                        self.logger.info("✅ SMALL_POTION use confirmed after purchase")
+                        await asyncio.sleep(0.5)
+                        return True
+            except Exception as e:
+                self.logger.debug(f"Small potion use/buy failed: {e}")
+
+            # Fallback to SALAD (improves health and hunger)
+            self.logger.info("🥗 Falling back to SALAD to recover health")
+            try:
+                success = await self.websocket_client.use_consumable("SALAD")
+                if success:
+                    self.logger.info("✅ SALAD consumption confirmed")
+                    await asyncio.sleep(0.5)
+                    return True
+                # If use failed, try to buy one then use again
+                self.logger.info("🛒 SALAD not available; attempting to buy 1")
+                bought = await self.websocket_client.buy_consumable("SALAD", 1)
+                if bought:
+                    await asyncio.sleep(0.5)
+                    self.logger.info("🔁 Using SALAD after purchase")
+                    success = await self.websocket_client.use_consumable("SALAD")
+                    if success:
+                        self.logger.info(
+                            "✅ SALAD consumption confirmed after purchase"
+                        )
+                        await asyncio.sleep(0.5)
+                        return True
+            except Exception as e:
+                self.logger.debug(f"Salad use/buy failed: {e}")
+
+            return False
+        finally:
+            self._low_health_recovery_in_progress = False
+
+    async def _on_client_error_message(self, message: Dict[str, Any]) -> None:
+        """Handle server error messages to auto-recover from low health errors."""
+        try:
+            error = None
+            if "data" in message:
+                error = message.get("data", {}).get("error")
+            if not error:
+                error = message.get("error")
+
+            if not error:
+                return
+
+            error_str = str(error).lower()
+            if (
+                "not have enough health" in error_str
+                or "not enough health" in error_str
+            ):
+                self.logger.info(
+                    "🩹 Detected 'not enough health' error; attempting recovery"
+                )
+                await self._recover_low_health()
+        except Exception as e:
+            self.logger.debug(f"Error handler encountered exception: {e}")
+
+    async def _on_client_pet_update_message(self, message: Dict[str, Any]) -> None:
+        """Update Olas pet data immediately when live pet_update arrives."""
+        try:
+            if not self.websocket_client:
+                return
+            pet_data = self.websocket_client.get_pet_data()
+            if pet_data:
+                self.olas.update_pet_data(pet_data)
+                # Attach post-action stats to the latest recorded action
+                self.olas.update_last_action_stats()
+        except Exception as e:
+            self.logger.debug(f"Pet update handler encountered exception: {e}")
+
     async def _random_action(self, client: PettWebSocketClient) -> None:
         actions = [
             (client.rub_pet, "rub"),
             (client.shower_pet, "shower"),
-            (client.sleep_pet, "sleep"),
             (client.throw_ball, "throw_ball"),
         ]
         action_func, action_name = random.choice(actions)
@@ -531,9 +735,10 @@ class PettAgent:
         happiness = self._to_float(stats.get("happiness", 0))
         energy = self._to_float(stats.get("energy", 0))
         hunger = self._to_float(stats.get("hunger", 0))
+        health = self._to_float(stats.get("health", 0))
 
         # Top-priority: low energy -> sleep
-        if energy < self.LOW_ENERGY_THRESHOLD:
+        if energy < self.LOW_ENERGY_THRESHOLD and not sleeping:
             self.logger.info("😴 Low energy detected; initiating sleep")
             await client.sleep_pet()
             return
@@ -548,6 +753,14 @@ class PettAgent:
             self.logger.info("🛌 Pet is sleeping; waking up to perform actions")
             await client.sleep_pet()
             await asyncio.sleep(0.5)
+
+        # Priority 0: low health -> attempt recovery
+        if health < self.LOW_THRESHOLD:
+            self.logger.info("🩹 Low health detected; attempting recovery")
+            recovered = await self._recover_low_health()
+            if not recovered:
+                self.logger.warning("⚠️ Health recovery failed")
+            return
 
         if random.random() < 0.15:
             self.logger.info(
@@ -567,14 +780,15 @@ class PettAgent:
         if hunger < self.LOW_THRESHOLD:
             self.logger.info("🍔 Low hunger detected; using AI to select best food")
             if self.decision_engine:
-                success = await self.decision_engine.feed_best_owned_food()
+                success = await self.decision_engine.feed_best_owned_food(stats)
                 if not success:
-                    self.logger.warning("⚠️ AI food selection failed, trying fallback")
-                    # Fallback to first available food
-                    await client.use_consumable("BURGER")
+                    self.logger.warning(
+                        "⚠️ AI food selection failed; skipping fallback use"
+                    )
             else:
-                self.logger.warning("⚠️ No decision engine available")
-                await client.use_consumable("BURGER")
+                self.logger.warning(
+                    "⚠️ No decision engine available; skipping food selection"
+                )
             return
 
         # Priority 3: low happiness -> throw ball 3 times with delays

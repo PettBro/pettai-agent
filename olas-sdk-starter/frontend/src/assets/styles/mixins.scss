@@ -1,0 +1,22 @@
+@mixin text-stroke ($color: #000, $size: 1px) {
+  @supports (paint-order: stroke fill) and (-webkit-text-stroke-width: #{$size * 2}) {
+    -webkit-text-stroke-width: #{$size * 2};
+    -webkit-text-stroke-color: $color;
+    paint-order: stroke fill markers;
+    stroke-width: #{$size * 2};
+    stroke: $color;
+    fill: currentColor;
+  }
+
+  @supports not (paint-order: stroke fill) {
+    text-shadow:
+      -#{$size} -#{$size} 0 $color,
+      0        -#{$size} 0 $color,
+      #{$size} -#{$size} 0 $color,
+      #{$size}  0        0 $color,
+      #{$size}  #{$size} 0 $color,
+      0         #{$size} 0 $color,
+      -#{$size}  #{$size} 0 $color,
+      -#{$size}  0        0 $color;
+  }
+}

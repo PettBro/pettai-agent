@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import random
 from typing import Any, Callable, Dict, List, Optional
 
 import websockets
@@ -71,6 +72,8 @@ class PettWebSocketClient:
         self._telemetry_recorder: Optional[
             Callable[[Dict[str, Any], bool, Optional[str]], None]
         ] = None
+        # Pending nonce -> future mapping for correlating responses
+        self._pending_nonces: Dict[str, asyncio.Future[Dict[str, Any]]] = {}
         if not self.privy_token:
             logger.warning(
                 "Privy token not provided during initialization; authentication will be disabled until a token is set."
@@ -81,6 +84,28 @@ class PettWebSocketClient:
     ) -> None:
         """Set a callback to record outgoing messages and outcomes."""
         self._telemetry_recorder = recorder
+
+    def _generate_nonce(self) -> str:
+        """Generate a simple random numeric nonce as a string."""
+        return str(random.randint(10000, 99999))
+
+    def _register_pending(self, nonce: str) -> asyncio.Future:
+        """Create and register a pending future for the given nonce."""
+        fut: asyncio.Future = asyncio.Future()
+        self._pending_nonces[nonce] = fut  # type: ignore[assignment]
+        return fut
+
+    def _resolve_pending(self, nonce: Optional[str], message: Dict[str, Any]) -> None:
+        """Resolve any pending future by nonce with the provided message."""
+        if not nonce:
+            return
+        fut = self._pending_nonces.pop(nonce, None)
+        if fut and not fut.done():
+            try:
+                fut.set_result(message)
+            except Exception:
+                # Ignore resolution errors to avoid cascading failures
+                pass
 
     async def connect(self) -> bool:
         """Establish WebSocket connection to Pett.ai server."""
@@ -309,10 +334,13 @@ class PettWebSocketClient:
             return False
 
         try:
+            # Ensure a nonce is present on every outgoing message
+            if "nonce" not in message:
+                message["nonce"] = self._generate_nonce()
             message_json = json.dumps(message)
             await self.websocket.send(message_json)
             logger.info(f"📤 Sent message type: {message['type']}")
-            logger.debug(f"📤 Message content: {message_json}")
+            logger.info(f"📤 Message content: {message_json}")
             if self._telemetry_recorder:
                 try:
                     self._telemetry_recorder(message, True, None)
@@ -327,6 +355,56 @@ class PettWebSocketClient:
                 except Exception:
                     pass
             return False
+
+    async def _send_and_wait(
+        self,
+        msg_type: str,
+        data: Optional[Dict[str, Any]] = None,
+        timeout: int = 10,
+    ) -> tuple[bool, Optional[Dict[str, Any]]]:
+        """Send a message with a nonce and wait for the correlated response.
+
+        Returns a tuple of (success, response_message). Success is False if an error
+        message is received or the wait times out or sending fails.
+        """
+        nonce = self._generate_nonce()
+        future = self._register_pending(nonce)
+
+        message: Dict[str, Any] = {
+            "type": msg_type,
+            "data": data or {},
+            "nonce": nonce,
+        }
+
+        sent = await self._send_message(message)
+        if not sent:
+            # Clean up pending future
+            try:
+                if nonce in self._pending_nonces:
+                    self._pending_nonces.pop(nonce, None)
+            except Exception:
+                pass
+            return False, None
+
+        try:
+            response: Dict[str, Any] = await asyncio.wait_for(future, timeout=timeout)
+        except asyncio.TimeoutError:
+            # No correlated error arrived within the window; assume success
+            logger.info(
+                f"⏱️ No error received within {timeout}s for {msg_type} (nonce {nonce}); assuming success"
+            )
+            return True, None
+        except Exception as e:
+            logger.error(
+                f"❌ Error awaiting response for {msg_type} (nonce {nonce}): {e}"
+            )
+            return False, None
+
+        # Treat explicit error type as failure
+        if isinstance(response, dict) and (response.get("type") == "error"):
+            return False, response
+
+        return True, response
 
     async def listen_for_messages(self) -> None:
         """Listen for incoming messages from the server."""
@@ -356,6 +434,11 @@ class PettWebSocketClient:
     async def _handle_message(self, message: Dict[str, Any]) -> None:
         """Handle incoming messages from the server."""
         message_type = message.get("type")
+        # Resolve any waiting caller by nonce, if present
+        try:
+            self._resolve_pending(message.get("nonce"), message)
+        except Exception:
+            pass
         if message_type == "auth_result":
             await self._handle_auth_result(message)
         elif message_type == "pet_update":
@@ -464,6 +547,47 @@ class PettWebSocketClient:
         if self.auth_future and not self.auth_future.done():
             self.auth_future.set_result(success)
 
+    def _merge_pet_data(
+        self, base: Dict[str, Any], new: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Merge new pet data into existing data, preserving nested fields when missing.
+
+        - Only overwrite keys present in the new payload
+        - For dict values (e.g., PetStats, PetTokens), perform a shallow merge
+        - Preserve existing PetStats if the new payload lacks it or it is empty
+        """
+        if not isinstance(base, dict):
+            base = {}
+
+        merged: Dict[str, Any] = dict(base)
+
+        for key, new_value in (new or {}).items():
+            # Special handling for PetStats: ignore empty updates
+            if key == "PetStats":
+                if isinstance(new_value, dict) and new_value:
+                    old_stats = merged.get("PetStats", {})
+                    if isinstance(old_stats, dict):
+                        # Shallow merge stats
+                        updated_stats = dict(old_stats)
+                        updated_stats.update(new_value)
+                        merged["PetStats"] = updated_stats
+                    else:
+                        merged["PetStats"] = new_value
+                else:
+                    # Skip overwriting existing stats with empty/none
+                    continue
+                continue
+
+            # Generic shallow merge for nested dicts
+            if isinstance(new_value, dict) and isinstance(merged.get(key), dict):
+                updated_dict = dict(merged.get(key) or {})
+                updated_dict.update(new_value)
+                merged[key] = updated_dict
+            else:
+                merged[key] = new_value
+
+        return merged
+
     async def _handle_pet_update(self, message: Dict[str, Any]) -> None:
         """Handle pet update message."""
         # Handle both message structures: with and without 'data' wrapper
@@ -478,15 +602,29 @@ class PettWebSocketClient:
 
         # Update pet data
         if pet_data:
-            self.pet_data = pet_data
-            logger.info("Pet Status updated")
+            # Merge with existing data to avoid losing fields on partial updates
+            if self.pet_data and isinstance(self.pet_data, dict):
+                merged = self._merge_pet_data(self.pet_data, pet_data)
+                # If pet id changes, prefer new payload entirely
+                old_id = self.pet_data.get("id")
+                new_id = pet_data.get("id")
+                self.pet_data = merged if not old_id or old_id == new_id else pet_data
+                logger.info("Pet Status updated (merged partial update)")
+            else:
+                self.pet_data = pet_data
+                logger.info("Pet Status updated")
             logger.info(f"Updated pet data: {self.pet_data}")
         elif user_data:
             # If we got user data, extract pet from it
             pets = user_data.get("pets", [])
             if pets:
-                self.pet_data = pets[0]
-                logger.info("Pet updated from user data")
+                pet_from_user = pets[0]
+                if self.pet_data and isinstance(self.pet_data, dict):
+                    self.pet_data = self._merge_pet_data(self.pet_data, pet_from_user)
+                    logger.info("Pet updated from user data (merged)")
+                else:
+                    self.pet_data = pet_from_user
+                    logger.info("Pet updated from user data")
                 logger.info(f"Updated pet data: {self.pet_data}")
 
     async def _handle_error(self, message: Dict[str, Any]) -> None:
@@ -585,45 +723,47 @@ class PettWebSocketClient:
     async def use_consumable(self, consumable_id: str) -> bool:
         """Use a consumable item."""
         if not consumable_id or not consumable_id.strip():
-            logger.error("Invalid consumable ID provided")
+            logger.error(f"Invalid consumable ID provided: {consumable_id!r}")
             return False
 
-        return await self._send_message(
-            {
-                "type": "CONSUMABLES_USE",
-                "data": {"params": {"consumableId": consumable_id.strip()}},
-            }
+        consumable_id = consumable_id.strip()
+        logger.info(f"🍴 Using consumable: {consumable_id}")
+
+        success, response = await self._send_and_wait(
+            "CONSUMABLES_USE", {"params": {"foodId": consumable_id}}, timeout=15
         )
 
-    async def revive_pet(self, amount: int) -> bool:
-        """Revive the pet.
+        if success:
+            return True
 
-        Args:
-            amount: The amount of revive potions to buy.
-        """
-        if amount <= 0:
-            logger.error("Amount must be greater than 0")
-            return False
+        # Attempt auto-buy on "not found" error then retry once
+        error_text = ""
+        if isinstance(response, dict):
+            error_text = str(response.get("error", ""))
 
-        await self._send_message(
-            {
-                "type": "CONSUMABLES_BUY",
-                "data": {"params": {"consumableId": "REVIVE_POTION", "amount": amount}},
-            }
-        )
+        if error_text and ("not found" in error_text.lower()):
+            logger.info(
+                f"🛒 Consumable {consumable_id} not owned. Attempting to buy one and retry."
+            )
+            buy_success, _ = await self._send_and_wait(
+                "CONSUMABLES_BUY",
+                {"params": {"foodId": consumable_id, "amount": 1}},
+                timeout=15,
+            )
+            if not buy_success:
+                logger.warning(
+                    f"❌ Failed to buy missing consumable {consumable_id}; will not retry use."
+                )
+                return False
 
-        await self._send_message(
-            {
-                "type": "CONSUMABLES_USE",
-                "data": {
-                    "params": {
-                        "consumableId": "REVIVE_POTION",
-                    }
-                },
-            }
-        )
+            # Retry once after successful buy
+            logger.info(f"🔁 Retrying use of {consumable_id} after purchase")
+            retry_success, _ = await self._send_and_wait(
+                "CONSUMABLES_USE", {"params": {"foodId": consumable_id}}, timeout=15
+            )
+            return bool(retry_success)
 
-        return True
+        return False
 
     async def buy_consumable(self, consumable_id: str, amount: int) -> bool:
         """Buy a consumable item for the pet.
@@ -645,21 +785,23 @@ class PettWebSocketClient:
             logger.error("Amount must be greater than 0")
             return False
 
-        return await self._send_message(
-            {
-                "type": "CONSUMABLES_BUY",
-                "data": {"params": {"foodId": consumable_id.strip(), "amount": amount}},
-            }
+        success, _ = await self._send_and_wait(
+            "CONSUMABLES_BUY",
+            {"params": {"foodId": consumable_id.strip(), "amount": amount}},
+            timeout=15,
         )
+        return bool(success)
 
     async def get_consumables(self) -> bool:
         """Get available consumables."""
         logger.info("[TOOL] Getting consumables")
-        return await self._send_message({"type": "CONSUMABLES_GET", "data": {}})
+        success, _ = await self._send_and_wait("CONSUMABLES_GET", {}, timeout=10)
+        return bool(success)
 
     async def get_kitchen(self) -> bool:
         """Get kitchen information."""
-        return await self._send_message({"type": "KITCHEN_GET", "data": {}})
+        success, _ = await self._send_and_wait("KITCHEN_GET", {}, timeout=10)
+        return bool(success)
 
     async def get_kitchen_data(self, timeout: int = 10) -> str:
         """Get kitchen information and wait for the result.
@@ -705,7 +847,8 @@ class PettWebSocketClient:
 
     async def get_mall(self) -> bool:
         """Get mall information."""
-        return await self._send_message({"type": "MALL_GET", "data": {}})
+        success, _ = await self._send_and_wait("MALL_GET", {}, timeout=10)
+        return bool(success)
 
     async def get_mall_data(self, timeout: int = 10) -> str:
         """Get mall information and wait for the result.
@@ -747,7 +890,8 @@ class PettWebSocketClient:
 
     async def get_closet(self) -> bool:
         """Get closet information."""
-        return await self._send_message({"type": "CLOSET_GET", "data": {}})
+        success, _ = await self._send_and_wait("CLOSET_GET", {}, timeout=10)
+        return bool(success)
 
     async def get_closet_data(self, timeout: int = 10) -> str:
         """Get closet information and wait for the result.
@@ -797,12 +941,12 @@ class PettWebSocketClient:
             logger.error("Invalid accessory ID provided")
             return False
 
-        return await self._send_message(
-            {
-                "type": "ACCESSORY_USE",
-                "data": {"params": {"accessoryId": accessory_id.strip()}},
-            }
+        success, _ = await self._send_and_wait(
+            "ACCESSORY_USE",
+            {"params": {"accessoryId": accessory_id.strip()}},
+            timeout=10,
         )
+        return bool(success)
 
     async def buy_accessory(self, accessory_id: str) -> bool:
         """Buy an accessory."""
@@ -810,12 +954,12 @@ class PettWebSocketClient:
             logger.error("Invalid accessory ID provided")
             return False
 
-        return await self._send_message(
-            {
-                "type": "ACCESSORY_BUY",
-                "data": {"params": {"accessoryId": accessory_id.strip()}},
-            }
+        success, _ = await self._send_and_wait(
+            "ACCESSORY_BUY",
+            {"params": {"accessoryId": accessory_id.strip()}},
+            timeout=10,
         )
+        return bool(success)
 
     async def ai_search(self, prompt: str, timeout: int = 30) -> str:
         """Perform AI search and wait for the result.
@@ -887,12 +1031,14 @@ class PettWebSocketClient:
     async def hotel_check_in(self) -> bool:
         """Check pet into hotel."""
         logger.info("[TOOL] Checking pet into hotel")
-        return await self._send_message({"type": "HOTEL_CHECK_IN", "data": {}})
+        success, _ = await self._send_and_wait("HOTEL_CHECK_IN", {}, timeout=10)
+        return bool(success)
 
     async def hotel_check_out(self) -> bool:
         """Check pet out of hotel."""
         logger.info("[TOOL] Checking pet out of hotel")
-        return await self._send_message({"type": "HOTEL_CHECK_OUT", "data": {}})
+        success, _ = await self._send_and_wait("HOTEL_CHECK_OUT", {}, timeout=10)
+        return bool(success)
 
     async def buy_hotel(self, tier: str) -> bool:
         """Buy hotel tier."""
@@ -900,13 +1046,15 @@ class PettWebSocketClient:
             logger.error("Invalid hotel tier provided")
             return False
 
-        return await self._send_message(
-            {"type": "HOTEL_BUY", "data": {"params": {"tier": tier.strip()}}}
+        success, _ = await self._send_and_wait(
+            "HOTEL_BUY", {"params": {"tier": tier.strip()}}, timeout=10
         )
+        return bool(success)
 
     async def get_office(self) -> bool:
         """Get office information."""
-        return await self._send_message({"type": "OFFICE_GET", "data": {}})
+        success, _ = await self._send_and_wait("OFFICE_GET", {}, timeout=10)
+        return bool(success)
 
     def get_pet_data(self) -> Optional[Dict[str, Any]]:
         """Get current pet data."""
@@ -1025,6 +1173,4 @@ class PettWebSocketClient:
    - Ensure the token is valid and not expired
    - Remove any "Bearer " prefix if present
    - The token should be the raw JWT string
-
-💡 Tip: JWT tokens typically expire after 1-24 hours depending on your provider's settings.
-        """
+"""

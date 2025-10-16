@@ -12,9 +12,12 @@ from typing import Any, Dict, Optional, TYPE_CHECKING, Deque, List
 
 from aiohttp import web
 from collections import deque
+import aiohttp
 
 if TYPE_CHECKING:
     from .pett_agent import PettAgent
+
+from .react_server_manager import ReactServerManager
 
 
 class OlasInterface:
@@ -71,12 +74,36 @@ class OlasInterface:
         self.pet_hotel_tier: int = 0
         self.pet_dead: bool = False
         self.pet_sleeping: bool = False
+        # Pet stats storage
+        self.pet_hunger: float = 0.0
+        self.pet_health: float = 0.0
+        self.pet_energy: float = 0.0
+        self.pet_happiness: float = 0.0
+        self.pet_hygiene: float = 0.0
+        self.pet_xp: float = 0.0
+        self.pet_level: int = 1
 
         # Telemetry buffers (in-memory)
         self.sent_messages_history: Deque[Dict[str, Any]] = deque(maxlen=100)
         self.openai_prompts_history: Deque[Dict[str, Any]] = deque(maxlen=50)
 
+        # React development server
+        self.react_server: Optional[ReactServerManager] = None
+        self.react_enabled: bool = False
+
         self.logger.info("🔧 Olas SDK Interface initialized")
+
+    def _get_current_stats_snapshot(self) -> Dict[str, Any]:
+        """Build a snapshot dict of the currently stored pet stats."""
+        return {
+            "hunger": self.pet_hunger,
+            "health": self.pet_health,
+            "energy": self.pet_energy,
+            "happiness": self.pet_happiness,
+            "hygiene": self.pet_hygiene,
+            "xp": self.pet_xp,
+            "level": self.pet_level,
+        }
 
     def _load_environment_variables(self) -> Dict[str, str]:
         """Load Olas SDK standard environment variables."""
@@ -171,7 +198,8 @@ class OlasInterface:
     def update_pet_data(self, pet_data: Optional[Dict[str, Any]]) -> None:
         """Update pet data with detailed information."""
         self.pet_data = pet_data
-        if pet_data:
+        print("pet_data", pet_data)
+        if pet_data and pet_data.get("name"):
             self.pet_name = pet_data.get("name", "Unknown")
             self.pet_id = pet_data.get("id", "Unknown")
 
@@ -191,6 +219,33 @@ class OlasInterface:
             self.pet_dead = pet_data.get("dead", False)
             self.pet_sleeping = pet_data.get("sleeping", False)
 
+            # Extract and normalize PetStats
+            stats = pet_data.get("PetStats", {}) if isinstance(pet_data, dict) else {}
+            if isinstance(stats, dict):
+
+                def to_float(v):
+                    try:
+                        if v is None:
+                            return 0.0
+                        if isinstance(v, (int, float)):
+                            return float(v)
+                        return float(str(v))
+                    except Exception:
+                        return 0.0
+
+                self.pet_hunger = to_float(stats.get("hunger"))
+                self.pet_health = to_float(stats.get("health"))
+                self.pet_energy = to_float(stats.get("energy"))
+                self.pet_happiness = to_float(stats.get("happiness"))
+                self.pet_hygiene = to_float(stats.get("hygiene"))
+                self.pet_xp = to_float(stats.get("xp"))
+                try:
+                    self.pet_level = int(
+                        stats.get("level", self.pet_level) or self.pet_level
+                    )
+                except Exception:
+                    pass
+
             self.logger.debug(f"Pet data updated: {self.pet_name} (ID: {self.pet_id})")
         else:
             # Reset to defaults if no data
@@ -200,6 +255,13 @@ class OlasInterface:
             self.pet_hotel_tier = 0
             self.pet_dead = False
             self.pet_sleeping = False
+            self.pet_hunger = 0.0
+            self.pet_health = 0.0
+            self.pet_energy = 0.0
+            self.pet_happiness = 0.0
+            self.pet_hygiene = 0.0
+            self.pet_xp = 0.0
+            self.pet_level = 1
 
     def record_client_send(
         self, message: Dict[str, Any], success: bool, error: Optional[str] = None
@@ -214,23 +276,45 @@ class OlasInterface:
             if data is not None:
                 if isinstance(data, dict):
                     entry["data_keys"] = list(data.keys())[:10]
+                    # Store actual data for preview (truncated)
+                    entry["data_values"] = str(data)[:300] + "..."
                 else:
-                    entry["data_preview"] = str(data)[:200]
+                    entry["data_preview"] = str(data)[:200] + "..."
             if error:
                 entry["error"] = str(error)[:200]
-            # Attach lightweight stats snapshot if available
-            if self.pet_data and isinstance(self.pet_data.get("PetStats", {}), dict):
-                stats = self.pet_data.get("PetStats", {})
-                entry["pet_stats"] = {
-                    "hunger": stats.get("hunger"),
-                    "health": stats.get("health"),
-                    "energy": stats.get("energy"),
-                    "happiness": stats.get("happiness"),
-                    "hygiene": stats.get("hygiene"),
-                }
+            # Do not attach stats here; we will update with post-action stats after pet_update
             self.sent_messages_history.append(entry)
         except Exception as e:
             self.logger.debug(f"Failed to record client send: {e}")
+
+    def update_last_action_stats(self) -> None:
+        """Update the most recent action entry with the latest stored pet stats (post-action)."""
+        try:
+            if not self.sent_messages_history:
+                return
+            # Action types we display in health recent actions
+            actionable_types = {
+                "RUB",
+                "SHOWER",
+                "SLEEP",
+                "THROWBALL",
+                "CONSUMABLES_USE",
+                "CONSUMABLES_BUY",
+                "HOTEL_CHECK_IN",
+                "HOTEL_CHECK_OUT",
+                "HOTEL_BUY",
+                "ACCESSORY_USE",
+                "ACCESSORY_BUY",
+            }
+
+            # Find the most recent actionable entry from the end
+            for idx in range(len(self.sent_messages_history) - 1, -1, -1):
+                entry = self.sent_messages_history[idx]
+                if str(entry.get("type")) in actionable_types:
+                    entry["pet_stats"] = self._get_current_stats_snapshot()
+                    break
+        except Exception as e:
+            self.logger.debug(f"Failed to update last action stats: {e}")
 
     def record_openai_prompt(
         self, kind: str, prompt: str, context: Optional[Dict[str, Any]] = None
@@ -296,6 +380,15 @@ class OlasInterface:
                 "hotel_tier": self.pet_hotel_tier,
                 "dead": self.pet_dead,
                 "sleeping": self.pet_sleeping,
+                "stats": {
+                    "hunger": self.pet_hunger,
+                    "health": self.pet_health,
+                    "energy": self.pet_energy,
+                    "happiness": self.pet_happiness,
+                    "hygiene": self.pet_hygiene,
+                    "xp": self.pet_xp,
+                    "level": self.pet_level,
+                },
             },
             "action_scheduling": action_timing,
             "timestamp": datetime.now().isoformat(),
@@ -323,349 +416,14 @@ class OlasInterface:
             },
         }
 
-        self.logger.debug(f"Health check requested: {health_data}")
         return web.json_response(health_data)
 
     async def _agent_ui_handler(self, request: web.Request) -> web.Response:
-        """Handle agent UI endpoint (Olas SDK optional requirement)."""
-        if self.last_websocket_activity:
-            seconds_since_websocket_activity = (
-                datetime.now() - self.last_websocket_activity
-            ).total_seconds()
-            last_activity_display = f"{seconds_since_websocket_activity:.1f}s ago"
-        else:
-            last_activity_display = "Never"
-
-        token_preview_display = self.privy_token_preview or "Not set"
-
-        # Compute status class/icon for UI
-        status_class = (
-            "healthy"
-            if self.health_status == "running"
-            else ("transitioning" if self.is_transitioning else "error")
+        """Deprecated: HTML dashboard is replaced by React UI."""
+        self.logger.info("HTML dashboard endpoint deprecated; use React UI at /")
+        return web.json_response(
+            {"error": "deprecated", "use": "/dashboard"}, status=410
         )
-        status_icon = (
-            "🟢"
-            if self.health_status == "running"
-            else ("🟡" if self.is_transitioning else "🔴")
-        )
-
-        # Pre-render recent telemetry blocks for UI
-        recent_messages: List[Dict[str, Any]] = list(self.sent_messages_history)[-10:][
-            ::-1
-        ]
-        recent_actions: List[Dict[str, Any]] = [
-            m
-            for m in list(self.sent_messages_history)[-30:]
-            if str(m.get("type"))
-            in {
-                "RUB",
-                "SHOWER",
-                "SLEEP",
-                "THROWBALL",
-                "CONSUMABLES_USE",
-                "CONSUMABLES_BUY",
-                "HOTEL_CHECK_IN",
-                "HOTEL_CHECK_OUT",
-                "HOTEL_BUY",
-                "ACCESSORY_USE",
-                "ACCESSORY_BUY",
-            }
-        ][-10:][::-1]
-        recent_prompts: List[Dict[str, Any]] = list(self.openai_prompts_history)[-5:][
-            ::-1
-        ]
-
-        # Get next-action timing from agent (optional)
-        action_timing: Dict[str, Any] = {}
-        if self.agent and hasattr(self.agent, "get_action_timing_info"):
-            try:
-                action_timing = self.agent.get_action_timing_info()
-            except Exception:
-                action_timing = {}
-
-        def _fmt_success(s: bool) -> str:
-            return "✅" if s else "❌"
-
-        def _payload_preview(entry: Dict[str, Any]) -> str:
-            keys = entry.get("data_keys")
-            if keys:
-                return ", ".join(keys)
-            return entry.get("data_preview", "") or ""
-
-        msgs_html = (
-            "".join(
-                (
-                    "<tr>"
-                    f"<td>{m.get('timestamp', '')}</td>"
-                    f"<td><code>{m.get('type', '')}</code></td>"
-                    f"<td>{_fmt_success(bool(m.get('success')))}</td>"
-                    f"<td>{_payload_preview(m)}</td>"
-                    "</tr>"
-                )
-                for m in recent_messages
-            )
-            or "<tr><td colspan=4>No recent messages</td></tr>"
-        )
-
-        actions_html = (
-            "".join(
-                (
-                    "<li>"
-                    f"[{m.get('timestamp', '')}] "
-                    f"<strong>{m.get('type', '')}</strong> — "
-                    f"{_fmt_success(bool(m.get('success')))}"
-                    "</li>"
-                )
-                for m in recent_actions
-            )
-            or "<li>No recent actions</li>"
-        )
-
-        prompts_html = (
-            "".join(
-                (
-                    "<li>"
-                    f"<strong>{p.get('timestamp', '')}</strong> "
-                    f"[{p.get('kind', 'prompt')}]<br/>"
-                    f"<pre style=\"white-space:pre-wrap;word-break:break-word;\">{p.get('prompt', '')}</pre>"
-                    "</li>"
-                )
-                for p in recent_prompts
-            )
-            or "<li>No recent prompts</li>"
-        )
-
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Pett Agent - Olas SDK</title>
-            <style>
-                body {{
-                  font-family: Arial, sans-serif;
-                  margin: 40px;
-                  background: #f5f5f5;
-                  color: #222;
-                }}
-                .container {{
-                  max-width: 1300px;
-                  margin: 0 auto;
-                  background: white;
-                  padding: 36px;
-                  border-radius: 10px;
-                  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-                }}
-                .status {{
-                  padding: 14px 18px;
-                  border-radius: 6px;
-                  margin: 10px 0 20px 0;
-                  font-weight: 600;
-                }}
-                .status.healthy {{
-                  background: #d4edda;
-                  color: #155724;
-                  border: 1px solid #c3e6cb;
-                }}
-                .status.transitioning {{
-                  background: #fff3cd;
-                  color: #856404;
-                  border: 1px solid #ffeaa7;
-                }}
-                .status.error {{
-                  background: #f8d7da;
-                  color: #721c24;
-                  border: 1px solid #f5c6cb;
-                }}
-                .info-grid {{
-                  display: grid;
-                  grid-template-columns: repeat(auto-fit,minmax(300px,1fr));
-                  gap: 24px;
-                  margin: 20px 0;
-                }}
-                .info-grid.large {{
-                  grid-template-columns: repeat(auto-fit,minmax(440px,1fr));
-                }}
-                .info-card {{
-                  background: #f8f9fa;
-                  padding: 22px;
-                  border-radius: 8px;
-                  border-left: 6px solid #007bff;
-                }}
-                .info-card h3 {{ font-size: 1.15em; margin: 0 0 8px; }}
-                .emoji {{ font-size: 1.2em; margin-right: 8px; }}
-                .note {{ font-size: 0.85em; color: #555; margin-top: 8px; }}
-                button {{
-                  padding: 10px 16px;
-                  border-radius: 4px;
-                  border: none;
-                  cursor: pointer;
-                  background: #6c757d;
-                  color: #fff;
-                  font-size: 0.9em;
-                  margin-right: 10px;
-                }}
-                button.secondary {{ background: #17a2b8; }}
-                .controls {{ margin-top: 20px; }}
-                table {{ width: 100%; border-collapse: collapse; font-size: 0.95em; }}
-                th, td {{ border: 1px solid #e9ecef; padding: 10px 12px; text-align: left; }}
-                th {{ background: #f1f3f5; }}
-                ul {{ padding-left: 20px; }}
-                .telemetry-table th:nth-child(1) {{ width: 200px; }}
-                .telemetry-table th:nth-child(2) {{ width: 140px; }}
-                .telemetry-table th:nth-child(3) {{ width: 100px; }}
-                .info-card pre {{ max-height: 320px; overflow: auto; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>🐾 Pett Agent Dashboard</h1>
-                <p>Powered by Olas SDK | Virtual Pet Management Agent</p>
-                <div class="status {status_class}">
-                    <strong>Status:</strong> {self.health_status.upper()}
-                    {status_icon}
-                </div>
-                <div class="info-grid">
-                    <div class="info-card">
-                        <h3><span class="emoji">⏱️</span>Runtime Info</h3>
-                        <p><strong>Last Transition:</strong> {self.get_seconds_since_last_transition():.1f}s ago</p>
-                        <p><strong>Transitioning:</strong> {'Yes' if self.is_transitioning else 'No'}</p>
-                        <p><strong>Withdrawal Mode:</strong> {'Enabled' if self.withdrawal_mode else 'Disabled'}</p>
-                        <p><strong>Next Action:</strong>
-                            { (str(action_timing.get('minutes_until_next_action', '')) + 'm') if action_timing.get('next_action_scheduled') else 'Not scheduled' }
-                        </p>
-                    </div>
-                    
-                    <div class="info-card">
-                        <h3><span class="emoji">🔗</span>Blockchain Info</h3>
-                        <p><strong>Agent Address:</strong>
-                        {self.ethereum_private_key[:10] + "..." if self.ethereum_private_key else "Not configured"}
-                        </p>
-                        <p><strong>Safe Contracts:</strong> {len(self.safe_contract_addresses)} configured</p>
-                        <p><strong>Networks:</strong>
-                        {", ".join(self.safe_contract_addresses.keys()) if self.safe_contract_addresses else "None"}
-                        </p>
-                    </div>
-                </div>
-                
-                <div class="info-grid">
-                    <div class="info-card">
-                        <h3><span class="emoji">🔌</span>WebSocket Connection</h3>
-                        <p><strong>URL:</strong> <code>{self.websocket_url}</code></p>
-                        <p><strong>Status:</strong>
-                        <span style="color: {'green' if self.websocket_connected else 'red'}">
-                            {'🟢 Connected' if self.websocket_connected else '🔴 Disconnected'}
-                        </span></p>
-                        <p><strong>Authenticated:</strong>
-                            <span style="color: {'green' if self.websocket_authenticated else 'orange'}">
-                                {'✅ Yes' if self.websocket_authenticated else '❌ No'}
-                            </span>
-                        </p>
-                        <p><strong>Last Activity:</strong> {last_activity_display}</p>
-                    </div>
-
-                    <div class="info-card">
-                        <h3><span class="emoji">🐾</span>Pet Information</h3>
-                        <p><strong>Name:</strong> {self.pet_name}</p>
-                        <p><strong>ID:</strong> {self.pet_id}</p>
-                        <p><strong>Balance:</strong> {self.pet_balance} $AIP</p>
-                        <p><strong>Hotel Tier:</strong> {self.pet_hotel_tier}</p>
-                        <p><strong>Status:</strong>
-                            <span style="color: {'green' if self.pet_connected else 'red'}">
-                                {'🟢 Connected' if self.pet_connected else '🔴 Disconnected'}
-                            </span>
-                        </p>
-                        <p><strong>Condition:</strong>
-                            {
-                                (
-                                    '💀 Dead' if self.pet_dead else (
-                                        '😴 Sleeping' if self.pet_sleeping else '😊 Healthy'
-                                    )
-                                )
-                            }
-                        </p>
-                        <p><strong>Health:</strong>
-                            {'🟢 Healthy' if self.pet_connected and self.websocket_authenticated else
-                             ('🟡 Limited' if self.websocket_connected else '🔴 Offline')}
-                        </p>
-                    </div>
-                </div>
-
-                <div class="info-grid">
-                    <div class="info-card">
-                        <h3><span class="emoji">🔐</span>Privy Authentication</h3>
-                        <p><strong>Current token:</strong> {token_preview_display}</p>
-                        <p class="note">
-                            Set the <code>PRIVY_TOKEN</code> environment variable and
-                            restart the agent to update this value.
-                        </p>
-                    </div>
-
-                    <div class="info-card">
-                        <h3><span class="emoji">🌐</span>Environment</h3>
-                        <p><strong>Loaded Variables:</strong> {len(self.env_vars)}</p>
-                        <p><strong>Key Variables:</strong>
-                            {", ".join(list(self.env_vars.keys())[:5])}
-                            {'...' if len(self.env_vars) > 5 else ''}
-                        </p>
-                    </div>
-                </div>
-
-                <div class="info-grid large">
-                    <div class="info-card">
-                        <h3><span class="emoji">⚙️</span>Recent Actions</h3>
-                        <ul>
-                            {actions_html}
-                        </ul>
-                    </div>
-
-                    <div class="info-card">
-                        <h3><span class="emoji">📤</span>Recent Messages Sent to Client</h3>
-                        <table class="telemetry-table">
-                            <thead>
-                                <tr>
-                                    <th>Time</th>
-                                    <th>Type</th>
-                                    <th>Result</th>
-                                    <th>Payload</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {msgs_html}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="info-card">
-                        <h3><span class="emoji">🧠</span>Latest OpenAI Prompts</h3>
-                        <ul>
-                            {prompts_html}
-                        </ul>
-                    </div>
-                </div>
-
-                <div class="controls">
-                    <button onclick="location.reload()">🔄 Refresh</button>
-                    <button class="secondary"
-                        onclick="fetch('/healthcheck')
-                        .then(r => r.json())
-                        .then(d => alert(JSON.stringify(d, null, 2)))
-                        .catch(() => alert('Healthcheck failed'));">
-                        🏥 Health Check
-                    </button>
-                </div>
-
-                <footer style="margin-top: 30px; text-align: center; color: #666;">
-                    <p>
-                        Pett Agent running on Olas SDK |
-                        {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-                    </p>
-                </footer>
-            </div>
-        </body>
-        </html>
-        """
-        return web.Response(text=html_content, content_type="text/html")
 
     async def _agent_api_handler(self, request: web.Request) -> web.Response:
         """Handle POST requests for agent communication."""
@@ -701,6 +459,8 @@ class OlasInterface:
         self.logger.info("🛑 Exiting agent")
         if self.agent:
             await self.agent.shutdown()
+        if self.react_server:
+            await self.react_server.stop_dev_server()
         if self.app:
             await self.app.shutdown()
         if self.runner:
@@ -710,27 +470,191 @@ class OlasInterface:
         # sys.exit(0)
         return web.json_response({"status": "ok"})
 
-    async def start_web_server(self, port: int = 8716) -> None:
+    async def _react_proxy_handler(self, request: web.Request) -> web.Response:
+        """Proxy requests to React dev server."""
+        if not self.react_server or not self.react_server.is_running:
+            return web.json_response(
+                {"error": "React dev server not running"}, status=503
+            )
+
+        try:
+            # Build target URL
+            target_url = f"http://localhost:{self.react_server.port}{request.path_qs}"
+            # Normalize method and payload for proxying
+            method = request.method.upper()
+            forward_method = "GET" if method == "HEAD" else method
+            payload = None
+            if forward_method not in ("GET", "HEAD"):
+                payload = await request.read()
+
+            # Forward the request with timeout
+            timeout = aiohttp.ClientTimeout(total=30)  # 30 second timeout
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.request(
+                    method=forward_method,
+                    url=target_url,
+                    headers={
+                        k: v for k, v in request.headers.items() if k.lower() != "host"
+                    },
+                    data=payload,
+                ) as resp:
+                    # Return the response
+                    if method == "HEAD":
+                        # For HEAD, return metadata only with empty body
+                        return web.Response(
+                            status=resp.status,
+                            headers={
+                                k: v
+                                for k, v in resp.headers.items()
+                                if k.lower() not in ["transfer-encoding", "connection"]
+                            },
+                        )
+                    else:
+                        body = await resp.read()
+                        return web.Response(
+                            body=body,
+                            status=resp.status,
+                            headers={
+                                k: v
+                                for k, v in resp.headers.items()
+                                if k.lower() not in ["transfer-encoding", "connection"]
+                            },
+                        )
+        except asyncio.TimeoutError:
+            self.logger.error(f"⏱️ Proxy timeout after 30s for {request.path}")
+            return web.json_response({"error": "React dev server timeout"}, status=504)
+        except Exception as e:
+            self.logger.error(f"❌ Error proxying to React: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def _login_api_handler(self, request: web.Request) -> web.Response:
+        """Handle login API requests from React frontend."""
+        if request.method == "POST":
+            try:
+                data = await request.json()
+                privy_token = data.get("privy_token")
+
+                if not privy_token:
+                    return web.json_response(
+                        {"error": "privy_token is required"}, status=400
+                    )
+
+                self.logger.info("🔐 Received login request from React frontend")
+
+                # Update privy token in agent
+                if self.agent and hasattr(self.agent, "update_privy_token"):
+                    success = await self.agent.update_privy_token(privy_token)
+
+                    return web.json_response(
+                        {
+                            "success": success,
+                            "authenticated": self.websocket_authenticated,
+                            "pet_connected": self.pet_connected,
+                            "pet_name": self.pet_name,
+                        }
+                    )
+                else:
+                    return web.json_response(
+                        {"error": "Agent not initialized"}, status=500
+                    )
+
+            except Exception as e:
+                self.logger.error(f"❌ Error handling login: {e}")
+                return web.json_response({"error": str(e)}, status=500)
+
+        return web.json_response({"error": "Method not allowed"}, status=405)
+
+    async def _logout_api_handler(self, request: web.Request) -> web.Response:
+        """Handle logout requests from React frontend."""
+        if request.method == "POST":
+            try:
+                self.logger.info("🔓 Received logout request from React frontend")
+
+                if self.agent and hasattr(self.agent, "logout_privy"):
+                    success = await self.agent.logout_privy()
+                    if success:
+                        self.privy_token_preview = None
+                    return web.json_response({"success": success})
+                else:
+                    return web.json_response(
+                        {"error": "Agent not initialized"}, status=500
+                    )
+
+            except Exception as e:
+                self.logger.error(f"❌ Error handling logout: {e}")
+                return web.json_response({"error": str(e)}, status=500)
+
+        return web.json_response({"error": "Method not allowed"}, status=405)
+
+    async def start_web_server(
+        self, port: int = 8776, enable_react: bool = True
+    ) -> None:
         """Start web server for health checks and UI (Olas SDK requirement)."""
         try:
             self.app = web.Application()
 
-            # Add routes
+            # Try to start React dev server if enabled
+            if enable_react:
+                react_dir = Path(__file__).parent.parent / "frontend"
+                if react_dir.exists():
+                    self.logger.info("🎨 Starting React development server...")
+                    self.react_server = ReactServerManager(
+                        react_dir=str(react_dir), port=3000
+                    )
+                    react_started = await self.react_server.start_dev_server()
+                    if react_started:
+                        self.react_enabled = True
+                        self.logger.info("✅ React dev server started successfully")
+                    else:
+                        self.logger.warning("⚠️ React dev server failed to start")
+                else:
+                    self.logger.info(f"ℹ️ No React frontend found at {react_dir}")
+
+            # Deprecated HTML dashboard removed in favor of React UI
+            self.app.router.add_get(
+                "/api/health", self._health_check_handler
+            )  # JSON health
+            self.app.router.add_get("/api/status", self._health_check_handler)
             self.app.router.add_get("/healthcheck", self._health_check_handler)
-            self.app.router.add_get("/", self._agent_ui_handler)
+            self.app.router.add_post("/api/login", self._login_api_handler)
+            self.app.router.add_post("/api/logout", self._logout_api_handler)
             self.app.router.add_post("/", self._agent_api_handler)
             self.app.router.add_get("/exit", self._exit_handler)
 
-            # Start server
-            self.runner = web.AppRunner(self.app)
+            self.logger.debug(
+                f"🔄 Adding React proxy routes: {self.react_enabled} {self.react_server}"
+            )
+            # Add React proxy routes (if enabled)
+            if self.react_enabled and self.react_server:
+                # Proxy /login and other React routes
+                self.app.router.add_get("/login", self._react_proxy_handler)
+                self.app.router.add_get("/login/{tail:.*}", self._react_proxy_handler)
+
+                # Proxy static files
+                self.app.router.add_get("/static/{tail:.*}", self._react_proxy_handler)
+                self.app.router.add_get("/assets/{tail:.*}", self._react_proxy_handler)
+
+                # Proxy root to React
+                self.app.router.add_get("/", self._react_proxy_handler)
+            else:
+                # Fallback to JSON health if React not available
+                self.app.router.add_get("/", self._health_check_handler)
+
+            # Start server (disable aiohttp access logs)
+            self.runner = web.AppRunner(self.app, access_log=None)
             await self.runner.setup()
 
             self.site = web.TCPSite(self.runner, "localhost", port)
             await self.site.start()
 
             self.logger.info(f"🌐 Web server started on http://localhost:{port}")
-            self.logger.info(f"🏥 Health check: http://localhost:{port}/healthcheck")
-            self.logger.info(f"🎛️ Agent UI: http://localhost:{port}/")
+            if self.react_enabled:
+                self.logger.info(
+                    f"🎨 React App proxy active at http://localhost:{port}/ (Dashboard at /dashboard)"
+                )
+                self.logger.info(f"🏥 Health API: http://localhost:{port}/api/health")
+            else:
+                self.logger.info(f"🏥 Health API: http://localhost:{port}/api/health")
 
         except Exception as e:
             self.logger.error(f"Failed to start web server: {e}")
@@ -739,6 +663,10 @@ class OlasInterface:
     async def stop_web_server(self) -> None:
         """Stop the web server."""
         try:
+            # Stop React dev server first
+            if self.react_server:
+                await self.react_server.stop_dev_server()
+
             if self.site:
                 await self.site.stop()
             if self.runner:

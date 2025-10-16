@@ -24,11 +24,10 @@ config:
 public_id: valory/configs:0.19.0
 type: connection
 config:
-  MY_API_KEY: ${MY_API_KEY:str:yyyyyyyy}
   SAFE_CONTRACT_ADDRESSES: ${SAFE_CONTRACT_ADDRESSES:str:0x0000000000000000000000000000000000000000}
   TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:str:}
   PRIVY_TOKEN: ${PRIVY_TOKEN:str:}
-  WEBSOCKET_URL: ${WEBSOCKET_URL:str:wss://petbot-monorepo-websocket-333713154917.europe-west1.run.app}
+  WEBSOCKET_URL: ${WEBSOCKET_URL:str:wss://ws.pett.ai}
   OPENAI_API_KEY: ${OPENAI_API_KEY:str:}
   LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:str:}
   WITHDRAWAL_MODE: ${WITHDRAWAL_MODE:bool:false}

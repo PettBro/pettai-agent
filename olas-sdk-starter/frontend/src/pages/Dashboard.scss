@@ -1,0 +1,83 @@
+.dashboard {
+  min-height: 100vh;
+  background: #f5f5f5;
+
+  &__header {
+    background: white;
+    padding: 1.5rem 2rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    h1 {
+      margin: 0;
+      color: #333;
+    }
+
+    .logout-btn {
+      padding: 0.5rem 1rem;
+      background: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+
+      &:hover {
+        background: #c82333;
+      }
+    }
+  }
+
+  &__content {
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+}
+
+.status-card,
+.pet-card,
+.action-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+  h2 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: #333;
+    font-size: 1.25rem;
+  }
+
+  p {
+    margin: 0.5rem 0;
+    color: #666;
+  }
+
+  ul {
+    list-style: none;
+    padding: 0;
+
+    li {
+      padding: 0.5rem;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      gap: 1rem;
+
+      .action-time {
+        font-size: 0.85rem;
+        color: #999;
+      }
+
+      .action-type {
+        flex: 1;
+        font-weight: 500;
+      }
+    }
+  }
+}

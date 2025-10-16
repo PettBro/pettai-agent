@@ -1,0 +1,106 @@
+:root {
+  --modal-header-height: 0px;
+  --modal-footer-height: 0px;
+}
+
+.body-modal-open {
+  @apply overflow-hidden fixed inset-0 w-full h-full;
+  -webkit-overflow-scrolling: touch;
+
+  // Prevent iOS rubber band scrolling
+  @supports (-webkit-touch-callout: none) {
+    height: -webkit-fill-available;
+  }
+}
+
+.modal__backdrop {
+  // Prevent touch events from passing through during animations
+  touch-action: none;
+}
+
+.modal__container {
+  max-height: calc(100dvh - 40px);
+  max-height: calc(100vh - 40px);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
+  will-change: transform;
+
+  // Improve performance
+  transform: translateZ(0);
+  backface-visibility: hidden;
+
+  // Prevent iOS bounce effect
+  &::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: transparent;
+  }
+
+  // Visual feedback when dragging
+  &[data-dragging="true"] {
+    transition: none !important;
+
+    .modal__body {
+      pointer-events: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+  }
+}
+
+.modal__body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: calc(
+    100dvh
+    - 40px
+    - var(--modal-header-height)
+    - var(--modal-footer-height)
+    - calc(var(--modal-container-padding-y) * 2)
+    - var(--safe-area-inset-top)
+    - var(--safe-area-inset-bottom)
+  );
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+
+  // Prevent overscroll bounce on iOS
+  overscroll-behavior: contain;
+
+  // Smooth momentum scrolling on iOS
+  scroll-behavior: smooth;
+
+  // Improve touch responsiveness
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+
+  // Ensure content is selectable when not dragging
+  -webkit-user-select: text;
+  user-select: text;
+
+  // Handle edge case where scroll might get stuck
+  &::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  &::-webkit-scrollbar-track {
+    @apply bg-gray-100 rounded-full;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400;
+  }
+}
+
+// Modal drag handle indicator (optional)
+.modal__drag-indicator {
+  @apply w-12 h-1 bg-gray-300 rounded-full mx-auto mb-2;
+  touch-action: none;
+}

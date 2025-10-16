@@ -2,6 +2,7 @@
 
 # Core dependencies
 aiohttp>=3.8.0
+Brotli>=1.0.9  # Required for Brotli decompression in aiohttp proxy
 asyncio-mqtt>=0.16.0
 python-dotenv>=1.0.0
 

@@ -6,7 +6,6 @@ import json
 import random
 from langchain_core.tools import BaseTool, tool
 from langchain_core.tools import InjectedToolArg
-from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 

@@ -1,0 +1,239 @@
+html,
+body {
+  background-color: white;
+  background-image: url('./assets/images/background-desktop.jpg');
+  background-size: cover;
+  background-position: 50% 60%;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+body:has(#tutorial-content) {
+  overflow: hidden; /* Prevent scrolling when tutorial is active */
+}
+
+.App {
+  min-height: 100vh;
+  background-color: transparent; /* Make transparent to show body background */
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.App-content {
+  width: 100%;
+  min-height: 100vh;
+  position: relative;
+  background: url('./assets/images/background-3.jpg') no-repeat center center;
+  background-color: #9ab8f6;
+}
+
+/* Bottom navigation responsive styling */
+.bottom-navigation {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+}
+
+/* Desktop responsive styles for bottom navigation */
+@media (min-width: 768px) {
+  .bottom-navigation {
+    max-width: 420px; /* Desktop screens */
+  }
+}
+
+/* Desktop responsive styles */
+@media (min-width: 768px) {
+  .App-content {
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
+    border-radius: 0;
+    /* background styles moved to base .App-content rule above */
+  }
+}
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes float-up {
+  0% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-30px);
+  }
+}
+
+@keyframes float-down {
+  0% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(30px);
+  }
+}
+
+@keyframes bounce-low-stat {
+  0%,
+  20%,
+  50%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-4px);
+  }
+  60% {
+    transform: translateY(-2px);
+  }
+}
+
+.animate-float-up {
+  animation: float-up 3.5s ease-out forwards;
+}
+
+.animate-float-down {
+  animation: float-down 3.5s ease-out forwards;
+}
+
+.animate-bounce-low-stat {
+  animation: bounce-low-stat 2s ease-in-out infinite;
+}
+
+/* Wordle tile flip animation */
+@keyframes wordle-flip {
+  0% {
+    transform: rotateX(0deg);
+  }
+  50% {
+    transform: rotateX(180deg);
+  }
+  100% {
+    transform: rotateX(0deg);
+  }
+}
+
+.animate-wordle-flip {
+  animation: wordle-flip 1.2s ease-in-out;
+  transform-style: preserve-3d;
+}
+
+video,
+img {
+  /* prevent images from being dragged */
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
+}
+/* Final resting positions (no animation) */
+.at-left-center {
+  transform: translate(-200%, -50%) scale(1);
+}
+
+.at-left-center-opponent {
+  transform: translate(-170%, -60%) scale(1);
+}
+
+/* One-time movement animation toward the same final transform */
+@keyframes card-to-left-center {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-200%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+.animate-card-to-left-center {
+  animation: card-to-left-center 0.6s ease-out forwards;
+  will-change: transform;
+}
+
+@keyframes card-to-left-center-opponent {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-170%, -60%) scale(1);
+    opacity: 1;
+  }
+}
+.animate-card-to-left-center-opponent {
+  animation: card-to-left-center-opponent 0.6s ease-out forwards;
+  will-change: transform;
+}
+
+/* Flip card animation styles */
+.flip-card {
+  background-color: transparent;
+  width: 96px; /* 24 * 4 = 96px to match w-24 */
+  height: 128px; /* 32 * 4 = 128px to match h-32 */
+  perspective: 1000px;
+}
+
+.flip-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  transition: transform 0.8s;
+  transform-style: preserve-3d;
+}
+
+.flip-card.flipped .flip-card-inner {
+  transform: rotateY(180deg);
+}
+
+.flip-card-front,
+.flip-card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.flip-card-back {
+  transform: rotateY(180deg);
+}
