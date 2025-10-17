@@ -26,13 +26,11 @@ class OlasInterface:
     def __init__(
         self,
         ethereum_private_key: Optional[str] = None,
-        safe_contract_addresses: Optional[Dict[str, str]] = None,
         withdrawal_mode: bool = False,
         logger: Optional[logging.Logger] = None,
     ):
         """Initialize Olas interface."""
         self.ethereum_private_key: Optional[str] = ethereum_private_key
-        self.safe_contract_addresses: Dict[str, str] = safe_contract_addresses or {}
         self.withdrawal_mode: bool = withdrawal_mode
         self.logger: logging.Logger = logger or logging.getLogger("olas_interface")
         self.agent: Optional["PettAgent"] = None
@@ -111,11 +109,7 @@ class OlasInterface:
 
         # Standard Olas environment variables
         olas_env_vars = [
-            "BASE_LEDGER_RPC",
-            "CONTRACT_ADDRESS",
-            "WITHDRAWAL_MODE",
             "OPENAI_API_KEY",
-            "LANGSMITH_API_KEY",
             "TELEGRAM_BOT_TOKEN",
             "PRIVY_TOKEN",
             "WEBSOCKET_URL",
@@ -335,6 +329,23 @@ class OlasInterface:
         """Get seconds since last transition for health check."""
         return (datetime.now() - self.last_transition_time).total_seconds()
 
+    @property
+    def is_healthy(self) -> bool:
+        """Compute overall health boolean for quick checks.
+
+        Criteria (conservative):
+        - Not in an error or stopped state
+        - WebSocket connected
+        - If transitioning, allow a short grace period (< 60s)
+        """
+        if self.health_status in {"error", "stopped"}:
+            return False
+        if not self.websocket_connected:
+            return False
+        if self.is_transitioning and self.get_seconds_since_last_transition() > 60:
+            return False
+        return True
+
     async def _health_check_handler(self, request: web.Request) -> web.Response:
         """Handle health check endpoint (Olas SDK requirement)."""
         seconds_since_transition = self.get_seconds_since_last_transition()
@@ -352,19 +363,63 @@ class OlasInterface:
             except Exception:
                 action_timing = {}
 
+        # Compute environment variable status against expected Olas variables
+        expected_env_vars: List[str] = [
+            "OPENAI_API_KEY",
+            "TELEGRAM_BOT_TOKEN",
+            "PRIVY_TOKEN",
+            "WEBSOCKET_URL",
+        ]
+        env_var_messages: Dict[str, str] = {}
+        for var in expected_env_vars:
+            direct = os.environ.get(var)
+            prefixed = os.environ.get(f"CONNECTION_CONFIGS_CONFIG_{var}")
+            if not direct and not prefixed:
+                env_var_messages[var] = (
+                    "Missing; set either the direct variable or its CONNECTION_CONFIGS_CONFIG_ prefixed variant."
+                )
+        needs_env_update = bool(env_var_messages)
+
+        # Compute agent health placeholders (conservative defaults)
+        # Note: These can be enhanced if PettAgent exposes richer telemetry
+        agent_health: Dict[str, Any] = {
+            "is_making_on_chain_transactions": False,
+            "is_staking_kpi_met": False,
+            "has_required_funds": False,
+            "staking_status": "unknown",
+        }
+
+        # Derive has_required_funds from known pet balance when available
+        try:
+            agent_health["has_required_funds"] = float(self.pet_balance) > 0.0
+        except Exception:
+            pass
+
         health_data: Dict[str, Any] = {
-            "status": self.health_status,
+            # New required schema (Pearl-compatible)
+            "is_healthy": self.is_healthy,
             "seconds_since_last_transition": seconds_since_transition,
+            "is_tm_healthy": True,  # Not applicable for Olas SDK agents; report healthy
+            "period": 0,
+            "reset_pause_duration": 0,
+            "rounds": [],  # Not applicable for this agent; ABCI rounds not used
             "is_transitioning_fast": (
                 self.is_transitioning and seconds_since_transition < 30
             ),
+            "agent_health": agent_health,
+            "rounds_info": {},
+            "env_var_status": {
+                "needs_update": needs_env_update,
+                "env_vars": env_var_messages,
+            },
+            # Existing detailed data preserved for our UI and debugging
+            "status": self.health_status,
             "agent_address": (
                 self.ethereum_private_key[:10] + "..."
                 if self.ethereum_private_key
                 else "unknown"
             ),
-            "safe_addresses": self.safe_contract_addresses,
-            "withdrawal_mode": self.withdrawal_mode,
+            "withdrawal_mode": False,
             "websocket": {
                 "url": self.websocket_url,
                 "connected": self.websocket_connected,
@@ -438,6 +493,7 @@ class OlasInterface:
                     return web.json_response(
                         {
                             "status": self.health_status,
+                            "is_healthy": self.is_healthy,
                             "timestamp": datetime.now().isoformat(),
                         }
                     )
@@ -587,7 +643,7 @@ class OlasInterface:
         return web.json_response({"error": "Method not allowed"}, status=405)
 
     async def start_web_server(
-        self, port: int = 8776, enable_react: bool = True
+        self, port: int = 8716, enable_react: bool = True
     ) -> None:
         """Start web server for health checks and UI (Olas SDK requirement)."""
         try:

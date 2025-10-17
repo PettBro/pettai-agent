@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class ReactServerManager:
     """Manages React development server as a subprocess."""
 
-    def __init__(self, react_dir: str = "frontend", port: int = 8776):
+    def __init__(self, react_dir: str = "frontend", port: int = 8716):
         self.react_dir = Path(react_dir)
         self.port = port
         self.process: Optional[subprocess.Popen] = None
@@ -254,17 +254,17 @@ class ReactServerManager:
             return result == 0
 
     def _select_available_port(self, preferred: int) -> int:
-        """Pick an available port, preferring the given one; fallback to 8776 then scan upward."""
+        """Pick an available port, preferring the given one; fallback to 8716 then scan upward."""
         # If preferred is free, use it
         if not self._port_is_in_use(preferred):
             return preferred
 
-        # Prefer 8776 (project default) if not the preferred
-        if preferred != 8776 and not self._port_is_in_use(8776):
-            return 8776
+        # Prefer 8716 (project default) if not the preferred
+        if preferred != 8716 and not self._port_is_in_use(8716):
+            return 8716
 
         # Scan a small range for an open port
-        start = 8776 if preferred == 8776 else max(preferred, 3000)
+        start = 8716 if preferred == 8716 else max(preferred, 3000)
         for candidate in range(start, start + 200):
             if not self._port_is_in_use(candidate):
                 return candidate

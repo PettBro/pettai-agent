@@ -4,10 +4,9 @@ version: 0.1.0
 description: Pett.ai autonomous agent service for virtual pet management.
 aea_version: '>=1.0.0, <2.0.0'
 license: Apache-2.0
-fingerprint:
-  README.md: bafybeigkh3bwwjzgbl3jlcbovrf67ikisndygihsutgqlijhgie3z44ao4
+fingerprint: {}
 fingerprint_ignore_patterns: []
-agent: pettaidev/pett_agent:0.1.0:bafybeibkw2vqnbkpyhdf3x4qmzop5fx7vlnh3urkm4puw4bycx26swxsvu
+agent: pettai/pett_agent:0.1.0:bafybeiflrnzs4hxbo77k3opnplmq3keyajzfqk3v4zl7pwphsxmeflgz5m
 number_of_agents: 1
 deployment: {}
 ---
@@ -24,11 +23,7 @@ config:
 public_id: valory/configs:0.19.0
 type: connection
 config:
-  MY_API_KEY: ${MY_API_KEY:str:yyyyyyyy}
-  SAFE_CONTRACT_ADDRESSES: ${SAFE_CONTRACT_ADDRESSES:str:0x0000000000000000000000000000000000000000}
   TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:str:}
   PRIVY_TOKEN: ${PRIVY_TOKEN:str:}
-  WEBSOCKET_URL: ${WEBSOCKET_URL:str:wss://petbot-monorepo-websocket-333713154917.europe-west1.run.app}
+  WEBSOCKET_URL: ${WEBSOCKET_URL:str:wss://ws.pett.ai}
   OPENAI_API_KEY: ${OPENAI_API_KEY:str:}
-  LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:str:}
-  WITHDRAWAL_MODE: ${WITHDRAWAL_MODE:bool:false}

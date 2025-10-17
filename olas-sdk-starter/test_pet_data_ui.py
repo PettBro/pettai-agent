@@ -11,6 +11,7 @@ from datetime import datetime
 sys.path.append(os.path.join(os.path.dirname(__file__), "agent"))
 
 from olas_interface import OlasInterface
+import logging
 
 
 async def test_pet_data_ui():
@@ -21,10 +22,8 @@ async def test_pet_data_ui():
     # Create Olas interface
     olas = OlasInterface(
         ethereum_private_key="0x1234567890abcdef1234567890abcdef12345678",
-        safe_contract_addresses={
-            "ethereum": "0xabcdef1234567890abcdef1234567890abcdef12"
-        },
         withdrawal_mode=False,
+        logger=logging.getLogger("test_pet_data_ui"),
     )
 
     # Update with sample pet data

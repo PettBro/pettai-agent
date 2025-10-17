@@ -65,23 +65,9 @@ def read_ethereum_private_key() -> Optional[str]:
         return None
 
 
-def read_safe_contract_addresses() -> dict:
-    """Read Safe contract addresses from environment variable (Olas SDK requirement)."""
-    import json
-
-    safe_addresses_str = os.environ.get(
-        "CONNECTION_CONFIGS_CONFIG_SAFE_CONTRACT_ADDRESSES", "{}"
-    )
-    try:
-        return json.loads(safe_addresses_str)
-    except json.JSONDecodeError as e:
-        logging.error(f"Failed to parse SAFE_CONTRACT_ADDRESSES: {e}")
-        return {}
-
-
 def check_withdrawal_mode() -> bool:
     """Check if agent should run in withdrawal mode (Olas SDK requirement)."""
-    return os.environ.get("WITHDRAWAL_MODE", "").lower() == "true"
+    return False
 
 
 async def main():
@@ -92,20 +78,17 @@ async def main():
     try:
         # Read Olas SDK required configurations
         ethereum_private_key = read_ethereum_private_key()
-        safe_contract_addresses = read_safe_contract_addresses()
         withdrawal_mode = check_withdrawal_mode()
 
         # Log configuration
         logger.info(
             f"Ethereum private key: {'Found' if ethereum_private_key else 'Not found'}"
         )
-        logger.info(f"Safe contract addresses: {list(safe_contract_addresses.keys())}")
         logger.info(f"Withdrawal mode: {withdrawal_mode}")
 
         # Initialize Olas interface layer
         olas_interface = OlasInterface(
             ethereum_private_key=ethereum_private_key,
-            safe_contract_addresses=safe_contract_addresses,
             withdrawal_mode=withdrawal_mode,
             logger=logger,
         )

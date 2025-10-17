@@ -414,3 +414,5 @@ temp/
 
 logs.db
 ethereum_private_key.txt
+
+minting_key.txt
