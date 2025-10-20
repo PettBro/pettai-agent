@@ -27,7 +27,7 @@ class PetTelegramBot:
         self,
         websocket_client: Optional[PettWebSocketClient] = None,
         decision_engine: Optional["PetDecisionEngine"] = None,
-        is_prod: bool = False,
+        is_prod: bool = True,
     ):
         """Initialize the Telegram bot with shared WebSocket and decision engine.
 
@@ -48,9 +48,15 @@ class PetTelegramBot:
         self.is_prod = is_prod
 
         # Initialize Telegram bot
-        self.token = os.environ.get("TELEGRAM_BOT_TOKEN")
+        self.token = (
+            os.environ.get("CONNECTION_CONFIGS_CONFIG_TELEGRAM_BOT_TOKEN") or ""
+        ).strip()
         if not self.token:
-            raise ValueError("TELEGRAM_BOT_TOKEN environment variable is required")
+            logger.warning(
+                "⚠️ CONNECTION_CONFIGS_CONFIG_TELEGRAM_BOT_TOKEN not provided - Telegram bot will not be available"
+            )
+            self.application = None
+            return
 
         self.application = Application.builder().token(self.token).build()
         self._setup_handlers()
@@ -151,6 +157,10 @@ class PetTelegramBot:
 
     async def run(self):
         """Start the Telegram bot."""
+        if not self.application:
+            logger.warning("⚠️ Telegram bot not initialized - skipping startup")
+            return
+
         logger.info("Starting PetBot with Pett.ai integration...")
         await self.application.initialize()
         await self.application.start()

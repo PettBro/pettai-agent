@@ -37,7 +37,7 @@ def setup_olas_logging() -> logging.Logger:
         datefmt=date_format,
         handlers=[
             # File handler for log.txt (required by Olas)
-            logging.FileHandler("log.txt", mode="a"),
+            # logging.FileHandler("log.txt", mode="a"),
             # Console handler for development
             logging.StreamHandler(sys.stdout),
         ],

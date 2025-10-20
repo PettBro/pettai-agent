@@ -146,6 +146,7 @@ class ReactServerManager:
             # Set environment variables for React dev server
             env = os.environ.copy()
             env["PORT"] = str(self.port)
+            env["HOST"] = "0.0.0.0"  # Bind to all interfaces for Docker access
             env["BROWSER"] = "none"  # Don't auto-open browser
             env["CI"] = "false"  # Disable CI mode warnings
             env["GENERATE_SOURCEMAP"] = "false"  # Suppress source map warnings

@@ -8,6 +8,8 @@ from typing import Any, Callable, Dict, List, Optional
 import websockets
 from dotenv import load_dotenv
 
+from .action_recorder import ActionRecorder
+
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
@@ -47,7 +49,7 @@ class PettWebSocketClient:
             (
                 "wss://ws.pett.ai"
                 if os.getenv("NODE_ENV") == "production"
-                else "ws://localhost:3005"
+                else "wss://ws.pett.ai"
             ),
         ),
         privy_token: Optional[str] = None,
@@ -78,12 +80,42 @@ class PettWebSocketClient:
             logger.warning(
                 "Privy token not provided during initialization; authentication will be disabled until a token is set."
             )
+        self._action_recorder: Optional[ActionRecorder] = None
 
     def set_telemetry_recorder(
         self, recorder: Optional[Callable[[Dict[str, Any], bool, Optional[str]], None]]
     ) -> None:
         """Set a callback to record outgoing messages and outcomes."""
         self._telemetry_recorder = recorder
+
+    def set_action_recorder(self, recorder: Optional[ActionRecorder]) -> None:
+        """Attach the action recorder used for on-chain reporting."""
+        self._action_recorder = recorder
+
+    def _schedule_record_action(self, action_type: str, amount: int = 1) -> None:
+        """Schedule an asynchronous recordAction transaction if the recorder is available."""
+        if not self._action_recorder or not self._action_recorder.is_enabled:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop (e.g., during tests); skip recording.
+            return
+
+        task = loop.create_task(
+            self._action_recorder.record_action(action_type, amount)
+        )
+
+        def _handle_result(fut: asyncio.Future) -> None:
+            if fut.cancelled():
+                return
+            exc = fut.exception()
+            if exc:
+                logger.debug(
+                    "Action recorder task raised for %s: %s", action_type, exc
+                )
+
+        task.add_done_callback(_handle_result)
 
     def _generate_nonce(self) -> str:
         """Generate a simple random numeric nonce as a string."""
@@ -151,7 +183,10 @@ class PettWebSocketClient:
         """Update the stored Privy token without reconnecting."""
         token = (privy_token or "").strip()
         if not token:
-            logger.error("Attempted to set an empty Privy token")
+            logger.warning(
+                "⚠️ Attempted to set an empty Privy token - authentication will be disabled"
+            )
+            self.privy_token = ""
             return
         self.privy_token = token
         self._jwt_expired = False
@@ -176,8 +211,8 @@ class PettWebSocketClient:
 
     async def authenticate(self, timeout: int = 10) -> bool:
         """Default authentication using Privy token with timeout."""
-        if not self.privy_token:
-            logger.error("No Privy token available for authentication")
+        if not self.privy_token or not self.privy_token.strip():
+            logger.warning("⚠️ No Privy token available for authentication")
             return False
 
         return await self.authenticate_privy(self.privy_token, timeout)
@@ -260,6 +295,13 @@ class PettWebSocketClient:
         self, max_retries: int = 3, auth_timeout: int = 10
     ) -> bool:
         """Connect to WebSocket and authenticate using Privy token with retry logic."""
+        # Skip authentication if no privy token or empty token
+        if not self.privy_token or not self.privy_token.strip():
+            logger.warning(
+                "⚠️ No Privy token available - skipping authentication and retries"
+            )
+            return False
+
         for attempt in range(max_retries):
             try:
                 logger.info(f"🔄 Connection attempt {attempt + 1}/{max_retries}")
@@ -706,19 +748,31 @@ class PettWebSocketClient:
     # Pet action methods
     async def rub_pet(self) -> bool:
         """Rub the pet."""
-        return await self._send_message({"type": "RUB", "data": {}})
+        success = await self._send_message({"type": "RUB", "data": {}})
+        if success:
+            self._schedule_record_action("RUB")
+        return success
 
     async def shower_pet(self) -> bool:
         """Give the pet a shower."""
-        return await self._send_message({"type": "SHOWER", "data": {}})
+        success = await self._send_message({"type": "SHOWER", "data": {}})
+        if success:
+            self._schedule_record_action("SHOWER")
+        return success
 
     async def sleep_pet(self) -> bool:
         """Put the pet to sleep."""
-        return await self._send_message({"type": "SLEEP", "data": {}})
+        success = await self._send_message({"type": "SLEEP", "data": {}})
+        if success:
+            self._schedule_record_action("SLEEP")
+        return success
 
     async def throw_ball(self) -> bool:
         """Throw a ball for the pet."""
-        return await self._send_message({"type": "THROWBALL", "data": {}})
+        success = await self._send_message({"type": "THROWBALL", "data": {}})
+        if success:
+            self._schedule_record_action("THROWBALL")
+        return success
 
     async def use_consumable(self, consumable_id: str) -> bool:
         """Use a consumable item."""
@@ -734,6 +788,7 @@ class PettWebSocketClient:
         )
 
         if success:
+            self._schedule_record_action("CONSUMABLES_USE")
             return True
 
         # Attempt auto-buy on "not found" error then retry once
@@ -757,10 +812,13 @@ class PettWebSocketClient:
                 return False
 
             # Retry once after successful buy
+            self._schedule_record_action("CONSUMABLES_BUY")
             logger.info(f"🔁 Retrying use of {consumable_id} after purchase")
             retry_success, _ = await self._send_and_wait(
                 "CONSUMABLES_USE", {"params": {"foodId": consumable_id}}, timeout=15
             )
+            if retry_success:
+                self._schedule_record_action("CONSUMABLES_USE")
             return bool(retry_success)
 
         return False
@@ -790,6 +848,8 @@ class PettWebSocketClient:
             {"params": {"foodId": consumable_id.strip(), "amount": amount}},
             timeout=15,
         )
+        if success:
+            self._schedule_record_action("CONSUMABLES_BUY", amount)
         return bool(success)
 
     async def get_consumables(self) -> bool:
@@ -946,6 +1006,8 @@ class PettWebSocketClient:
             {"params": {"accessoryId": accessory_id.strip()}},
             timeout=10,
         )
+        if success:
+            self._schedule_record_action("ACCESSORY_USE")
         return bool(success)
 
     async def buy_accessory(self, accessory_id: str) -> bool:
@@ -959,6 +1021,8 @@ class PettWebSocketClient:
             {"params": {"accessoryId": accessory_id.strip()}},
             timeout=10,
         )
+        if success:
+            self._schedule_record_action("ACCESSORY_BUY")
         return bool(success)
 
     async def ai_search(self, prompt: str, timeout: int = 30) -> str:
@@ -1032,12 +1096,16 @@ class PettWebSocketClient:
         """Check pet into hotel."""
         logger.info("[TOOL] Checking pet into hotel")
         success, _ = await self._send_and_wait("HOTEL_CHECK_IN", {}, timeout=10)
+        if success:
+            self._schedule_record_action("HOTEL_CHECK_IN")
         return bool(success)
 
     async def hotel_check_out(self) -> bool:
         """Check pet out of hotel."""
         logger.info("[TOOL] Checking pet out of hotel")
         success, _ = await self._send_and_wait("HOTEL_CHECK_OUT", {}, timeout=10)
+        if success:
+            self._schedule_record_action("HOTEL_CHECK_OUT")
         return bool(success)
 
     async def buy_hotel(self, tier: str) -> bool:
@@ -1049,6 +1117,8 @@ class PettWebSocketClient:
         success, _ = await self._send_and_wait(
             "HOTEL_BUY", {"params": {"tier": tier.strip()}}, timeout=10
         )
+        if success:
+            self._schedule_record_action("HOTEL_BUY")
         return bool(success)
 
     async def get_office(self) -> bool:

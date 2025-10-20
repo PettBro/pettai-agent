@@ -17,7 +17,13 @@ import aiohttp
 if TYPE_CHECKING:
     from .pett_agent import PettAgent
 
-from .react_server_manager import ReactServerManager
+from .action_recorder import (
+    ActionRecorder,
+    RecorderConfig,
+    DEFAULT_ACTION_REPO_ADDRESS,
+)
+import subprocess
+import mimetypes
 
 
 class OlasInterface:
@@ -54,10 +60,7 @@ class OlasInterface:
             self.env_vars["PRIVY_TOKEN"] = self.privy_token_preview
 
         # WebSocket and Pet connection status
-        self.websocket_url: str = (
-            self.get_env_var("WEBSOCKET_URL", "ws://localhost:3005")
-            or "ws://localhost:3005"
-        )
+        self.websocket_url: str = self.env_vars.get("WEBSOCKET_URL", "wss://ws.pett.ai")
         self.websocket_connected: bool = False
         self.websocket_authenticated: bool = False
         self.pet_connected: bool = False
@@ -85,9 +88,13 @@ class OlasInterface:
         self.sent_messages_history: Deque[Dict[str, Any]] = deque(maxlen=100)
         self.openai_prompts_history: Deque[Dict[str, Any]] = deque(maxlen=50)
 
-        # React development server
-        self.react_server: Optional[ReactServerManager] = None
+        # React static build directory
+        self.react_build_dir: Optional[Path] = None
         self.react_enabled: bool = False
+
+        # Optional on-chain action recorder
+        self.action_recorder: Optional[ActionRecorder] = None
+        self._initialise_action_recorder()
 
         self.logger.info("🔧 Olas SDK Interface initialized")
 
@@ -116,14 +123,10 @@ class OlasInterface:
         ]
 
         for var in olas_env_vars:
-            value = os.environ.get(var)
-            if value:
-                env_vars[var] = value
-                # Also check with CONNECTION_CONFIGS_CONFIG_ prefix
-                prefixed_var = f"CONNECTION_CONFIGS_CONFIG_{var}"
-                prefixed_value = os.environ.get(prefixed_var)
-                if prefixed_value:
-                    env_vars[prefixed_var] = prefixed_value
+            prefixed_var = f"CONNECTION_CONFIGS_CONFIG_{var}"
+            prefixed_value = os.environ.get(prefixed_var)
+            if prefixed_value:
+                env_vars[var] = prefixed_value
 
         self.logger.info(f"📋 Loaded {len(env_vars)} environment variables")
         return env_vars
@@ -146,7 +149,7 @@ class OlasInterface:
     def get_env_var(self, name: str, default: Optional[str] = None) -> Optional[str]:
         """Get environment variable with Olas SDK prefix handling."""
         # Try direct name first
-        value = os.environ.get(name, default)
+        value = self.env_vars.get(name, default)
         if value:
             return value
 
@@ -346,6 +349,68 @@ class OlasInterface:
             return False
         return True
 
+    def _resolve_rpc_url(self) -> Optional[str]:
+        """Attempt to resolve the RPC URL for action recording."""
+
+        def _lookup_env(name: str, include_prefixed: bool) -> Optional[str]:
+            candidates = [name]
+            if include_prefixed:
+                candidates.append(f"CONNECTION_CONFIGS_CONFIG_{name}")
+            for candidate in candidates:
+                value = os.environ.get(candidate)
+                if value and value.strip():
+                    return value.strip()
+            return None
+
+        candidate_env_vars = [
+            ("ACTION_REPO_RPC_URL", True),
+            ("BASE_LEDGER_RPC", True),
+            ("CONNECTION_LEDGER_CONFIG_LEDGER_APIS_GNOSIS_ADDRESS", False),
+            ("CONNECTION_LEDGER_CONFIG_LEDGER_APIS_ETHEREUM_ADDRESS", False),
+            ("CONNECTION_LEDGER_CONFIG_LEDGER_APIS_BASE_ADDRESS", False),
+            ("ETH_RPC_URL", True),
+            ("RPC_URL", True),
+        ]
+
+        for env_name in candidate_env_vars:
+            value = _lookup_env(env_name[0], include_prefixed=env_name[1])
+            if value:
+                return value
+        return None
+
+    def _initialise_action_recorder(self) -> None:
+        """Initialise the optional action recorder using the agent's credentials."""
+        private_key = (self.ethereum_private_key or "").strip()
+        if not private_key:
+            self.logger.info(
+                "Skipping action recorder initialisation: ethereum private key not available"
+            )
+            return
+
+        rpc_url = self._resolve_rpc_url()
+        if not rpc_url:
+            self.logger.info(
+                "Skipping action recorder initialisation: RPC endpoint not configured"
+            )
+            return
+
+        contract_address_env = os.environ.get("ACTION_REPO_CONTRACT_ADDRESS")
+        contract_address = (contract_address_env or DEFAULT_ACTION_REPO_ADDRESS).strip()
+        try:
+            config = RecorderConfig(
+                private_key=private_key,
+                rpc_url=rpc_url,
+                contract_address=contract_address or DEFAULT_ACTION_REPO_ADDRESS,
+            )
+            self.action_recorder = ActionRecorder(config=config, logger=self.logger)
+        except Exception as exc:
+            self.logger.error(f"Failed to initialise action recorder: {exc}")
+            self.action_recorder = None
+
+    def get_action_recorder(self) -> Optional[ActionRecorder]:
+        """Return the configured action recorder, if available."""
+        return self.action_recorder
+
     async def _health_check_handler(self, request: web.Request) -> web.Response:
         """Handle health check endpoint (Olas SDK requirement)."""
         seconds_since_transition = self.get_seconds_since_last_transition()
@@ -515,8 +580,6 @@ class OlasInterface:
         self.logger.info("🛑 Exiting agent")
         if self.agent:
             await self.agent.shutdown()
-        if self.react_server:
-            await self.react_server.stop_dev_server()
         if self.app:
             await self.app.shutdown()
         if self.runner:
@@ -526,62 +589,63 @@ class OlasInterface:
         # sys.exit(0)
         return web.json_response({"status": "ok"})
 
-    async def _react_proxy_handler(self, request: web.Request) -> web.Response:
-        """Proxy requests to React dev server."""
-        if not self.react_server or not self.react_server.is_running:
-            return web.json_response(
-                {"error": "React dev server not running"}, status=503
-            )
+    async def _serve_static_file(self, request: web.Request) -> web.Response:
+        """Serve static files from React build directory."""
+        if not self.react_build_dir or not self.react_build_dir.exists():
+            return web.json_response({"error": "React build not available"}, status=503)
 
         try:
-            # Build target URL
-            target_url = f"http://localhost:{self.react_server.port}{request.path_qs}"
-            # Normalize method and payload for proxying
-            method = request.method.upper()
-            forward_method = "GET" if method == "HEAD" else method
-            payload = None
-            if forward_method not in ("GET", "HEAD"):
-                payload = await request.read()
+            # Get the file path from the URL
+            file_path = self.react_build_dir / request.path.lstrip("/")
 
-            # Forward the request with timeout
-            timeout = aiohttp.ClientTimeout(total=30)  # 30 second timeout
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.request(
-                    method=forward_method,
-                    url=target_url,
-                    headers={
-                        k: v for k, v in request.headers.items() if k.lower() != "host"
-                    },
-                    data=payload,
-                ) as resp:
-                    # Return the response
-                    if method == "HEAD":
-                        # For HEAD, return metadata only with empty body
-                        return web.Response(
-                            status=resp.status,
-                            headers={
-                                k: v
-                                for k, v in resp.headers.items()
-                                if k.lower() not in ["transfer-encoding", "connection"]
-                            },
-                        )
-                    else:
-                        body = await resp.read()
-                        return web.Response(
-                            body=body,
-                            status=resp.status,
-                            headers={
-                                k: v
-                                for k, v in resp.headers.items()
-                                if k.lower() not in ["transfer-encoding", "connection"]
-                            },
-                        )
-        except asyncio.TimeoutError:
-            self.logger.error(f"⏱️ Proxy timeout after 30s for {request.path}")
-            return web.json_response({"error": "React dev server timeout"}, status=504)
+            # Security check: ensure the path is within build directory
+            try:
+                file_path = file_path.resolve()
+                self.react_build_dir.resolve()
+                if not str(file_path).startswith(str(self.react_build_dir.resolve())):
+                    return web.Response(status=403, text="Forbidden")
+            except Exception:
+                return web.Response(status=403, text="Forbidden")
+
+            # Check if file exists
+            if not file_path.is_file():
+                return web.Response(status=404, text="Not Found")
+
+            # Determine content type
+            content_type, _ = mimetypes.guess_type(str(file_path))
+            if not content_type:
+                content_type = "application/octet-stream"
+
+            # Read and return file
+            with open(file_path, "rb") as f:
+                content = f.read()
+
+            return web.Response(body=content, content_type=content_type)
+
         except Exception as e:
-            self.logger.error(f"❌ Error proxying to React: {e}")
-            return web.json_response({"error": str(e)}, status=500)
+            self.logger.error(f"❌ Error serving static file {request.path}: {e}")
+            return web.Response(status=500, text="Internal Server Error")
+
+    async def _serve_react_app(self, request: web.Request) -> web.Response:
+        """Serve React app index.html for SPA routing."""
+        if not self.react_build_dir or not self.react_build_dir.exists():
+            return web.json_response({"error": "React build not available"}, status=503)
+
+        try:
+            index_path = self.react_build_dir / "index.html"
+
+            if not index_path.is_file():
+                return web.Response(status=404, text="index.html not found")
+
+            # Read and return index.html
+            with open(index_path, "rb") as f:
+                content = f.read()
+
+            return web.Response(body=content, content_type="text/html")
+
+        except Exception as e:
+            self.logger.error(f"❌ Error serving React app: {e}")
+            return web.Response(status=500, text="Internal Server Error")
 
     async def _login_api_handler(self, request: web.Request) -> web.Response:
         """Handle login API requests from React frontend."""
@@ -642,6 +706,128 @@ class OlasInterface:
 
         return web.json_response({"error": "Method not allowed"}, status=405)
 
+    def _command_exists(self, command: str) -> bool:
+        """Check if a command exists in PATH."""
+        try:
+            subprocess.run(
+                ["which", command],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+            )
+            return True
+        except subprocess.CalledProcessError:
+            return False
+
+    async def _ensure_npm_dependencies(self, react_dir: Path) -> bool:
+        """Install npm/yarn dependencies if needed."""
+        try:
+            node_modules = react_dir / "node_modules"
+            package_json = react_dir / "package.json"
+
+            if not package_json.exists():
+                self.logger.error(f"❌ No package.json found in {react_dir}")
+                return False
+
+            # Check if node_modules exists
+            if node_modules.exists():
+                self.logger.info("✅ node_modules already exists, skipping install")
+                return True
+
+            self.logger.info("📦 Installing npm dependencies...")
+
+            # Check for yarn.lock or package-lock.json to determine package manager
+            use_yarn = (react_dir / "yarn.lock").exists()
+
+            # Determine which package manager to use
+            install_cmd = None
+            if use_yarn and self._command_exists("yarn"):
+                install_cmd = ["yarn", "install"]
+                self.logger.info("Using yarn for installation")
+            elif self._command_exists("npm"):
+                install_cmd = ["npm", "install"]
+                self.logger.info("Using npm for installation")
+            else:
+                self.logger.error("❌ Neither yarn nor npm found in PATH")
+                return False
+
+            # Run installation
+            process = await asyncio.create_subprocess_exec(
+                *install_cmd,
+                cwd=str(react_dir),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            stdout, stderr = await process.communicate()
+
+            if process.returncode == 0:
+                self.logger.info("✅ Dependencies installed successfully")
+                return True
+            else:
+                self.logger.error(
+                    f"❌ Dependency installation failed: {stderr.decode()}"
+                )
+                return False
+
+        except Exception as e:
+            self.logger.error(f"❌ Error installing dependencies: {e}")
+            return False
+
+    async def build_react_app(self, react_dir: Path) -> bool:
+        """Build React app to static files."""
+        try:
+            if not react_dir.exists():
+                self.logger.warning(f"⚠️ React directory not found: {react_dir}")
+                return False
+
+            package_json = react_dir / "package.json"
+            if not package_json.exists():
+                self.logger.error(f"❌ No package.json found in {react_dir}")
+                return False
+
+            build_dir = react_dir / "build"
+
+            # Check if build already exists and is recent
+            if build_dir.exists() and (build_dir / "index.html").exists():
+                self.logger.info("✅ React build already exists, skipping build")
+                return True
+
+            # Ensure dependencies are installed
+            if not await self._ensure_npm_dependencies(react_dir):
+                return False
+
+            self.logger.info("📦 Building React app...")
+
+            # Check for yarn.lock or package-lock.json to determine package manager
+            use_yarn = (react_dir / "yarn.lock").exists()
+            build_cmd = (
+                ["yarn", "build"]
+                if use_yarn and self._command_exists("yarn")
+                else ["npm", "run", "build"]
+            )
+
+            # Run build command
+            process = await asyncio.create_subprocess_exec(
+                *build_cmd,
+                cwd=str(react_dir),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            stdout, stderr = await process.communicate()
+
+            if process.returncode == 0:
+                self.logger.info("✅ React app built successfully")
+                return True
+            else:
+                self.logger.error(f"❌ React build failed: {stderr.decode()}")
+                return False
+
+        except Exception as e:
+            self.logger.error(f"❌ Error building React app: {e}")
+            return False
+
     async def start_web_server(
         self, port: int = 8716, enable_react: bool = True
     ) -> None:
@@ -649,20 +835,18 @@ class OlasInterface:
         try:
             self.app = web.Application()
 
-            # Try to start React dev server if enabled
+            # Try to build and serve React static files if enabled
             if enable_react:
                 react_dir = Path(__file__).parent.parent / "frontend"
                 if react_dir.exists():
-                    self.logger.info("🎨 Starting React development server...")
-                    self.react_server = ReactServerManager(
-                        react_dir=str(react_dir), port=3000
-                    )
-                    react_started = await self.react_server.start_dev_server()
-                    if react_started:
+                    self.logger.info("🎨 Building React frontend...")
+                    react_built = await self.build_react_app(react_dir)
+                    if react_built:
+                        self.react_build_dir = react_dir / "build"
                         self.react_enabled = True
-                        self.logger.info("✅ React dev server started successfully")
+                        self.logger.info("✅ React build available for serving")
                     else:
-                        self.logger.warning("⚠️ React dev server failed to start")
+                        self.logger.warning("⚠️ React build failed")
                 else:
                     self.logger.info(f"ℹ️ No React frontend found at {react_dir}")
 
@@ -678,20 +862,22 @@ class OlasInterface:
             self.app.router.add_get("/exit", self._exit_handler)
 
             self.logger.debug(
-                f"🔄 Adding React proxy routes: {self.react_enabled} {self.react_server}"
+                f"🔄 Adding React static file routes: {self.react_enabled}"
             )
-            # Add React proxy routes (if enabled)
-            if self.react_enabled and self.react_server:
-                # Proxy /login and other React routes
-                self.app.router.add_get("/login", self._react_proxy_handler)
-                self.app.router.add_get("/login/{tail:.*}", self._react_proxy_handler)
+            # Add React static file routes (if enabled)
+            if self.react_enabled and self.react_build_dir:
+                # Serve static files
+                self.app.router.add_get("/static/{tail:.*}", self._serve_static_file)
+                self.app.router.add_get("/assets/{tail:.*}", self._serve_static_file)
 
-                # Proxy static files
-                self.app.router.add_get("/static/{tail:.*}", self._react_proxy_handler)
-                self.app.router.add_get("/assets/{tail:.*}", self._react_proxy_handler)
+                # Serve React routes (SPA fallback to index.html)
+                self.app.router.add_get("/login", self._serve_react_app)
+                self.app.router.add_get("/login/{tail:.*}", self._serve_react_app)
+                self.app.router.add_get("/dashboard", self._serve_react_app)
+                self.app.router.add_get("/dashboard/{tail:.*}", self._serve_react_app)
 
-                # Proxy root to React
-                self.app.router.add_get("/", self._react_proxy_handler)
+                # Root serves React
+                self.app.router.add_get("/", self._serve_react_app)
             else:
                 # Fallback to JSON health if React not available
                 self.app.router.add_get("/", self._health_check_handler)
@@ -700,13 +886,16 @@ class OlasInterface:
             self.runner = web.AppRunner(self.app, access_log=None)
             await self.runner.setup()
 
-            self.site = web.TCPSite(self.runner, "localhost", port)
+            # Bind to 0.0.0.0 to allow access from outside Docker container
+            self.site = web.TCPSite(self.runner, "0.0.0.0", port)
             await self.site.start()
 
-            self.logger.info(f"🌐 Web server started on http://localhost:{port}")
+            self.logger.info(
+                f"🌐 Web server started on http://0.0.0.0:{port} (access via http://localhost:{port})"
+            )
             if self.react_enabled:
                 self.logger.info(
-                    f"🎨 React App proxy active at http://localhost:{port}/ (Dashboard at /dashboard)"
+                    f"🎨 React App available at http://localhost:{port}/ (Dashboard at /dashboard)"
                 )
                 self.logger.info(f"🏥 Health API: http://localhost:{port}/api/health")
             else:
@@ -719,10 +908,6 @@ class OlasInterface:
     async def stop_web_server(self) -> None:
         """Stop the web server."""
         try:
-            # Stop React dev server first
-            if self.react_server:
-                await self.react_server.stop_dev_server()
-
             if self.site:
                 await self.site.stop()
             if self.runner:
@@ -737,8 +922,7 @@ class OlasInterface:
         log_entry = f"[{timestamp}] [{level}] [agent] {message}\n"
 
         try:
-            with open("log.txt", "a") as f:
-                f.write(log_entry)
+            print(log_entry)
         except Exception as e:
             self.logger.error(f"Failed to write to log.txt: {e}")
 

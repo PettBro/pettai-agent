@@ -1,10 +1,7 @@
 {
     "dev": {
-        "agent/pettai/pett_agent/0.1.0": "bafybeiflrnzs4hxbo77k3opnplmq3keyajzfqk3v4zl7pwphsxmeflgz5m",
-        "service/pettai/pett_agent/0.1.0": "bafybeig6d5be23lake5driqdpgwth7222dzawnzhamubj6kpju7k2o2xze"
+        "agent/pettaidev/pett_agent/0.1.0": "bafybeifb4opp4ej2f7msst54exbhh5egv5w2nmipgb5ul5t3a4jwtfec6m",
+        "service/pettaidev/pett_agent/0.1.0": "bafybeidzw5pcgtlo6rsfmpvffxjy4iwufr2etjfffwncozvslcqqucc43y"
     },
-    "third_party": {
-        "agent/pettaidev/pett_agent/0.1.0": "bafybeicbxseyuc7bcrawzemdqnzbqeb3qle65uijyjofgxtrrwk2illvfq",
-        "service/pettaidev/pett_agent/0.1.0": "bafybeia5bqxpzyoqftf227dfde5t3vpvwsfy7ip3uf5tjchkyzxajjv7dq"
-    }
+    "third_party": {}
 }

@@ -87,7 +87,7 @@ function App() {
           process.env.REACT_APP_PRIVY_APP_ID || 'cm7gev5s600vbk2lsj6e1e9g7'
         }
         config={{
-          loginMethods: ['email', 'wallet'],
+          loginMethods: ['telegram', 'email', 'wallet'],
           appearance: {
             theme: 'light',
             accentColor: '#4A90E2',

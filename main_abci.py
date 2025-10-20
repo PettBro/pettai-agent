@@ -75,7 +75,9 @@ class ABCIPettAgent:
             logger.info("✅ Connected to Pett.ai WebSocket")
 
             # Initialize Telegram bot if token is available
-            telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+            telegram_token = os.environ.get(
+                "CONNECTION_CONFIGS_CONFIG_TELEGRAM_BOT_TOKEN"
+            )
             if telegram_token:
                 logger.info("🤖 Initializing Telegram bot...")
                 self.telegram_bot = PetTelegramBot()

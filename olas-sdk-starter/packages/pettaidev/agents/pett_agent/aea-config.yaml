@@ -3,7 +3,7 @@ author: pettaidev
 version: 0.1.0
 license: Apache-2.0
 description: Pett.ai autonomous agent for virtual pet management on Olas SDK.
-aea_version: '>=1.0.0, <2.0.0'
+aea_version: '>=1.0.0, <3.0.0'
 fingerprint: {}
 fingerprint_ignore_patterns: []
 connections: []

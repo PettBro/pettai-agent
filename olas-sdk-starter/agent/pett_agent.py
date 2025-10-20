@@ -42,11 +42,11 @@ class PettAgent:
         self.decision_engine: Optional[PetDecisionEngine] = None
 
         # Configuration
-        self.telegram_token = self.olas.get_env_var("TELEGRAM_BOT_TOKEN")
-        self.privy_token = self.olas.get_env_var("PRIVY_TOKEN")
-        self.websocket_url = self.olas.get_env_var(
-            "WEBSOCKET_URL", "ws://localhost:3005"
-        )
+        self.telegram_token = (
+            self.olas.get_env_var("TELEGRAM_BOT_TOKEN") or ""
+        ).strip()
+        self.privy_token = (self.olas.get_env_var("PRIVY_TOKEN") or "").strip()
+        self.websocket_url = self.olas.get_env_var("WEBSOCKET_URL", "wss://ws.pett.ai")
 
         self.logger.info("🐾 Pett Agent initialized")
         # Action scheduler configuration
@@ -108,6 +108,12 @@ class PettAgent:
                 self.websocket_client = PettWebSocketClient(
                     websocket_url=self.websocket_url
                 )
+                try:
+                    self.websocket_client.set_action_recorder(
+                        self.olas.get_action_recorder()
+                    )
+                except Exception:
+                    pass
                 # Wire outgoing message telemetry to Olas
                 try:
 
@@ -134,10 +140,12 @@ class PettAgent:
                     )
 
                     # Set OpenAI API key for decision engine
-                    openai_key = os.getenv("OPENAI_API_KEY")
+                    openai_key = self.olas.get_env_var("OPENAI_API_KEY")
                     if openai_key:
                         os.environ["OPENAI_API_KEY"] = openai_key
-                        self.logger.info("🔑 OpenAI API key configured")
+                        self.logger.info(
+                            f"🔑 OpenAI API key configured: {openai_key[:5]}...{openai_key[-5:]}"
+                        )
                     else:
                         self.logger.warning(
                             "⚠️ No OpenAI API key found - AI features will be limited"
@@ -226,6 +234,12 @@ class PettAgent:
                 self.websocket_client = PettWebSocketClient(
                     websocket_url=self.websocket_url
                 )
+                try:
+                    self.websocket_client.set_action_recorder(
+                        self.olas.get_action_recorder()
+                    )
+                except Exception:
+                    pass
                 try:
 
                     def _recorder_msg(
@@ -387,6 +401,12 @@ class PettAgent:
                 websocket_url=self.websocket_url, privy_token=token
             )
             try:
+                self.websocket_client.set_action_recorder(
+                    self.olas.get_action_recorder()
+                )
+            except Exception:
+                pass
+            try:
 
                 def _recorder_msg2(
                     m: Dict[str, Any], success: bool, err: Optional[str]
@@ -398,6 +418,12 @@ class PettAgent:
                 pass
         else:
             self.websocket_client.set_privy_token(token)
+            try:
+                self.websocket_client.set_action_recorder(
+                    self.olas.get_action_recorder()
+                )
+            except Exception:
+                pass
 
         connected = await self.websocket_client.refresh_token_and_reconnect(
             token, max_retries=max_retries, auth_timeout=auth_timeout
@@ -416,7 +442,7 @@ class PettAgent:
         self.olas.update_health_status("running", is_transitioning=False)
 
         # Ensure OpenAI API key is set
-        openai_key = self.olas.get_env_var("OPEN_API_KEY")
+        openai_key = self.olas.get_env_var("OPENAI_API_KEY")
         if openai_key:
             os.environ["OPENAI_API_KEY"] = openai_key
 
@@ -588,6 +614,11 @@ class PettAgent:
                             self.logger.debug(f"Pet tools error: {e}")
                             self.olas.update_pet_status(False, "Error")
                             self.olas.update_pet_data(None)
+                    else:
+                        self.logger.error("❌ No WebSocket client or PettTools found")
+                        self.olas.update_pet_status(False, "Disconnected")
+                        self.olas.update_pet_data(None)
+
                 # Idle sleep; keep modest to allow shutdown responsiveness
                 await asyncio.sleep(5)
 

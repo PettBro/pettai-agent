@@ -2,21 +2,28 @@ name: pett_agent
 author: pettaidev
 version: 0.1.0
 description: Pett.ai autonomous agent service for virtual pet management.
-aea_version: '>=1.0.0, <2.0.0'
+aea_version: '>=1.0.0, <3.0.0'
 license: Apache-2.0
 fingerprint: {}
 fingerprint_ignore_patterns: []
-agent: pettai/pett_agent:0.1.0:bafybeiflrnzs4hxbo77k3opnplmq3keyajzfqk3v4zl7pwphsxmeflgz5m
+agent: pettaidev/pett_agent:0.1.0:bafybeifb4opp4ej2f7msst54exbhh5egv5w2nmipgb5ul5t3a4jwtfec6m
 number_of_agents: 1
-deployment: {}
+deployment:
+  agent:
+    ports:
+      0:
+        8716: 8716
+    volumes:
+      ./data: /data
+dependencies: {}
 ---
 public_id: valory/ledger:0.19.0
 type: connection
 config:
   ledger_apis:
-    gnosis:
-      address: ${GNOSIS_LEDGER_RPC:str:http://localhost:8545}
-      chain_id: ${GNOSIS_CHAIN_ID:int:100}
+    base:
+      address: ${BASE_LEDGER_RPC:str:https://base.llamarpc.com}
+      chain_id: ${BASE_CHAIN_ID:int:8453}
       poa_chain: ${IS_POA_CHAIN:bool:false}
       default_gas_price_strategy: ${DEFAULT_GAS_PRICE_STRATEGY:str:eip1559}
 ---

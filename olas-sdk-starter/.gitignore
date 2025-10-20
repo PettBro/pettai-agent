@@ -416,3 +416,6 @@ logs.db
 ethereum_private_key.txt
 
 minting_key.txt
+bin/
+
+agent_key.txt
