@@ -11,7 +11,7 @@ import asyncio
 import logging
 import threading
 from dataclasses import dataclass
-from typing import Dict, Optional, Set
+from typing import Dict, Optional, Set, Any
 
 from eth_account.signers.local import LocalAccount
 from web3 import Web3
@@ -115,6 +115,29 @@ class ActionRecorder:
         self._initialise()
 
     @property
+    def contract_address(self) -> Optional[str]:
+        """Return the configured contract address, if available."""
+        try:
+            if self._contract is not None:
+                return self._contract.address  # type: ignore[attr-defined]
+        except Exception:
+            pass
+        return getattr(self._config, "contract_address", None)
+
+    @property
+    def rpc_url(self) -> Optional[str]:
+        """Return the configured RPC URL, if available."""
+        return getattr(self._config, "rpc_url", None)
+
+    @property
+    def account_address(self) -> Optional[str]:
+        """Return the agent account address, if available."""
+        try:
+            return self._account.address if self._account else None  # type: ignore[union-attr]
+        except Exception:
+            return None
+
+    @property
     def is_enabled(self) -> bool:
         """Return True when the recorder is ready to emit transactions."""
         return self._enabled
@@ -183,6 +206,9 @@ class ActionRecorder:
 
         action_key = (action_name or "").upper()
         action_id = self._action_type_ids.get(action_key)
+        self._logger.info(
+            f"🧾 Scheduling on-chain recordAction: type={action_key} amount={int(amount)} account={self._account._address}"
+        )
         if action_id is None:
             # Remember unknown actions to avoid repeating log spam.
             if action_key and action_key not in self._unknown_actions:
@@ -195,6 +221,18 @@ class ActionRecorder:
                 f"Ignoring recordAction for {action_key} with non-positive amount {amount}"
             )
             return
+
+        # Log that we are enqueueing an on-chain recordAction
+        try:
+            addr_preview = "unknown"
+            if self._account and getattr(self._account, "address", None):
+                addr = self._account.address
+                addr_preview = f"{addr[:6]}...{addr[-4:]}"
+            self._logger.info(
+                f"On-chain recordAction queued: action={action_key} amount={int(amount)} agent={addr_preview}"
+            )
+        except Exception:
+            pass
 
         loop = asyncio.get_running_loop()
         try:
@@ -241,22 +279,23 @@ class ActionRecorder:
                 self._apply_fee_parameters(tx_params)
                 tx_params["chainId"] = w3.eth.chain_id
 
-                self._logger.debug(
-                    f"Transaction parameters: {account.address}, {action_bytes}, {amount}, {tx_params}"
+                # Info-level pre-submit log
+                self._logger.info(
+                    f"Submitting recordAction: action={action_key} amount={amount} from={account.address} nonce={nonce}"
                 )
                 txn = contract.functions.recordAction(
                     account.address, action_bytes, amount
-                ).build_transaction(tx_params)
+                ).build_transaction(
+                    tx_params
+                )  # type: ignore[arg-type]
 
                 signed = w3.eth.account.sign_transaction(txn, private_key=private_key)
                 tx_hash = w3.eth.send_raw_transaction(signed.rawTransaction)
                 self._nonce_cache = nonce + 1
 
-                self._logger.debug(
-                    "Submitted recordAction for %s (amount=%s) tx=%s",
-                    action_key,
-                    amount,
-                    tx_hash.hex(),
+                # Info-level confirmation with tx hash for operator visibility
+                self._logger.info(
+                    f"recordAction submitted: action={action_key} amount={amount} tx={tx_hash.hex()}"
                 )
         except ValueError as exc:
             self._handle_value_error(exc)
@@ -288,13 +327,15 @@ class ActionRecorder:
         account_address: str,
         action_bytes: bytes,
         amount: int,
-        tx_params: Dict[str, int],
+        tx_params: Dict[str, Any],
     ) -> Optional[int]:
         """Estimate gas usage with a conservative buffer."""
         try:
             gas_estimate = contract.functions.recordAction(
                 account_address, action_bytes, amount
-            ).estimate_gas(tx_params)
+            ).estimate_gas(
+                tx_params
+            )  # type: ignore[arg-type]
         except Exception as exc:
             self._logger.debug(f"Gas estimation failed for recordAction: {exc}")
             return None
@@ -303,7 +344,7 @@ class ActionRecorder:
         buffered = int(gas_estimate * 1.2)
         return max(buffered, 150_000)
 
-    def _apply_fee_parameters(self, tx_params: Dict[str, int]) -> None:
+    def _apply_fee_parameters(self, tx_params: Dict[str, Any]) -> None:
         """Populate the fee parameters according to the network capabilities."""
         if self._w3 is None:
             raise RuntimeError(

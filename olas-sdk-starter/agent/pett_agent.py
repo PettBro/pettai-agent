@@ -28,10 +28,16 @@ class PettAgent:
     LOW_THRESHOLD = 30.0
     LOW_ENERGY_THRESHOLD = 20.0
 
-    def __init__(self, olas_interface: OlasInterface, logger: logging.Logger):
+    def __init__(
+        self,
+        olas_interface: OlasInterface,
+        logger: logging.Logger,
+        is_production: bool = False,
+    ):
         """Initialize the Pett Agent."""
         self.olas = olas_interface
         self.logger = logger
+        self.is_production = is_production
         self.running = False
         self.olas.register_agent(self)
 
@@ -50,7 +56,9 @@ class PettAgent:
 
         self.logger.info("🐾 Pett Agent initialized")
         # Action scheduler configuration
-        self.action_interval_minutes: float = 30  # should be 30 minutes in prod
+        self.action_interval_minutes: float = (
+            30 if is_production else 0.5
+        )  # should be 30 minutes in prod
         self.next_action_at: Optional[datetime] = None
         self.last_action_at: Optional[datetime] = None
 
@@ -112,7 +120,28 @@ class PettAgent:
                     self.websocket_client.set_action_recorder(
                         self.olas.get_action_recorder()
                     )
-                except Exception:
+                    try:
+                        recorder = self.olas.get_action_recorder()
+                        if recorder and recorder.is_enabled:
+                            addr_preview = "unknown"
+                            if recorder.account_address:
+                                aa = recorder.account_address
+                                addr_preview = f"{aa[:6]}...{aa[-4:]}"
+                            self.logger.info(
+                                "🧾 On-chain action recorder ENABLED: contract=%s rpc=%s agent=%s",
+                                recorder.contract_address,
+                                recorder.rpc_url,
+                                addr_preview,
+                            )
+                        else:
+                            self.logger.info(
+                                "🧾 On-chain action recorder DISABLED (missing key or RPC)"
+                            )
+                    except Exception as e:
+                        self.logger.error("❌ Failed to set action recorder: %s", e)
+                        pass
+                except Exception as e:
+                    self.logger.error("❌ Failed to set action recorder: %s", e)
                     pass
                 # Wire outgoing message telemetry to Olas
                 try:
@@ -238,6 +267,25 @@ class PettAgent:
                     self.websocket_client.set_action_recorder(
                         self.olas.get_action_recorder()
                     )
+                    try:
+                        recorder2 = self.olas.get_action_recorder()
+                        if recorder2 and recorder2.is_enabled:
+                            addr_preview2 = "unknown"
+                            if recorder2.account_address:
+                                aa2 = recorder2.account_address
+                                addr_preview2 = f"{aa2[:6]}...{aa2[-4:]}"
+                            self.logger.info(
+                                "🧾 On-chain action recorder ENABLED: contract=%s rpc=%s agent=%s",
+                                recorder2.contract_address,
+                                recorder2.rpc_url,
+                                addr_preview2,
+                            )
+                        else:
+                            self.logger.info(
+                                "🧾 On-chain action recorder DISABLED (missing key or RPC)"
+                            )
+                    except Exception:
+                        pass
                 except Exception:
                     pass
                 try:
@@ -404,6 +452,25 @@ class PettAgent:
                 self.websocket_client.set_action_recorder(
                     self.olas.get_action_recorder()
                 )
+                try:
+                    recorder3 = self.olas.get_action_recorder()
+                    if recorder3 and recorder3.is_enabled:
+                        addr_preview3 = "unknown"
+                        if recorder3.account_address:
+                            aa3 = recorder3.account_address
+                            addr_preview3 = f"{aa3[:6]}...{aa3[-4:]}"
+                        self.logger.info(
+                            "🧾 On-chain action recorder ENABLED: contract=%s rpc=%s agent=%s",
+                            recorder3.contract_address,
+                            recorder3.rpc_url,
+                            addr_preview3,
+                        )
+                    else:
+                        self.logger.info(
+                            "🧾 On-chain action recorder DISABLED (missing key or RPC)"
+                        )
+                except Exception:
+                    pass
             except Exception:
                 pass
             try:
@@ -552,8 +619,6 @@ class PettAgent:
 
                 if self.websocket_client and self.websocket_client.is_authenticated():
                     # Your existing pet management logic can go here
-                    # For now, we'll just log that we're running
-                    self.logger.debug("🐾 Pet agent running...")
 
                     # Get pet status periodically
                     if self.pett_tools:
@@ -569,6 +634,8 @@ class PettAgent:
 
                             pet_status_result = self.pett_tools.get_pet_status()
                             if "❌" not in pet_status_result:
+                                self.logger.debug("🐾 Pet agent running action...")
+
                                 pet_connected = True
                                 if "Pet Status:" in pet_status_result:
                                     pet_status = "Active"

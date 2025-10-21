@@ -111,9 +111,7 @@ class PettWebSocketClient:
                 return
             exc = fut.exception()
             if exc:
-                logger.debug(
-                    "Action recorder task raised for %s: %s", action_type, exc
-                )
+                logger.debug("Action recorder task raised for %s: %s", action_type, exc)
 
         task.add_done_callback(_handle_result)
 
@@ -748,31 +746,35 @@ class PettWebSocketClient:
     # Pet action methods
     async def rub_pet(self) -> bool:
         """Rub the pet."""
-        success = await self._send_message({"type": "RUB", "data": {}})
+        success, _ = await self._send_and_wait("RUB", {}, timeout=10)
         if success:
+            logger.info("✅ RUB action confirmed by server; recording on-chain")
             self._schedule_record_action("RUB")
-        return success
+        return bool(success)
 
     async def shower_pet(self) -> bool:
         """Give the pet a shower."""
-        success = await self._send_message({"type": "SHOWER", "data": {}})
+        success, _ = await self._send_and_wait("SHOWER", {}, timeout=10)
         if success:
+            logger.info("✅ SHOWER action confirmed by server; recording on-chain")
             self._schedule_record_action("SHOWER")
-        return success
+        return bool(success)
 
     async def sleep_pet(self) -> bool:
         """Put the pet to sleep."""
-        success = await self._send_message({"type": "SLEEP", "data": {}})
+        success, _ = await self._send_and_wait("SLEEP", {}, timeout=10)
         if success:
+            logger.info("✅ SLEEP action confirmed by server; recording on-chain")
             self._schedule_record_action("SLEEP")
-        return success
+        return bool(success)
 
     async def throw_ball(self) -> bool:
         """Throw a ball for the pet."""
-        success = await self._send_message({"type": "THROWBALL", "data": {}})
+        success, _ = await self._send_and_wait("THROWBALL", {}, timeout=10)
         if success:
+            logger.info("✅ THROWBALL action confirmed by server; recording on-chain")
             self._schedule_record_action("THROWBALL")
-        return success
+        return bool(success)
 
     async def use_consumable(self, consumable_id: str) -> bool:
         """Use a consumable item."""

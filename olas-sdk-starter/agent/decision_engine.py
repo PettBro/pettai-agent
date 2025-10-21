@@ -251,7 +251,9 @@ class PetDecisionEngine:
         success = await self.websocket_client.use_consumable(choice)
 
         if success:
-            logger.info(f"[DecisionEngine] ✅ Feeding {choice} confirmed")
+            logger.info(
+                f"[DecisionEngine] ✅ Feeding {choice} confirmed (on-chain recordAction will be scheduled by client)"
+            )
         else:
             logger.warning(f"[DecisionEngine] ❌ Feeding {choice} failed")
 

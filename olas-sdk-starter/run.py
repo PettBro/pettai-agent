@@ -53,7 +53,7 @@ def setup_olas_logging() -> logging.Logger:
 def read_ethereum_private_key() -> Optional[str]:
     """Read ethereum private key from ethereum_private_key.txt (Olas SDK requirement)."""
     try:
-        key_file = Path("ethereum_private_key.txt")
+        key_file = Path("../agent_key/ethereum_private_key.txt")
         if key_file.exists():
             with open(key_file, "r") as f:
                 return f.read().strip()
@@ -94,7 +94,9 @@ async def main():
         )
 
         # Initialize your Pett Agent with existing logic
-        pett_agent = PettAgent(olas_interface=olas_interface, logger=logger)
+        pett_agent = PettAgent(
+            olas_interface=olas_interface, logger=logger, is_production=False
+        )
 
         # Start the agent
         await pett_agent.run()

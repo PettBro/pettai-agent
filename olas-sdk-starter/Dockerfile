@@ -38,9 +38,6 @@ RUN cd frontend && \
 # Create necessary directories
 RUN mkdir -p logs
 
-# Create placeholder for ethereum private key (will be mounted or provided)
-RUN touch ethereum_private_key.txt
-
 # Expose health check port (Olas SDK requirement)
 EXPOSE 8716
 
