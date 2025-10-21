@@ -32,7 +32,7 @@ class PettAgent:
         self,
         olas_interface: OlasInterface,
         logger: logging.Logger,
-        is_production: bool = False,
+        is_production: bool = True,
     ):
         """Initialize the Pett Agent."""
         self.olas = olas_interface
@@ -57,7 +57,7 @@ class PettAgent:
         self.logger.info("🐾 Pett Agent initialized")
         # Action scheduler configuration
         self.action_interval_minutes: float = (
-            30 if is_production else 0.5
+            30 if is_production else 1
         )  # should be 30 minutes in prod
         self.next_action_at: Optional[datetime] = None
         self.last_action_at: Optional[datetime] = None

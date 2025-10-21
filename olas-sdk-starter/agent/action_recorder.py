@@ -11,13 +11,14 @@ import asyncio
 import logging
 import threading
 from dataclasses import dataclass
-from typing import Dict, Optional, Set, Any
+from typing import Dict, Optional, Set, Any, cast
 
 from eth_account.signers.local import LocalAccount
 from web3 import Web3
 from web3.contract import Contract
 from web3.exceptions import ContractLogicError
 from web3.middleware import ExtraDataToPOAMiddleware
+from web3.types import TxParams
 
 
 # Contract address provided by the user.
@@ -264,7 +265,7 @@ class ActionRecorder:
         try:
             with self._nonce_lock:
                 nonce = self._resolve_nonce()
-                tx_params = {
+                tx_params: Dict[str, Any] = {
                     "from": account.address,
                     "nonce": nonce,
                     "value": 0,
@@ -286,11 +287,18 @@ class ActionRecorder:
                 txn = contract.functions.recordAction(
                     account.address, action_bytes, amount
                 ).build_transaction(
-                    tx_params
-                )  # type: ignore[arg-type]
+                    cast(TxParams, tx_params)
+                )
 
                 signed = w3.eth.account.sign_transaction(txn, private_key=private_key)
-                tx_hash = w3.eth.send_raw_transaction(signed.rawTransaction)
+                raw_tx = getattr(signed, "rawTransaction", None) or getattr(
+                    signed, "raw_transaction", None
+                )
+                if raw_tx is None:
+                    raise AttributeError(
+                        "SignedTransaction missing raw transaction payload"
+                    )
+                tx_hash = w3.eth.send_raw_transaction(raw_tx)
                 self._nonce_cache = nonce + 1
 
                 # Info-level confirmation with tx hash for operator visibility
