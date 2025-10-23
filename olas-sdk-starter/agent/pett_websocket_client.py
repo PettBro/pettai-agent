@@ -96,6 +96,11 @@ class PettWebSocketClient:
         """Schedule an asynchronous recordAction transaction if the recorder is available."""
         if not self._action_recorder or not self._action_recorder.is_enabled:
             return
+
+        normalized_type = (action_type or "").upper()
+        if not normalized_type:
+            return
+
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -103,7 +108,7 @@ class PettWebSocketClient:
             return
 
         task = loop.create_task(
-            self._action_recorder.record_action(action_type, amount)
+            self._action_recorder.record_action(normalized_type, amount)
         )
 
         def _handle_result(fut: asyncio.Future) -> None:
@@ -760,12 +765,14 @@ class PettWebSocketClient:
             self._schedule_record_action("SHOWER")
         return bool(success)
 
-    async def sleep_pet(self) -> bool:
+    async def sleep_pet(self, record_on_chain: bool = True) -> bool:
         """Put the pet to sleep."""
         success, _ = await self._send_and_wait("SLEEP", {}, timeout=10)
         if success:
-            logger.info("✅ SLEEP action confirmed by server; recording on-chain")
-            self._schedule_record_action("SLEEP")
+            logger.info("✅ SLEEP action confirmed by server")
+            if record_on_chain:
+                logger.info("📗 Recording SLEEP action on-chain")
+                self._schedule_record_action("SLEEP")
         return bool(success)
 
     async def throw_ball(self) -> bool:
@@ -786,7 +793,9 @@ class PettWebSocketClient:
         logger.info(f"🍴 Using consumable: {consumable_id}")
 
         success, response = await self._send_and_wait(
-            "CONSUMABLES_USE", {"params": {"foodId": consumable_id}}, timeout=15
+            "CONSUMABLES_USE",
+            {"params": {"foodId": consumable_id}},
+            timeout=15,
         )
 
         if success:
@@ -814,10 +823,11 @@ class PettWebSocketClient:
                 return False
 
             # Retry once after successful buy
-            self._schedule_record_action("CONSUMABLES_BUY")
             logger.info(f"🔁 Retrying use of {consumable_id} after purchase")
             retry_success, _ = await self._send_and_wait(
-                "CONSUMABLES_USE", {"params": {"foodId": consumable_id}}, timeout=15
+                "CONSUMABLES_USE",
+                {"params": {"foodId": consumable_id}},
+                timeout=15,
             )
             if retry_success:
                 self._schedule_record_action("CONSUMABLES_USE")
@@ -825,7 +835,9 @@ class PettWebSocketClient:
 
         return False
 
-    async def buy_consumable(self, consumable_id: str, amount: int) -> bool:
+    async def buy_consumable(
+        self, consumable_id: str, amount: int, *, record_on_chain: bool = True
+    ) -> bool:
         """Buy a consumable item for the pet.
 
         Args:
@@ -850,7 +862,7 @@ class PettWebSocketClient:
             {"params": {"foodId": consumable_id.strip(), "amount": amount}},
             timeout=15,
         )
-        if success:
+        if success and record_on_chain:
             self._schedule_record_action("CONSUMABLES_BUY", amount)
         return bool(success)
 

@@ -717,23 +717,27 @@ class PettAgent:
             if not self.websocket_client:
                 return False
 
+            client = self.websocket_client
+
             # Try small health potion first
             self.logger.info("🧪 Trying SMALL_POTION to restore health")
             # The API path for potion use is via buy/use or direct consumable use when owned.
             # We try direct consumable use by blueprint id.
             try:
-                success = await self.websocket_client.use_consumable("SMALL_POTION")
+                success = await client.use_consumable("SMALL_POTION")
                 if success:
                     self.logger.info("✅ SMALL_POTION use confirmed")
                     await asyncio.sleep(0.5)
                     return True
                 # If use failed, try to buy one then use again
                 self.logger.info("🛒 SMALL_POTION not available; attempting to buy 1")
-                bought = await self.websocket_client.buy_consumable("SMALL_POTION", 1)
+                bought = await client.buy_consumable(
+                    "SMALL_POTION", 1, record_on_chain=False
+                )
                 if bought:
                     await asyncio.sleep(0.5)
                     self.logger.info("🔁 Using SMALL_POTION after purchase")
-                    success = await self.websocket_client.use_consumable("SMALL_POTION")
+                    success = await client.use_consumable("SMALL_POTION")
                     if success:
                         self.logger.info("✅ SMALL_POTION use confirmed after purchase")
                         await asyncio.sleep(0.5)
@@ -744,18 +748,18 @@ class PettAgent:
             # Fallback to SALAD (improves health and hunger)
             self.logger.info("🥗 Falling back to SALAD to recover health")
             try:
-                success = await self.websocket_client.use_consumable("SALAD")
+                success = await client.use_consumable("SALAD")
                 if success:
                     self.logger.info("✅ SALAD consumption confirmed")
                     await asyncio.sleep(0.5)
                     return True
                 # If use failed, try to buy one then use again
                 self.logger.info("🛒 SALAD not available; attempting to buy 1")
-                bought = await self.websocket_client.buy_consumable("SALAD", 1)
+                bought = await client.buy_consumable("SALAD", 1, record_on_chain=False)
                 if bought:
                     await asyncio.sleep(0.5)
                     self.logger.info("🔁 Using SALAD after purchase")
-                    success = await self.websocket_client.use_consumable("SALAD")
+                    success = await client.use_consumable("SALAD")
                     if success:
                         self.logger.info(
                             "✅ SALAD consumption confirmed after purchase"
@@ -841,16 +845,17 @@ class PettAgent:
             await client.sleep_pet()
             return
 
-        if energy > 100 - self.LOW_ENERGY_THRESHOLD:
+        if energy > 100 - self.LOW_ENERGY_THRESHOLD and sleeping:
             self.logger.info("🔥 High energy detected; initiating wake")
-            await client.sleep_pet()
+            await client.sleep_pet(record_on_chain=False)
             sleeping = False
 
         # If pet is sleeping and we are about to perform non-sleep actions, nudge to wake
         if sleeping:
             self.logger.info("🛌 Pet is sleeping; waking up to perform actions")
-            await client.sleep_pet()
+            await client.sleep_pet(record_on_chain=False)
             await asyncio.sleep(0.5)
+            sleeping = False
 
         # Priority 0: low health -> attempt recovery
         if health < self.LOW_THRESHOLD:

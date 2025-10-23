@@ -95,7 +95,7 @@ async def main():
 
         # Initialize your Pett Agent with existing logic
         pett_agent = PettAgent(
-            olas_interface=olas_interface, logger=logger, is_production=False
+            olas_interface=olas_interface, logger=logger, is_production=True
         )
 
         # Start the agent

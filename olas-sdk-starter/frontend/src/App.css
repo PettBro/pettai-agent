@@ -40,14 +40,14 @@ body:has(#tutorial-content) {
 /* Desktop responsive styles for bottom navigation */
 @media (min-width: 768px) {
   .bottom-navigation {
-    max-width: 420px; /* Desktop screens */
+    max-width: 720px; /* Desktop screens */
   }
 }
 
 /* Desktop responsive styles */
 @media (min-width: 768px) {
   .App-content {
-    max-width: 420px; /* Desktop screens: keep mobile-like width */
+    max-width: 720px; /* Desktop screens: keep mobile-like width */
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
     border-radius: 0;
     /* background styles moved to base .App-content rule above */
