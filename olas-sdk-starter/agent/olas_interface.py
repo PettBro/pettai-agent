@@ -22,6 +22,12 @@ from .action_recorder import (
     RecorderConfig,
     DEFAULT_ACTION_REPO_ADDRESS,
 )
+from .staking_checkpoint import (
+    CheckpointConfig,
+    StakingCheckpointClient,
+    DEFAULT_SAFE_ADDRESS,
+    DEFAULT_STATE_FILE,
+)
 import subprocess
 import mimetypes
 
@@ -92,9 +98,11 @@ class OlasInterface:
         self.react_build_dir: Optional[Path] = None
         self.react_enabled: bool = False
 
-        # Optional on-chain action recorder
+        # Optional on-chain components
         self.action_recorder: Optional[ActionRecorder] = None
+        self.staking_checkpoint_client: Optional[StakingCheckpointClient] = None
         self._initialise_action_recorder()
+        self._initialise_staking_checkpoint()
 
         self.logger.info("🔧 Olas SDK Interface initialized")
 
@@ -396,11 +404,26 @@ class OlasInterface:
 
         contract_address_env = os.environ.get("ACTION_REPO_CONTRACT_ADDRESS")
         contract_address = (contract_address_env or DEFAULT_ACTION_REPO_ADDRESS).strip()
+        # Resolve multisig (Safe) address for forwarding verified actions
+        safe_address: Optional[str] = None
+        safe_env_candidates = (
+            "ACTION_SAFE_ADDRESS",
+            "SERVICE_SAFE_ADDRESS",
+            "SAFE_CONTRACT_ADDRESS",
+            "CONNECTION_CONFIGS_CONFIG_SAFE_CONTRACT_ADDRESS",
+        )
+        for env_name in safe_env_candidates:
+            value = os.environ.get(env_name)
+            if value and value.strip():
+                safe_address = value.strip()
+                break
+
         try:
             config = RecorderConfig(
                 private_key=private_key,
                 rpc_url=rpc_url,
                 contract_address=contract_address or DEFAULT_ACTION_REPO_ADDRESS,
+                multisig_address=safe_address,
             )
             self.action_recorder = ActionRecorder(config=config, logger=self.logger)
         except Exception as exc:
@@ -410,6 +433,100 @@ class OlasInterface:
     def get_action_recorder(self) -> Optional[ActionRecorder]:
         """Return the configured action recorder, if available."""
         return self.action_recorder
+
+    def get_staking_checkpoint_client(self) -> Optional[StakingCheckpointClient]:
+        """Return the staking checkpoint client, if available."""
+        return self.staking_checkpoint_client
+
+    def _initialise_staking_checkpoint(self) -> None:
+        """Initialise the staking checkpoint helper when configuration is provided."""
+        feature_flag = os.environ.get("ENABLE_STAKING_CHECKPOINTS", "1").strip().lower()
+        if feature_flag in {"0", "false", "no"}:
+            self.logger.info("Staking checkpoint helper disabled via environment flag")
+            return
+
+        private_key = (self.ethereum_private_key or "").strip()
+        if not private_key:
+            self.logger.info(
+                "Skipping staking checkpoint initialisation: ethereum private key not available"
+            )
+            return
+
+        rpc_url = self._resolve_rpc_url()
+        if not rpc_url:
+            self.logger.info(
+                "Skipping staking checkpoint initialisation: RPC endpoint not configured"
+            )
+            return
+
+        staking_address: Optional[str] = None
+        staking_env_candidates = (
+            "STAKING_CONTRACT_ADDRESS",
+            "STAKING_PROXY_ADDRESS",
+            "SERVICE_STAKING_CONTRACT_ADDRESS",
+            "CONNECTION_CONFIGS_CONFIG_STAKING_CONTRACT_ADDRESS",
+        )
+        for env_name in staking_env_candidates:
+            value = os.environ.get(env_name)
+            if value and value.strip():
+                staking_address = value.strip()
+                break
+
+        if not staking_address:
+            self.logger.info(
+                "Skipping staking checkpoint initialisation: staking contract address not configured"
+            )
+            return
+
+        safe_address: Optional[str] = None
+        safe_env_candidates = (
+            "STAKING_SAFE_ADDRESS",
+            "SERVICE_SAFE_ADDRESS",
+            "SAFE_CONTRACT_ADDRESS",
+            "CONNECTION_CONFIGS_CONFIG_SAFE_CONTRACT_ADDRESS",
+        )
+        for env_name in safe_env_candidates:
+            value = os.environ.get(env_name)
+            if value and value.strip():
+                safe_address = value.strip()
+                break
+        safe_address = safe_address or DEFAULT_SAFE_ADDRESS
+
+        liveness_env = os.environ.get(
+            "STAKING_LIVENESS_PERIOD_SECONDS"
+        ) or os.environ.get("STAKING_LIVENESS_PERIOD")
+        liveness_period: Optional[int] = None
+        if liveness_env:
+            try:
+                liveness_period = int(liveness_env.strip())
+            except ValueError:
+                self.logger.warning(
+                    "Invalid staking liveness period provided (%s); ignoring and falling back to contract value",
+                    liveness_env,
+                )
+
+        state_file_env = os.environ.get("STAKING_CHECKPOINT_STATE_FILE")
+        state_file_path = (
+            Path(state_file_env).expanduser()
+            if state_file_env and state_file_env.strip()
+            else DEFAULT_STATE_FILE
+        )
+
+        try:
+            config = CheckpointConfig(
+                private_key=private_key,
+                rpc_url=rpc_url,
+                staking_contract_address=staking_address,
+                safe_address=safe_address,
+                liveness_period=liveness_period,
+                state_file=state_file_path,
+            )
+            self.staking_checkpoint_client = StakingCheckpointClient(
+                config=config, logger=self.logger
+            )
+        except Exception as exc:
+            self.logger.error(f"Failed to initialise staking checkpoint helper: {exc}")
+            self.staking_checkpoint_client = None
 
     async def _health_check_handler(self, request: web.Request) -> web.Response:
         """Handle health check endpoint (Olas SDK requirement)."""

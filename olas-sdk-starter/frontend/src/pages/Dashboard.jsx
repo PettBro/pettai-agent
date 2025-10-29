@@ -71,7 +71,7 @@ const Dashboard = () => {
 					{healthData.pet?.stats && (
 						<div className="bg-white rounded-lg shadow p-6 mb-6">
 							<h2 className="text-xl font-bold mb-4 text-semantic-fg-base">Pet Stats</h2>
-							<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+							<div className="grid grid-cols-3  lg:grid-cols-6 gap-4">
 								<div className="flex items-center gap-2"><span>🍔</span><span className="text-semantic-fg-muted">Hunger</span><span className="font-semibold">{healthData.pet.stats.hunger}</span></div>
 								<div className="flex items-center gap-2"><span>❤️</span><span className="text-semantic-fg-muted">Health</span><span className="font-semibold">{healthData.pet.stats.health}</span></div>
 								<div className="flex items-center gap-2"><span>⚡</span><span className="text-semantic-fg-muted">Energy</span><span className="font-semibold">{healthData.pet.stats.energy}</span></div>

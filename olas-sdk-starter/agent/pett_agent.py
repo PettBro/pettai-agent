@@ -61,6 +61,8 @@ class PettAgent:
         )  # should be 30 minutes in prod
         self.next_action_at: Optional[datetime] = None
         self.last_action_at: Optional[datetime] = None
+        self._checkpoint_check_interval: timedelta = timedelta(minutes=30)
+        self._next_checkpoint_check_at: datetime = datetime.now()
 
         # Flag to indicate we're waiting for React login
         self.waiting_for_react_login: bool = False
@@ -693,6 +695,8 @@ class PettAgent:
                 self.logger.error(f"❌ Error in pet action loop: {e}")
                 await asyncio.sleep(30)  # Sleep on error
 
+            await self._maybe_call_staking_checkpoint()
+
     def _to_float(self, value: Union[str, int, float, None]) -> float:
         if value is None:
             return 0.0
@@ -772,6 +776,26 @@ class PettAgent:
             return False
         finally:
             self._low_health_recovery_in_progress = False
+
+    async def _maybe_call_staking_checkpoint(self, force: bool = False) -> None:
+        """Attempt to call the staking checkpoint when the liveness window expires."""
+        client = self.olas.get_staking_checkpoint_client()
+        if not client:
+            return
+
+        now = datetime.now()
+        if not force and now < self._next_checkpoint_check_at:
+            return
+
+        self._next_checkpoint_check_at = now + self._checkpoint_check_interval
+        try:
+            tx_hash = await client.call_checkpoint_if_needed(force=force)
+            if tx_hash:
+                self.logger.info("⛽️ Staking checkpoint submitted: %s", tx_hash)
+            else:
+                self.logger.debug("Staking checkpoint not required at this time")
+        except Exception as exc:
+            self.logger.warning(f"Staking checkpoint attempt failed: {exc}")
 
     async def _on_client_error_message(self, message: Dict[str, Any]) -> None:
         """Handle server error messages to auto-recover from low health errors."""
