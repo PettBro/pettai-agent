@@ -1156,6 +1156,31 @@ class PettTools:
                 elif action_name == "throw_ball":
                     result = self._run_async(client.throw_ball())
 
+                # If result failed due to low energy, put pet to sleep instead
+                try:
+                    last_err = (
+                        client.get_last_action_error()
+                        if hasattr(client, "get_last_action_error")
+                        else None
+                    )
+                except Exception:
+                    last_err = None
+                if last_err and ("not have enough energy" in str(last_err).lower()):
+                    # Put pet to sleep only if not already sleeping
+                    pet_data = client.get_pet_data() or {}
+                    sleeping_now = bool(pet_data.get("sleeping", False))
+                    if not sleeping_now:
+                        logger.info(
+                            "[TOOL] Energy too low after random action; putting pet to sleep instead"
+                        )
+                        self._run_async(client.sleep_pet())
+                        return "😴 Energy low: putting pet to sleep instead."
+                    else:
+                        logger.info(
+                            "[TOOL] Energy too low and pet already sleeping; not toggling sleep"
+                        )
+                        return "😴 Energy low: pet is already sleeping."
+
                 # Provide feedback based on action result
                 if result:
                     logger.info(

@@ -81,6 +81,8 @@ class PettWebSocketClient:
                 "Privy token not provided during initialization; authentication will be disabled until a token is set."
             )
         self._action_recorder: Optional[ActionRecorder] = None
+        # Last action error text captured from server responses
+        self._last_action_error: Optional[str] = None
 
     def set_telemetry_recorder(
         self, recorder: Optional[Callable[[Dict[str, Any], bool, Optional[str]], None]]
@@ -96,7 +98,17 @@ class PettWebSocketClient:
         self, action_type: str, verification: Dict[str, Any]
     ) -> None:
         """Schedule an asynchronous verified recordAction transaction if available."""
-        if not self._action_recorder or not self._action_recorder.is_enabled:
+        if not self._action_recorder:
+            logger.info(
+                "🧾 Skipping on-chain record for %s: action recorder not configured",
+                action_type,
+            )
+            return
+        if not self._action_recorder.is_enabled:
+            logger.info(
+                "🧾 Skipping on-chain record for %s: action recorder disabled (missing key/RPC)",
+                action_type,
+            )
             return
 
         normalized_type = (action_type or "").upper()
@@ -417,6 +429,8 @@ class PettWebSocketClient:
         Returns a tuple of (success, response_message). Success is False if an error
         message is received or the wait times out or sending fails.
         """
+        # Clear last error before starting a new request
+        self._last_action_error = None
         nonce = self._generate_nonce()
         future = self._register_pending(nonce)
 
@@ -450,10 +464,20 @@ class PettWebSocketClient:
             logger.error(
                 f"❌ Error awaiting response for {msg_type} (nonce {nonce}): {e}"
             )
+            try:
+                self._last_action_error = str(e)
+            except Exception:
+                pass
             return False, None
 
         # Treat explicit error type as failure
         if isinstance(response, dict) and (response.get("type") == "error"):
+            try:
+                err_text = response.get("error")
+                if err_text is not None:
+                    self._last_action_error = str(err_text)
+            except Exception:
+                pass
             return False, response
 
         return True, response
@@ -472,6 +496,18 @@ class PettWebSocketClient:
         except Exception:
             pass
         return None
+
+    def _contains_already_clean_error(self, message: Optional[Dict[str, Any]]) -> bool:
+        """Return True if the message contains an 'already clean' type error."""
+        try:
+            if not isinstance(message, dict):
+                return False
+            err = message.get("error") or message.get("data", {}).get("error")
+            if not err:
+                return False
+            return "already clean" in str(err).lower()
+        except Exception:
+            return False
 
     async def listen_for_messages(self) -> None:
         """Listen for incoming messages from the server."""
@@ -697,6 +733,11 @@ class PettWebSocketClient:
         """Handle error message."""
         error = message.get("error")
         logger.error(f"Server error: {error}")
+        try:
+            if error is not None:
+                self._last_action_error = str(error)
+        except Exception:
+            pass
 
     async def _handle_data(self, message: Dict[str, Any]) -> None:
         """Handle data message."""
@@ -775,11 +816,11 @@ class PettWebSocketClient:
         success, response = await self._send_and_wait(
             "RUB", {}, timeout=10, verify=True
         )
-        if success:
-            verification = self._extract_verification(response)
+        verification = self._extract_verification(response)
+        if success or (not success and self._contains_already_clean_error(response)):
             if verification:
                 logger.info(
-                    "✅ RUB action confirmed; submitting verified on-chain record"
+                    "🧾 RUB: submitting verified on-chain record (success or already clean)"
                 )
                 self._schedule_verified_record_action("RUB", verification)
         return bool(success)
@@ -789,11 +830,11 @@ class PettWebSocketClient:
         success, response = await self._send_and_wait(
             "SHOWER", {}, timeout=10, verify=True
         )
-        if success:
-            verification = self._extract_verification(response)
+        verification = self._extract_verification(response)
+        if success or (not success and self._contains_already_clean_error(response)):
             if verification:
                 logger.info(
-                    "✅ SHOWER action confirmed; submitting verified on-chain record"
+                    "🧾 SHOWER: submitting verified on-chain record (success or already clean)"
                 )
                 self._schedule_verified_record_action("SHOWER", verification)
         return bool(success)
@@ -1291,6 +1332,14 @@ class PettWebSocketClient:
                 "hygiene": self.get_pet_hygiene(),
             },
         }
+
+    def get_last_action_error(self) -> Optional[str]:
+        """Return the last action error text captured from server responses."""
+        return self._last_action_error
+
+    def clear_last_action_error(self) -> None:
+        """Clear the stored last action error."""
+        self._last_action_error = None
 
     def is_authenticated(self) -> bool:
         """Check if client is authenticated."""

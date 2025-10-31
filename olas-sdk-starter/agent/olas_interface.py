@@ -128,6 +128,7 @@ class OlasInterface:
             "TELEGRAM_BOT_TOKEN",
             "PRIVY_TOKEN",
             "WEBSOCKET_URL",
+            "SAFE_CONTRACT_ADDRESSES",
         ]
 
         for var in olas_env_vars:
@@ -404,26 +405,13 @@ class OlasInterface:
 
         contract_address_env = os.environ.get("ACTION_REPO_CONTRACT_ADDRESS")
         contract_address = (contract_address_env or DEFAULT_ACTION_REPO_ADDRESS).strip()
-        # Resolve multisig (Safe) address for forwarding verified actions
-        safe_address: Optional[str] = None
-        safe_env_candidates = (
-            "ACTION_SAFE_ADDRESS",
-            "SERVICE_SAFE_ADDRESS",
-            "SAFE_CONTRACT_ADDRESS",
-            "CONNECTION_CONFIGS_CONFIG_SAFE_CONTRACT_ADDRESS",
-        )
-        for env_name in safe_env_candidates:
-            value = os.environ.get(env_name)
-            if value and value.strip():
-                safe_address = value.strip()
-                break
+        # The ActionRecorder resolves the Safe from CONNECTION_CONFIGS_CONFIG_SAFE_CONTRACT_ADDRESSES
 
         try:
             config = RecorderConfig(
                 private_key=private_key,
                 rpc_url=rpc_url,
                 contract_address=contract_address or DEFAULT_ACTION_REPO_ADDRESS,
-                multisig_address=safe_address,
             )
             self.action_recorder = ActionRecorder(config=config, logger=self.logger)
         except Exception as exc:
@@ -483,7 +471,6 @@ class OlasInterface:
             "STAKING_SAFE_ADDRESS",
             "SERVICE_SAFE_ADDRESS",
             "SAFE_CONTRACT_ADDRESS",
-            "CONNECTION_CONFIGS_CONFIG_SAFE_CONTRACT_ADDRESS",
         )
         for env_name in safe_env_candidates:
             value = os.environ.get(env_name)

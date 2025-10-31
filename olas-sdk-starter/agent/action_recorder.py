@@ -12,9 +12,12 @@ import logging
 import threading
 import time
 from dataclasses import dataclass
+import os
+import json
 from typing import Dict, Optional, Set, Any, cast
 
 from eth_account.signers.local import LocalAccount
+from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract import Contract
 from web3.exceptions import ContractLogicError
@@ -58,6 +61,13 @@ ACTION_REPO_ABI = [
             {"internalType": "uint256", "name": "totalAdded", "type": "uint256"}
         ],
         "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
+        "inputs": [],
+        "name": "mainSigner",
+        "outputs": [{"internalType": "address", "name": "", "type": "address"}],
+        "stateMutability": "view",
         "type": "function",
     },
 ]
@@ -111,7 +121,29 @@ SAFE_ABI = [
         "stateMutability": "view",
         "type": "function",
     },
+    {
+        "inputs": [],
+        "name": "getOwners",
+        "outputs": [{"internalType": "address[]", "name": "", "type": "address[]"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [],
+        "name": "getThreshold",
+        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
 ]
+
+
+# Safe tx gas configuration constants inspired by Valory's implementation
+MIN_GAS = 1
+GAS_ADJUSTMENT = 75_000
+ZERO_ADDRESS = "0x" + "0" * 40
+DEFAULT_SAFE_TX_GAS = 100_000
+DEFAULT_BASE_GAS = 10_000
 
 
 def _default_action_type_ids() -> Dict[str, int]:
@@ -146,7 +178,6 @@ class RecorderConfig:
     private_key: str
     rpc_url: str
     contract_address: str = DEFAULT_ACTION_REPO_ADDRESS
-    multisig_address: Optional[str] = None
 
 
 class ActionRecorder:
@@ -165,7 +196,6 @@ class ActionRecorder:
         )
         self._w3: Optional[Web3] = None
         self._contract: Optional[Contract] = None
-        self._safe_contract: Optional[Contract] = None
         self._account: Optional[LocalAccount] = None
         self._private_key: Optional[str] = None
         self._nonce_lock = threading.Lock()
@@ -251,18 +281,138 @@ class ActionRecorder:
 
         # Optional: instantiate Gnosis Safe
         safe_contract: Optional[Contract] = None
-        safe_addr = (getattr(self._config, "multisig_address", None) or "").strip()
+        # Priority 1: single-address env var (required by user)
+        safe_addr = (
+            os.environ.get("CONNECTION_CONFIGS_CONFIG_SAFE_CONTRACT_ADDRESS") or ""
+        ).strip()
+        # Priority 2: JSON mapping env var
+        if not safe_addr:
+            try:
+                mapping_json = os.environ.get(
+                    "CONNECTION_CONFIGS_CONFIG_SAFE_CONTRACT_ADDRESSES"
+                )
+                if mapping_json and mapping_json.strip():
+                    mapping = json.loads(mapping_json)
+                    chain_key: Optional[str] = None
+                    # Prefer chainId mapping
+                    try:
+                        chain_id = int(w3.eth.chain_id)  # type: ignore[attr-defined]
+                    except Exception:
+                        chain_id = None  # type: ignore[assignment]
+                    id_to_name = {
+                        1: "ethereum",
+                        5: "goerli",
+                        11155111: "sepolia",
+                        100: "gnosis",
+                        8453: "base",
+                        84532: "base_sepolia",
+                        137: "polygon",
+                        56: "bsc",
+                    }
+                    candidates: list[str] = []
+                    if chain_id is not None and chain_id in id_to_name:
+                        candidates.append(id_to_name[chain_id])
+                    if chain_id is not None:
+                        candidates.append(str(chain_id))
+                    # Heuristic by RPC URL
+                    rpc_lower = (self._config.rpc_url or "").lower()
+                    if "gnosis" in rpc_lower or "gno" in rpc_lower:
+                        candidates.append("gnosis")
+                    if "base" in rpc_lower:
+                        candidates.append("base")
+                    if "sepolia" in rpc_lower:
+                        candidates.append("sepolia")
+                    if "polygon" in rpc_lower:
+                        candidates.append("polygon")
+                    for key in candidates:
+                        if (
+                            isinstance(mapping, dict)
+                            and key in mapping
+                            and mapping.get(key)
+                        ):
+                            chain_key = key
+                            break
+                    if (
+                        not chain_key
+                        and isinstance(mapping, dict)
+                        and len(mapping) == 1
+                    ):
+                        chain_key = next(iter(mapping.keys()))
+                    if chain_key:
+                        resolved = str(mapping.get(chain_key, "")).strip()
+                        if resolved:
+                            safe_addr = resolved
+            except Exception as exc:
+                self._logger.debug(
+                    f"Failed to resolve Safe from JSON mapping env: {exc}"
+                )
+
         if safe_addr:
             try:
                 safe_checksum = Web3.to_checksum_address(safe_addr)
                 safe_contract = w3.eth.contract(address=safe_checksum, abi=SAFE_ABI)
+                # Extra diagnostics: confirm resolved Safe and chain id
+                try:
+                    self._logger.info(
+                        f"Using Safe {safe_checksum} on chainId {w3.eth.chain_id}"
+                    )
+                except Exception:
+                    pass
             except Exception as exc:
                 self._logger.error(f"Failed to instantiate Gnosis Safe contract: {exc}")
                 safe_contract = None
+                raise exc
         else:
-            self._logger.warning(
-                "No multisig configured; will not be able to submit via Safe"
+            self._logger.error(
+                "AI Agent Safe address missing. Set CONNECTION_CONFIGS_CONFIG_SAFE_CONTRACT_ADDRESS or "
+                "CONNECTION_CONFIGS_CONFIG_SAFE_CONTRACT_ADDRESSES (JSON)."
             )
+            exit(1)
+
+        # Optional: sanity-check Safe ownership/threshold
+        try:
+            if safe_contract is not None:
+                owners = []
+                threshold = None
+                try:
+                    owners = list(safe_contract.functions.getOwners().call())
+                except Exception:
+                    pass
+                try:
+                    threshold = int(safe_contract.functions.getThreshold().call())
+                except Exception:
+                    pass
+                # Extra diagnostics: owners/threshold snapshot
+                try:
+                    owners_preview = (
+                        [Web3.to_checksum_address(o) for o in owners] if owners else []
+                    )
+                    self._logger.info(
+                        f"Safe owners (n={len(owners_preview)}): {owners_preview}"
+                    )
+                    self._logger.info(
+                        f"Safe threshold: {threshold if threshold is not None else 'unknown'}"
+                    )
+                except Exception:
+                    pass
+                if owners:
+                    is_owner = account.address in {
+                        Web3.to_checksum_address(o) for o in owners
+                    }
+                    if not is_owner:
+                        self._logger.error(
+                            "Agent EOA is NOT an owner of the AI Agent Safe; execTransaction will revert (GS026)"
+                        )
+                if threshold and threshold > 1:
+                    self._logger.error(
+                        "Safe threshold is %s but only one signature is provided; transaction will revert",
+                        threshold,
+                    )
+        except Exception as exc:
+            self._logger.error(
+                f"Failed to sanity-check Safe ownership/threshold: {exc}"
+            )
+            raise exc
 
         self._w3 = w3
         self._contract = contract
@@ -348,7 +498,7 @@ class ActionRecorder:
                 addr = self._account.address
                 addr_preview = f"{addr[:6]}...{addr[-4:]}"
             self._logger.info(
-                f"On-chain recordAction (verified) queued: action={action_key} id={action_id} agent={addr_preview}"
+                f"On-chain recordAction queued: action={action_key} id={action_id} agent={addr_preview}"
             )
         except Exception:
             pass
@@ -356,6 +506,7 @@ class ActionRecorder:
         loop = asyncio.get_running_loop()
         try:
             assert action_id is not None
+            inner_hash_hex = str(verification.get("hash", "") or "").strip()
             await loop.run_in_executor(
                 None,
                 self._record_action_verified_sync,
@@ -366,6 +517,7 @@ class ActionRecorder:
                 int(v),
                 r,
                 s,
+                inner_hash_hex,
             )
         except Exception as exc:
             self._logger.warning(
@@ -381,6 +533,7 @@ class ActionRecorder:
         v: int,
         r: str,
         s: str,
+        inner_hash_hex: str,
     ) -> None:
         """Execute the synchronous portion of verified recordAction."""
         if not self._enabled:
@@ -411,36 +564,165 @@ class ActionRecorder:
             try:
                 with self._nonce_lock:
                     nonce = self._resolve_nonce()
-                    tx_params: Dict[str, Any] = {
-                        "from": account.address,
-                        "nonce": nonce,
-                        "value": 0,
-                    }
 
-                    # Build inner calldata for ActionRepo.recordAction
-                    try:
-                        inner_txn = contract.functions.recordAction(
-                            int(action_id), nonce_hex, int(timestamp), int(v), r, s
-                        ).build_transaction({"from": account.address})
-                        inner_data = inner_txn.get("data")
-                        if not inner_data:
-                            raise ValueError(
-                                "Failed to build inner calldata for recordAction"
+                    # Validate inner recordAction signature signer against ActionRepo.mainSigner (if hash provided)
+                    if inner_hash_hex:
+                        try:
+                            msg_hash = HexBytes(inner_hash_hex)
+                            # Expect 32-byte hash
+                            if len(msg_hash) == 32:
+                                try:
+                                    from eth_keys.datatypes import (
+                                        Signature as EthSignature,
+                                    )
+                                except Exception as _exc_import:
+                                    self._logger.debug(
+                                        f"eth_keys not available to recover inner signer: {_exc_import}"
+                                    )
+                                    raise
+                                r_int = (
+                                    int(str(r), 16)
+                                    if str(r).startswith("0x")
+                                    else int(r)
+                                )
+                                s_int = (
+                                    int(str(s), 16)
+                                    if str(s).startswith("0x")
+                                    else int(s)
+                                )
+                                v_raw = int(v)
+                                # Normalize v to {0,1} for eth_keys: handle 27/28 and EIP-155 variants
+                                if v_raw in (0, 1):
+                                    v_norm = v_raw
+                                elif v_raw in (27, 28):
+                                    v_norm = v_raw - 27
+                                else:
+                                    v_norm = (v_raw - 27) & 1
+                                sig_obj = EthSignature(vrs=(v_norm, r_int, s_int))
+                                recovered_inner = (
+                                    sig_obj.recover_public_key_from_msg_hash(
+                                        msg_hash
+                                    ).to_checksum_address()
+                                )
+                                try:
+                                    expected_main_signer = Web3.to_checksum_address(
+                                        contract.functions.mainSigner().call()
+                                    )
+                                except Exception:
+                                    expected_main_signer = None
+                                recovered_inner_cs = Web3.to_checksum_address(
+                                    recovered_inner
+                                )
+                                matches_main_signer = (
+                                    expected_main_signer is not None
+                                    and recovered_inner_cs == expected_main_signer
+                                )
+                                self._logger.info(
+                                    f"Inner recordAction signer: {recovered_inner_cs}; "
+                                    f"equals_mainSigner={matches_main_signer}; "
+                                    f"expected={expected_main_signer}"
+                                )
+                                if not matches_main_signer:
+                                    self._logger.error(
+                                        "Inner recordAction signer does not match ActionRepo.mainSigner"
+                                    )
+                                    self._logger.error("Aborting execTransaction")
+                                    return
+                            else:
+                                self._logger.debug(
+                                    "Inner verification hash length != 32 bytes; "
+                                    "skipping signer check"
+                                )
+                        except Exception as exc:
+                            self._logger.debug(
+                                f"Failed to recover inner recordAction signer: {exc}"
                             )
-                        inner_data_bytes = self._to_bytes(inner_data)
+
+                    # Build inner calldata for ActionRepo.recordAction (prefer direct encode)
+                    try:
+                        fn = contract.functions.recordAction(
+                            int(action_id),
+                            nonce_hex,
+                            int(timestamp),
+                            int(v),
+                            r,
+                            s,
+                        )
+                        inner_data_hex = None
+                        try:
+                            inner_data_hex = fn._encode_transaction_data()
+                        except Exception:
+                            inner_txn = fn.build_transaction({"from": account.address})
+                            inner_data_hex = inner_txn.get("data")
+                        if not inner_data_hex or not str(inner_data_hex).strip():
+                            raise ValueError(
+                                "Failed to produce calldata for recordAction"
+                            )
                     except Exception as exc:
                         self._logger.warning(f"Failed to encode inner calldata: {exc}")
                         return
 
-                    # Safe params
+                    # Safe params (mirrors Valory's get_raw_safe_transaction defaults)
                     to_addr = contract.address
                     value = 0
                     operation = 0
-                    safe_tx_gas = 0
-                    base_gas = 0
-                    gas_price = 0
-                    gas_token = "0x0000000000000000000000000000000000000000"
-                    refund_receiver = "0x0000000000000000000000000000000000000000"
+
+                    safe_tx_gas = DEFAULT_SAFE_TX_GAS
+                    safe_tx_gas_override = os.environ.get("ACTION_SAFE_TX_GAS")
+                    if safe_tx_gas_override:
+                        try:
+                            safe_tx_gas = max(0, int(safe_tx_gas_override))
+                        except ValueError:
+                            self._logger.warning(
+                                "Invalid ACTION_SAFE_TX_GAS override '%s'; using default %s",
+                                safe_tx_gas_override,
+                                DEFAULT_SAFE_TX_GAS,
+                            )
+
+                    base_gas = DEFAULT_BASE_GAS
+                    base_gas_override = os.environ.get("ACTION_SAFE_BASE_GAS")
+                    if base_gas_override:
+                        try:
+                            base_gas = max(0, int(base_gas_override))
+                        except ValueError:
+                            self._logger.warning(
+                                "Invalid ACTION_SAFE_BASE_GAS override '%s'; using default %s",
+                                base_gas_override,
+                                DEFAULT_BASE_GAS,
+                            )
+
+                    safe_gas_price = 0
+                    gas_token = ZERO_ADDRESS
+                    refund_receiver = ZERO_ADDRESS
+
+                    configured_gas = (
+                        base_gas + safe_tx_gas + GAS_ADJUSTMENT
+                        if (base_gas != 0 or safe_tx_gas != 0)
+                        else MIN_GAS
+                    )
+
+                    actual_nonce = w3.eth.get_transaction_count(
+                        account.address, "pending"
+                    )
+                    if actual_nonce != nonce:
+                        self._logger.debug(
+                            "Local nonce cache (%s) diverged from chain nonce (%s); updating",
+                            nonce,
+                            actual_nonce,
+                        )
+                        nonce = actual_nonce
+                        self._nonce_cache = nonce
+
+                    tx_params: Dict[str, Any] = {
+                        "from": account.address,
+                        "nonce": nonce,
+                        "value": 0,
+                        "chainId": w3.eth.chain_id,
+                    }
+                    if configured_gas != MIN_GAS:
+                        tx_params["gas"] = configured_gas
+
+                    self._apply_fee_parameters(tx_params)
 
                     # Fetch Safe nonce
                     try:
@@ -448,21 +730,30 @@ class ActionRecorder:
                     except Exception as exc:
                         self._logger.warning(f"Failed to fetch Safe nonce: {exc}")
                         return
+                    try:
+                        self._logger.info(f"Safe nonce: {safe_nonce}")
+                    except Exception:
+                        pass
 
                     # Compute Safe tx hash
                     try:
                         tx_hash_bytes = safe.functions.getTransactionHash(
                             to_addr,
                             value,
-                            inner_data_bytes,
+                            inner_data_hex,
                             operation,
                             safe_tx_gas,
                             base_gas,
-                            gas_price,
+                            safe_gas_price,
                             gas_token,
                             refund_receiver,
                             safe_nonce,
                         ).call()
+                        try:
+                            tx_hash_hex = HexBytes(tx_hash_bytes).hex()
+                            self._logger.info(f"Safe tx hash to sign: {tx_hash_hex}")
+                        except Exception:
+                            pass
                     except Exception as exc:
                         self._logger.warning(f"Failed to compute Safe tx hash: {exc}")
                         return
@@ -472,41 +763,95 @@ class ActionRecorder:
                         from eth_account.messages import encode_defunct
 
                         msg = encode_defunct(primitive=tx_hash_bytes)
+
+                        print(
+                            "Private key address: ",
+                            w3.eth.account.from_key(private_key).address,
+                        )
                         signed_msg = w3.eth.account.sign_message(
                             msg, private_key=private_key
                         )
                         sig_r = getattr(signed_msg, "r")
                         sig_s = getattr(signed_msg, "s")
-                        sig_v = int(getattr(signed_msg, "v")) + 4
+                        sig_v = int(getattr(signed_msg, "v"))
                         signatures = (
                             sig_r.to_bytes(32, "big")
                             + sig_s.to_bytes(32, "big")
                             + bytes([sig_v])
                         )
+                        # Extra diagnostics: recover signer and compare with owners/threshold
+                        try:
+                            recovered = w3.eth.account.recover_message(
+                                msg, signature=signed_msg.signature
+                            )
+                            try:
+                                owners_dbg = list(safe.functions.getOwners().call())
+                            except Exception:
+                                owners_dbg = []
+                            try:
+                                threshold_dbg = int(
+                                    safe.functions.getThreshold().call()
+                                )
+                            except Exception:
+                                threshold_dbg = None
+                            owner_set = {
+                                Web3.to_checksum_address(o) for o in owners_dbg
+                            }
+                            is_owner_recovered = (
+                                Web3.to_checksum_address(recovered) in owner_set
+                            )
+                            self._logger.info(
+                                f"Recovered signer: {recovered}; is_owner={is_owner_recovered}; "
+                                f"threshold={threshold_dbg}"
+                            )
+                            # Abort early if signer doesn't match the agent EOA or is not a Safe owner
+                            try:
+                                recovered_cs = Web3.to_checksum_address(recovered)
+                                account_cs = Web3.to_checksum_address(account.address)
+                            except Exception:
+                                recovered_cs = recovered
+                                account_cs = account.address
+                            if recovered_cs != account_cs:
+                                self._logger.error(
+                                    f"Recovered signer {recovered_cs} does not match agent EOA {account_cs}; "
+                                    f"aborting execTransaction"
+                                )
+                                return
+                            if not is_owner_recovered:
+                                self._logger.error(
+                                    f"Recovered signer {recovered_cs} is not an owner of the Safe; "
+                                    f"aborting execTransaction"
+                                )
+                                return
+                        except Exception as _exc:
+                            self._logger.debug(f"Failed to recover signer: {_exc}")
                     except Exception as exc:
                         self._logger.warning(f"Failed to sign Safe transaction: {exc}")
                         return
 
-                    # Estimate outer gas
-                    gas_limit = self._estimate_gas_safe_exec(
-                        safe,
-                        to_addr,
-                        value,
-                        inner_data_bytes,
-                        operation,
-                        safe_tx_gas,
-                        base_gas,
-                        gas_price,
-                        gas_token,
-                        refund_receiver,
-                        signatures,
-                        tx_params,
-                    )
-                    if gas_limit:
-                        tx_params["gas"] = gas_limit
-
-                    self._apply_fee_parameters(tx_params)
-                    tx_params["chainId"] = w3.eth.chain_id
+                    # Preflight simulation of execTransaction to catch GS026 before sending
+                    try:
+                        ok = safe.functions.execTransaction(
+                            to_addr,
+                            value,
+                            inner_data_hex,
+                            operation,
+                            safe_tx_gas,
+                            base_gas,
+                            safe_gas_price,
+                            gas_token,
+                            refund_receiver,
+                            signatures,
+                        ).call({"from": account.address})
+                        self._logger.info(
+                            f"Preflight execTransaction.call  => {account.address}"
+                        )
+                    except ContractLogicError as exc:
+                        self._logger.debug(
+                            f"Preflight execTransaction.call reverted: {exc}"
+                        )
+                    except Exception:
+                        pass
 
                     self._logger.info(
                         "Submitting Safe.execTransaction for verified recordAction: "
@@ -519,21 +864,51 @@ class ActionRecorder:
                         )
                     )
 
-                    txn = safe.functions.execTransaction(
+                    transaction_builder = safe.functions.execTransaction(
                         to_addr,
                         value,
-                        inner_data_bytes,
+                        inner_data_hex,
                         operation,
                         safe_tx_gas,
                         base_gas,
-                        gas_price,
+                        safe_gas_price,
                         gas_token,
                         refund_receiver,
                         signatures,
-                    ).build_transaction(cast(TxParams, tx_params))
+                    )
+                    transaction_dict = transaction_builder.build_transaction(
+                        cast(TxParams, tx_params)
+                    )
+
+                    if configured_gas != MIN_GAS:
+                        transaction_dict["gas"] = configured_gas
+                    else:
+                        inner_data_bytes = self._to_bytes(inner_data_hex)
+                        estimate_params = dict(transaction_dict)
+                        estimate_params.pop("gas", None)
+                        gas_limit = self._estimate_gas_safe_exec(
+                            safe,
+                            to_addr,
+                            value,
+                            inner_data_bytes,
+                            operation,
+                            safe_tx_gas,
+                            base_gas,
+                            safe_gas_price,
+                            gas_token,
+                            refund_receiver,
+                            signatures,
+                            estimate_params,
+                        )
+                        if gas_limit:
+                            transaction_dict["gas"] = gas_limit
+                        else:
+                            transaction_dict["gas"] = 600_000
+
+                    transaction_dict["nonce"] = nonce
 
                     signed = w3.eth.account.sign_transaction(
-                        txn, private_key=private_key
+                        transaction_dict, private_key=private_key
                     )
                     raw_tx = getattr(signed, "rawTransaction", None) or getattr(
                         signed, "raw_transaction", None
@@ -585,7 +960,7 @@ class ActionRecorder:
         operation: int,
         safe_tx_gas: int,
         base_gas: int,
-        gas_price: int,
+        safe_gas_price: int,
         gas_token: str,
         refund_receiver: str,
         signatures: bytes,
@@ -600,7 +975,7 @@ class ActionRecorder:
                 operation,
                 safe_tx_gas,
                 base_gas,
-                gas_price,
+                safe_gas_price,
                 gas_token,
                 refund_receiver,
                 signatures,

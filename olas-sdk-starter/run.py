@@ -51,17 +51,34 @@ def setup_olas_logging() -> logging.Logger:
 
 
 def read_ethereum_private_key() -> Optional[str]:
-    """Read ethereum private key from ethereum_private_key.txt (Olas SDK requirement)."""
+    """Read ethereum private key from common locations or env (Olas SDK requirement)."""
+    candidates = [
+        Path("./ethereum_private_key.txt"),
+        Path("../agent_key/ethereum_private_key.txt"),
+    ]
+    # Environment variable fallback
+    env_key = os.environ.get("ETH_PRIVATE_KEY") or os.environ.get(
+        "CONNECTION_CONFIGS_CONFIG_ETH_PRIVATE_KEY"
+    )
     try:
-        key_file = Path("../agent_key/ethereum_private_key.txt")
-        if key_file.exists():
-            with open(key_file, "r") as f:
-                return f.read().strip()
-        else:
-            logging.warning("ethereum_private_key.txt not found in working directory")
-            return None
+        for key_file in candidates:
+            try:
+                if key_file.exists():
+                    with open(key_file, "r") as f:
+                        key = f.read().strip()
+                        if key:
+                            return key
+            except Exception:
+                continue
+        if env_key and env_key.strip():
+            return env_key.strip()
+        logging.warning(
+            "ethereum_private_key not found (checked ./ethereum_private_key.txt, "
+            "../agent_key/ethereum_private_key.txt, and ETH_PRIVATE_KEY env)"
+        )
+        return None
     except Exception as e:
-        logging.error(f"Failed to read ethereum_private_key.txt: {e}")
+        logging.error(f"Failed to read ethereum private key: {e}")
         return None
 
 

@@ -839,10 +839,34 @@ class PettAgent:
             (client.rub_pet, "rub"),
             (client.shower_pet, "shower"),
             (client.throw_ball, "throw_ball"),
+            (client.throw_ball, "throw_ball"),
+            (client.throw_ball, "throw_ball"),
         ]
         action_func, action_name = random.choice(actions)
         self.logger.info(f"🎲 Performing random action: {action_name}")
         await action_func()
+
+        # If action failed due to low energy, put pet to sleep instead
+        try:
+            last_err = (
+                client.get_last_action_error()
+                if hasattr(client, "get_last_action_error")
+                else None
+            )
+        except Exception:
+            last_err = None
+        if last_err and ("not have enough energy" in str(last_err).lower()):
+            pet_data = client.get_pet_data() or {}
+            sleeping_now = bool(pet_data.get("sleeping", False))
+            if not sleeping_now:
+                self.logger.info(
+                    "⚡️ Energy too low for random action; putting pet to sleep instead"
+                )
+                await client.sleep_pet()
+            else:
+                self.logger.info(
+                    "⚡️ Energy too low and pet already sleeping; not toggling sleep"
+                )
 
     async def _decide_and_perform_actions(
         self, pet_data: "PettAgent.PetDataDict"
