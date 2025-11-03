@@ -14,6 +14,7 @@ import time
 from dataclasses import dataclass
 import os
 import json
+import re
 from typing import Dict, Optional, Set, Any, cast
 
 from eth_account.signers.local import LocalAccount
@@ -24,6 +25,7 @@ from web3.exceptions import ContractLogicError
 from web3.middleware import ExtraDataToPOAMiddleware
 from web3.types import TxParams
 
+from .nonce_utils import get_shared_nonce_lock
 
 # Contract address provided by the user.
 DEFAULT_ACTION_REPO_ADDRESS = "0x907afc85f3922cbdeb7b9ed806742b4ef998df31"
@@ -128,8 +130,17 @@ GAS_ADJUSTMENT = 50_000
 ZERO_ADDRESS = "0x" + "0" * 40
 # Increased safeTxGas to prevent "out of gas" errors in Safe.execTransaction
 # safeTxGas is the gas reserved for the inner transaction execution
-DEFAULT_SAFE_TX_GAS = 200_000
+DEFAULT_SAFE_TX_GAS = 60_000
 DEFAULT_BASE_GAS = 10_000
+SAFE_EXECUTION_HEADROOM = 10_000
+
+# EIP-1559 fee defaults (values expressed in wei)
+DEFAULT_PRIORITY_FEE_PER_GAS = Web3.to_wei(5, "mwei")  # 0.005 gwei
+MIN_PRIORITY_FEE_PER_GAS = Web3.to_wei(1, "mwei")  # 0.001 gwei floor
+MAX_PRIORITY_FEE_PER_GAS = Web3.to_wei(50, "mwei")  # 0.05 gwei cap
+MIN_FEE_BUFFER_PER_GAS = Web3.to_wei(5, "mwei")  # 0.005 gwei headroom
+MAX_FEE_BUFFER_PER_GAS = Web3.to_wei(50, "mwei")  # 0.05 gwei cap
+PRIORITY_FEE_OVERRIDE_ENV = "ACTION_PRIORITY_FEE_WEI"
 
 
 def _default_action_type_ids() -> Dict[str, int]:
@@ -407,6 +418,12 @@ class ActionRecorder:
         self._private_key = private_key
         self._enabled = True
 
+        # Use a process-wide shared lock for this address to prevent nonce races
+        try:
+            self._nonce_lock = get_shared_nonce_lock(account.address)
+        except Exception:
+            pass
+
         address_preview = f"{account.address[:6]}...{account.address[-4:]}"
         self._logger.info(
             f"ActionRecorder initialised for agent address {address_preview}"
@@ -545,7 +562,7 @@ class ActionRecorder:
             )
             return
 
-        max_attempts = 3
+        max_attempts = 50
         for attempt in range(max_attempts):
             try:
                 with self._nonce_lock:
@@ -659,7 +676,29 @@ class ActionRecorder:
                     value = 0
                     operation = 0
 
-                    safe_tx_gas = DEFAULT_SAFE_TX_GAS
+                    safe_address = None
+                    try:
+                        safe_address = cast(str, getattr(safe, "address", None))
+                    except Exception:
+                        safe_address = None
+
+                    estimated_safe_tx_gas = self._estimate_safe_tx_gas(fn, safe_address)
+                    if estimated_safe_tx_gas is not None:
+                        safe_tx_gas = estimated_safe_tx_gas
+                        try:
+                            self._logger.info(
+                                f"Estimated safeTxGas from recordAction: {safe_tx_gas}"
+                            )
+                        except Exception as exc:
+                            self._logger.debug(
+                                f"Failed to log estimated safeTxGas from recordAction: {exc}"
+                            )
+                            pass
+                    else:
+                        safe_tx_gas = DEFAULT_SAFE_TX_GAS
+                        self._logger.debug(
+                            "Falling back to DEFAULT_SAFE_TX_GAS due to missing estimate"
+                        )
                     safe_tx_gas_override = os.environ.get("ACTION_SAFE_TX_GAS")
                     if safe_tx_gas_override:
                         try:
@@ -687,8 +726,12 @@ class ActionRecorder:
                     gas_token = ZERO_ADDRESS
                     refund_receiver = ZERO_ADDRESS
 
+                    safe_exec_min = self._compute_safe_exec_min_gas(safe_tx_gas)
+                    outer_requirement = (
+                        safe_exec_min + base_gas + SAFE_EXECUTION_HEADROOM
+                    )
                     configured_gas = (
-                        base_gas + safe_tx_gas + GAS_ADJUSTMENT
+                        max(base_gas + safe_tx_gas + GAS_ADJUSTMENT, outer_requirement)
                         if (base_gas != 0 or safe_tx_gas != 0)
                         else MIN_GAS
                     )
@@ -696,14 +739,20 @@ class ActionRecorder:
                     actual_nonce = w3.eth.get_transaction_count(
                         account.address, "pending"
                     )
-                    if actual_nonce != nonce:
+                    if actual_nonce > nonce:
                         self._logger.debug(
-                            "Local nonce cache (%s) diverged from chain nonce (%s); updating",
+                            "Local nonce cache (%s) behind chain nonce (%s); updating",
                             nonce,
                             actual_nonce,
                         )
                         nonce = actual_nonce
                         self._nonce_cache = nonce
+                    elif actual_nonce < nonce:
+                        self._logger.debug(
+                            "Chain reports lower nonce (%s) than local (%s); keeping bumped nonce",
+                            actual_nonce,
+                            nonce,
+                        )
 
                     tx_params: Dict[str, Any] = {
                         "from": account.address,
@@ -926,9 +975,93 @@ class ActionRecorder:
                     return
             except ValueError as exc:
                 self._handle_value_error(exc)
-                lowered = str(exc).lower()
-                if "nonce too low" in lowered and attempt < max_attempts - 1:
-                    time.sleep(0.25)
+                try:
+                    err0 = exc.args[0] if getattr(exc, "args", None) else None
+                    if isinstance(err0, dict):
+                        message = str(err0.get("message", str(exc)))
+                    else:
+                        message = str(exc)
+                except Exception:
+                    message = str(exc)
+
+                lowered = message.lower()
+                if "nonce too low" in lowered:
+                    # Try to bump to the provider-suggested next nonce (or latest pending)
+                    try:
+                        hinted_next = self._parse_next_nonce_hint(message)
+                    except Exception:
+                        hinted_next = None
+
+                    try:
+                        latest_pending = w3.eth.get_transaction_count(
+                            account.address, "pending"
+                        )
+                    except Exception:
+                        latest_pending = None  # type: ignore[assignment]
+
+                    candidate = (
+                        hinted_next if hinted_next is not None else latest_pending
+                    )
+                    # Ensure we strictly increase over the last attempted nonce
+                    try:
+                        last_attempted = nonce
+                    except Exception:
+                        last_attempted = self._nonce_cache or 0
+                    # Choose the max among hint/pending and last_attempted+1
+                    if candidate is None:
+                        next_nonce = int(last_attempted) + 1
+                    else:
+                        next_nonce = max(int(candidate), int(last_attempted) + 1)
+                    if next_nonce is None:
+                        # Fallback: increment local cache conservatively
+                        next_nonce = (self._nonce_cache or 0) + 1
+                    try:
+                        self._logger.info(
+                            f"Nonce too low; bumping tx nonce to {int(next_nonce)} and retrying"
+                        )
+                    except Exception:
+                        pass
+                    self._nonce_cache = int(next_nonce)
+                    time.sleep(0.2)
+                    continue
+                raise
+            except Exception as exc:
+                # Some providers may raise non-ValueError exceptions; still handle nonce-too-low robustly
+                try:
+                    message = str(exc)
+                    lowered = message.lower()
+                except Exception:
+                    lowered = ""
+                if "nonce too low" in lowered:
+                    try:
+                        hinted_next = self._parse_next_nonce_hint(message)
+                    except Exception:
+                        hinted_next = None
+                    try:
+                        latest_pending = w3.eth.get_transaction_count(
+                            account.address, "pending"
+                        )
+                    except Exception:
+                        latest_pending = None  # type: ignore[assignment]
+                    try:
+                        last_attempted = nonce
+                    except Exception:
+                        last_attempted = self._nonce_cache or 0
+                    if hinted_next is None and latest_pending is None:
+                        next_nonce = int(last_attempted) + 1
+                    else:
+                        cand = (
+                            hinted_next if hinted_next is not None else latest_pending
+                        )
+                        next_nonce = max(int(cand), int(last_attempted) + 1)  # type: ignore[arg-type]
+                    try:
+                        self._logger.info(
+                            f"Nonce too low (generic); bumping tx nonce to {int(next_nonce)} and retrying"
+                        )
+                    except Exception:
+                        pass
+                    self._nonce_cache = int(next_nonce)
+                    time.sleep(0.2)
                     continue
                 raise
             except ContractLogicError as exc:
@@ -986,7 +1119,91 @@ class ActionRecorder:
 
         # Increase buffer to 1.3x and ensure minimum is higher to prevent out of gas
         buffered = int(gas_estimate * 1.3)
-        return max(buffered, 400_000)
+        safe_exec_min = self._compute_safe_exec_min_gas(safe_tx_gas)
+        required_with_headroom = safe_exec_min + base_gas + SAFE_EXECUTION_HEADROOM
+        minimum_limit = max(required_with_headroom, 400_000)
+        return max(buffered, minimum_limit)
+
+    def _estimate_safe_tx_gas(
+        self,
+        record_action_fn: Any,
+        safe_address: Optional[str],
+    ) -> Optional[int]:
+        """Estimate inner recordAction gas to derive safeTxGas."""
+        if safe_address is None:
+            return None
+
+        try:
+            gas_estimate = record_action_fn.estimate_gas({"from": safe_address})
+        except ContractLogicError as exc:
+            self._logger.debug(
+                f"recordAction gas estimation reverted (ContractLogicError): {exc}"
+            )
+            return None
+        except ValueError as exc:
+            self._logger.debug(
+                f"recordAction gas estimation failed (ValueError): {exc}"
+            )
+            return None
+        except Exception as exc:
+            self._logger.debug(f"recordAction gas estimation failed: {exc}")
+            return None
+
+        # Cushion the estimate to reduce the risk of underestimation.
+        buffered = max(int(gas_estimate * 1.2), gas_estimate + 20_000)
+        return max(buffered, MIN_GAS)
+
+    def _compute_safe_exec_min_gas(self, safe_tx_gas: int) -> int:
+        """Return the minimum gas Safe.execTransaction expects to remain."""
+        safe_tx_gas = max(0, int(safe_tx_gas))
+        scaled = (safe_tx_gas * 64 + 62) // 63  # ceil(safe_tx_gas * 64 / 63)
+        requirement = max(scaled, safe_tx_gas + 2_500) + 500
+        return requirement
+
+    def _suggest_priority_fee(self) -> int:
+        """Return a conservative priority fee value in wei."""
+        if self._w3 is None:
+            return DEFAULT_PRIORITY_FEE_PER_GAS
+
+        priority_fee: Optional[int] = None
+
+        override_raw = os.environ.get(PRIORITY_FEE_OVERRIDE_ENV)
+        if override_raw:
+            try:
+                priority_fee = max(0, int(override_raw))
+                self._logger.debug(
+                    "Using priority fee override (%s=%s)",
+                    PRIORITY_FEE_OVERRIDE_ENV,
+                    priority_fee,
+                )
+            except ValueError:
+                self._logger.warning(
+                    "Invalid %s value '%s'; ignoring",
+                    PRIORITY_FEE_OVERRIDE_ENV,
+                    override_raw,
+                )
+
+        if priority_fee is None:
+            try:
+                suggested = getattr(self._w3.eth, "max_priority_fee", None)
+                if callable(suggested):
+                    suggested = suggested()
+                if suggested is not None:
+                    priority_fee = int(suggested)
+            except Exception as exc:
+                self._logger.debug(
+                    f"Failed to obtain RPC priority fee suggestion: {exc}"
+                )
+
+        if priority_fee is None or priority_fee <= 0:
+            priority_fee = DEFAULT_PRIORITY_FEE_PER_GAS
+
+        if 0 < priority_fee < MIN_PRIORITY_FEE_PER_GAS:
+            priority_fee = MIN_PRIORITY_FEE_PER_GAS
+        elif priority_fee > MAX_PRIORITY_FEE_PER_GAS:
+            priority_fee = MAX_PRIORITY_FEE_PER_GAS
+
+        return priority_fee
 
     def _apply_fee_parameters(self, tx_params: Dict[str, Any]) -> None:
         """Populate the fee parameters according to the network capabilities."""
@@ -998,16 +1215,42 @@ class ActionRecorder:
             latest_block = self._w3.eth.get_block("latest")
         except Exception as exc:
             self._logger.debug(f"Failed to fetch latest block for fee data: {exc}")
-            tx_params["gasPrice"] = self._w3.eth.gas_price
+            gas_price = self._w3.eth.gas_price
+            tx_params["gasPrice"] = gas_price
+            self._logger.debug("Fallback to legacy gas price: %s", gas_price)
             return
 
         base_fee = latest_block.get("baseFeePerGas")
-        if base_fee is not None:
-            priority_fee = Web3.to_wei(2, "gwei")
-            tx_params["maxPriorityFeePerGas"] = priority_fee
-            tx_params["maxFeePerGas"] = base_fee + priority_fee * 2
+        if base_fee is None:
+            gas_price = self._w3.eth.gas_price
+            tx_params["gasPrice"] = gas_price
+            self._logger.debug(
+                "Legacy network without base fee; gasPrice=%s", gas_price
+            )
+            return
+
+        base_fee_int = int(base_fee)
+        priority_fee = int(self._suggest_priority_fee())
+        min_buffer = int(MIN_FEE_BUFFER_PER_GAS)
+        max_buffer = int(MAX_FEE_BUFFER_PER_GAS)
+
+        if priority_fee <= 0:
+            buffer = min_buffer
         else:
-            tx_params["gasPrice"] = self._w3.eth.gas_price
+            buffer = max(min_buffer, min(priority_fee, max_buffer))
+
+        max_fee = base_fee_int + priority_fee + buffer
+
+        tx_params["maxPriorityFeePerGas"] = priority_fee
+        tx_params["maxFeePerGas"] = max_fee
+
+        self._logger.debug(
+            "Fee params: base=%s priority=%s buffer=%s max=%s",
+            base_fee_int,
+            priority_fee,
+            buffer,
+            max_fee,
+        )
 
     def _handle_value_error(self, error: ValueError) -> None:
         """Parse provider ValueErrors and adjust nonce cache when relevant."""
@@ -1021,6 +1264,23 @@ class ActionRecorder:
             self._nonce_cache = None
         else:
             self._logger.warning(f"RPC error during recordAction: {message}")
+
+    def _parse_next_nonce_hint(self, message: str) -> Optional[int]:
+        """Extract the provider-suggested next nonce from an error message, if present."""
+        try:
+            # Common patterns across geth/networks
+            m = re.search(r"next\s*nonce[^0-9]*(\d+)", message, re.IGNORECASE)
+            if m:
+                return int(m.group(1))
+            m = re.search(r"expected(?:\s*nonce)?[^0-9]*(\d+)", message, re.IGNORECASE)
+            if m:
+                return int(m.group(1))
+            m = re.search(r"expected\s*:\s*(\d+)", message, re.IGNORECASE)
+            if m:
+                return int(m.group(1))
+        except Exception:
+            pass
+        return None
 
     def _inject_poa_middleware(self, w3: Web3) -> None:
         """Inject a POA-compatible middleware when available."""

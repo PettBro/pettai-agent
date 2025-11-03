@@ -101,6 +101,8 @@ class OlasInterface:
         # Optional on-chain components
         self.action_recorder: Optional[ActionRecorder] = None
         self.staking_checkpoint_client: Optional[StakingCheckpointClient] = None
+        self.staking_metrics: Optional[Dict[str, Any]] = None
+        self._staking_metrics_updated_at: Optional[datetime] = None
         self._initialise_action_recorder()
         self._initialise_staking_checkpoint()
 
@@ -426,6 +428,15 @@ class OlasInterface:
         """Return the staking checkpoint client, if available."""
         return self.staking_checkpoint_client
 
+    def update_staking_metrics(self, metrics: Optional[Dict[str, Any]]) -> None:
+        """Persist latest staking KPI snapshot for health/status endpoints."""
+        if metrics is None:
+            self.staking_metrics = None
+            self._staking_metrics_updated_at = None
+            return
+        self.staking_metrics = metrics
+        self._staking_metrics_updated_at = datetime.now()
+
     def _initialise_staking_checkpoint(self) -> None:
         """Initialise the staking checkpoint helper when configuration is provided."""
         feature_flag = os.environ.get("ENABLE_STAKING_CHECKPOINTS", "1").strip().lower()
@@ -500,6 +511,41 @@ class OlasInterface:
             else DEFAULT_STATE_FILE
         )
 
+        service_id_value: Optional[int] = None
+        service_env_candidates = (
+            "STAKING_SERVICE_ID",
+            "SERVICE_ID",
+            "SERVICE_TOKEN_ID",
+            "SERVICE_TOKEN",
+            "CONNECTION_CONFIGS_CONFIG_SERVICE_ID",
+            "CONNECTION_CONFIGS_CONFIG_SERVICE_TOKEN",
+            "CONNECTION_CONFIGS_CONFIG_TOKEN",
+        )
+        for env_name in service_env_candidates:
+            raw = os.environ.get(env_name)
+            if not raw or not raw.strip():
+                continue
+            try:
+                service_id_value = int(raw.strip(), 0)
+                break
+            except ValueError:
+                self.logger.warning(
+                    "Invalid staking service id value in %s: %s", env_name, raw
+                )
+
+        staking_token_address = staking_address
+        staking_token_env_candidates = (
+            "STAKING_TOKEN_ADDRESS",
+            "STAKING_TOKEN_PROXY_ADDRESS",
+            "SERVICE_STAKING_CONTRACT_ADDRESS",
+            "CONNECTION_CONFIGS_CONFIG_STAKING_TOKEN_ADDRESS",
+        )
+        for env_name in staking_token_env_candidates:
+            value = os.environ.get(env_name)
+            if value and value.strip():
+                staking_token_address = value.strip()
+                break
+
         try:
             config = CheckpointConfig(
                 private_key=private_key,
@@ -508,6 +554,8 @@ class OlasInterface:
                 safe_address=safe_address,
                 liveness_period=liveness_period,
                 state_file=state_file_path,
+                staking_token_address=staking_token_address,
+                service_id=service_id_value,
             )
             self.staking_checkpoint_client = StakingCheckpointClient(
                 config=config, logger=self.logger
@@ -558,6 +606,29 @@ class OlasInterface:
             "has_required_funds": False,
             "staking_status": "unknown",
         }
+
+        if self.staking_metrics:
+            staking_snapshot = dict(self.staking_metrics)
+            agent_health["is_staking_kpi_met"] = bool(
+                staking_snapshot.get("threshold_met")
+            )
+            agent_health["staking_status"] = staking_snapshot.get(
+                "status", "unknown"
+            )
+            agent_health["staking_epoch"] = {
+                "service_id": staking_snapshot.get("service_id"),
+                "txs_in_epoch": staking_snapshot.get("txs_in_epoch"),
+                "required_txs": staking_snapshot.get("required_txs"),
+                "txs_remaining": staking_snapshot.get("txs_remaining"),
+                "eta_seconds": staking_snapshot.get("seconds_to_epoch_end"),
+                "eta_text": staking_snapshot.get("eta_text"),
+                "threshold_met": staking_snapshot.get("threshold_met"),
+                "updated_at": (
+                    self._staking_metrics_updated_at.isoformat()
+                    if self._staking_metrics_updated_at
+                    else staking_snapshot.get("updated_at")
+                ),
+            }
 
         # Derive has_required_funds from known pet balance when available
         try:

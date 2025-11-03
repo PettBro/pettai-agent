@@ -83,6 +83,9 @@ class PettWebSocketClient:
         self._action_recorder: Optional[ActionRecorder] = None
         # Last action error text captured from server responses
         self._last_action_error: Optional[str] = None
+        # Persistent auth token storage for reconnection
+        self._saved_auth_token: Optional[str] = None
+        self._was_previously_authenticated: bool = False
 
     def set_telemetry_recorder(
         self, recorder: Optional[Callable[[Dict[str, Any], bool, Optional[str]], None]]
@@ -195,6 +198,8 @@ class PettWebSocketClient:
         self.websocket = None
         self.connection_established = False
         self.authenticated = False
+        # Note: We preserve _saved_auth_token and _was_previously_authenticated
+        # for reconnection attempts
         logger.info("WebSocket connection closed")
 
     def set_privy_token(self, privy_token: str) -> None:
@@ -210,6 +215,12 @@ class PettWebSocketClient:
         self._jwt_expired = False
         self._last_auth_error = None
         logger.info("Privy token updated on WebSocket client")
+
+    def clear_saved_auth_token(self) -> None:
+        """Clear saved auth token and previous authentication state."""
+        self._saved_auth_token = None
+        self._was_previously_authenticated = False
+        logger.info("Saved auth token cleared")
 
     async def refresh_token_and_reconnect(
         self, privy_token: str, max_retries: int = 3, auth_timeout: int = 10
@@ -313,10 +324,19 @@ class PettWebSocketClient:
         self, max_retries: int = 3, auth_timeout: int = 10
     ) -> bool:
         """Connect to WebSocket and authenticate using Privy token with retry logic."""
-        # Skip authentication if no privy token or empty token
-        if not self.privy_token or not self.privy_token.strip():
+        # Check if we have a saved auth token to reuse
+        token_to_use = None
+        if self._was_previously_authenticated and self._saved_auth_token:
+            token_to_use = self._saved_auth_token
+            logger.info("🔄 Using saved auth token for reconnection")
+        elif self.privy_token and self.privy_token.strip():
+            token_to_use = self.privy_token
+            logger.info("🆕 Using environment auth token for connection")
+
+        # Skip authentication if no token available
+        if not token_to_use:
             logger.warning(
-                "⚠️ No Privy token available - skipping authentication and retries"
+                "⚠️ No auth token available (env or saved) - skipping authentication and retries"
             )
             return False
 
@@ -341,11 +361,25 @@ class PettWebSocketClient:
                 logger.info("👂 Started WebSocket message listener")
 
                 logger.info("🔐 Attempting authentication...")
-                # Try to authenticate
-                auth_success = await self.authenticate(timeout=auth_timeout)
+                # Try to authenticate using the selected token
+                auth_success = await self.authenticate_privy(
+                    token_to_use, timeout=auth_timeout
+                )
                 if not auth_success:
                     logger.warning(f"❌ Authentication attempt {attempt + 1} failed")
                     await self.disconnect()
+
+                    # If we were using a saved token and it failed, clear it
+                    if (
+                        self._was_previously_authenticated
+                        and token_to_use == self._saved_auth_token
+                    ):
+                        logger.warning(
+                            "🔑 Saved auth token failed, clearing saved state"
+                        )
+                        self.clear_saved_auth_token()
+                        # Don't retry with the same failed token
+                        return False
 
                     # Check if it's a JWT expiration error - don't retry in this case
                     if hasattr(self, "_last_auth_error") and self._last_auth_error:
@@ -580,6 +614,9 @@ class PettWebSocketClient:
             # Reset JWT expiration flag on successful auth
             self._jwt_expired = False
             self._last_auth_error = None  # Clear any previous errors
+            # Save auth token for reconnection use
+            self._saved_auth_token = self.privy_token
+            self._was_previously_authenticated = True
 
             # Extract pet data - now it's directly in the pet field
             if pet_data:
@@ -629,6 +666,13 @@ class PettWebSocketClient:
 
             # Store the error for retry logic
             self._last_auth_error = str(error)
+
+            # Clear saved auth token on authentication failure
+            if self._was_previously_authenticated:
+                logger.info(
+                    "🔑 Clearing saved auth token due to authentication failure"
+                )
+                self.clear_saved_auth_token()
 
             # Check if it's a JWT expiration error
             if any(

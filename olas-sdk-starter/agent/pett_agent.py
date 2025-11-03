@@ -25,8 +25,8 @@ load_dotenv()
 class PettAgent:
     """Main Pett Agent class with Olas SDK integration."""
 
-    LOW_THRESHOLD = 30.0
-    LOW_ENERGY_THRESHOLD = 20.0
+    LOW_THRESHOLD = 70.0
+    LOW_ENERGY_THRESHOLD = 30.0
 
     def __init__(
         self,
@@ -57,16 +57,19 @@ class PettAgent:
         self.logger.info("🐾 Pett Agent initialized")
         # Action scheduler configuration
         self.action_interval_minutes: float = (
-            30 if is_production else 1
-        )  # should be 30 minutes in prod
+            7 if is_production else 1
+        )  # should be 7 minutes in prod
         self.next_action_at: Optional[datetime] = None
         self.last_action_at: Optional[datetime] = None
-        self._checkpoint_check_interval: timedelta = timedelta(minutes=30)
+        self._checkpoint_check_interval: timedelta = timedelta(minutes=7)
         self._next_checkpoint_check_at: datetime = datetime.now()
 
         # Flag to indicate we're waiting for React login
         self.waiting_for_react_login: bool = False
         self._low_health_recovery_in_progress: bool = False
+        # Control mid-interval staking KPI logging
+        self._mid_interval_logged: bool = True
+        self._staking_kpi_log_suppressed: bool = False
 
     # TypedDicts for pet data shape
     class PetTokensDict(TypedDict, total=False):
@@ -592,6 +595,8 @@ class PettAgent:
             if self.websocket_client:
                 try:
                     self.websocket_client.set_privy_token("")
+                    # Clear saved auth token to prevent automatic reconnection
+                    self.websocket_client.clear_saved_auth_token()
                 except Exception:
                     pass
                 try:
@@ -628,6 +633,7 @@ class PettAgent:
                             # If it's not yet time, sleep just until the next action
                             now = datetime.now()
                             if self.next_action_at and now < self.next_action_at:
+                                await self._maybe_log_mid_interval(now)
                                 sleep_seconds = max(
                                     (self.next_action_at - now).total_seconds(), 1
                                 )
@@ -667,6 +673,7 @@ class PettAgent:
                                                     minutes=self.action_interval_minutes
                                                 )
                                             )
+                                            self._mid_interval_logged = False
                                         except Exception as e:
                                             self.logger.debug(
                                                 f"Action decision error: {e}"
@@ -776,6 +783,74 @@ class PettAgent:
             return False
         finally:
             self._low_health_recovery_in_progress = False
+
+    async def _maybe_log_mid_interval(self, now: datetime) -> None:
+        """Log staking KPI progress when halfway to the next scheduled action."""
+        if self._mid_interval_logged:
+            return
+        if not self.next_action_at:
+            return
+        interval_seconds = max(self.action_interval_minutes * 60.0, 0.0)
+        if interval_seconds <= 0:
+            return
+        time_remaining = (self.next_action_at - now).total_seconds()
+        if time_remaining <= 0:
+            return
+        if time_remaining > interval_seconds / 2:
+            return
+
+        try:
+            await self._log_staking_epoch_progress()
+        finally:
+            self._mid_interval_logged = True
+
+    async def _log_staking_epoch_progress(self) -> None:
+        """Fetch and log staking KPIs for the current epoch."""
+        client = self.olas.get_staking_checkpoint_client()
+        if not client or not client.is_enabled:
+            if not self._staking_kpi_log_suppressed:
+                self.logger.debug(
+                    "Staking KPIs unavailable: checkpoint client not configured or disabled"
+                )
+                self._staking_kpi_log_suppressed = True
+            return
+
+        try:
+            metrics = await client.get_epoch_kpis()
+        except Exception as exc:
+            if not self._staking_kpi_log_suppressed:
+                self.logger.debug(
+                    "Failed to fetch staking KPIs from checkpoint client: %s", exc
+                )
+                self._staking_kpi_log_suppressed = True
+            return
+
+        if metrics is None:
+            if not self._staking_kpi_log_suppressed:
+                self.logger.debug(
+                    "Staking KPIs not available; ensure SERVICE_ID / staking env vars are configured"
+                )
+                self._staking_kpi_log_suppressed = True
+            return
+
+        self._staking_kpi_log_suppressed = False
+
+        eta_text = metrics.eta_text()
+        status_icon = "✅" if metrics.threshold_met else "⚠️"
+        self.logger.info(
+            "%s Staking epoch progress: %s/%s txs (remaining %s) — epoch ends %s",
+            status_icon,
+            metrics.txs_in_epoch,
+            metrics.required_txs,
+            metrics.txs_remaining,
+            eta_text,
+        )
+
+        try:
+            self.olas.update_staking_metrics(metrics.to_dict())
+        except Exception:
+            # Do not let telemetry failures block the loop
+            pass
 
     async def _maybe_call_staking_checkpoint(self, force: bool = False) -> None:
         """Attempt to call the staking checkpoint when the liveness window expires."""
