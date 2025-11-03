@@ -48,22 +48,6 @@ ACTION_REPO_ABI = [
         "type": "function",
     },
     {
-        "inputs": [
-            {"internalType": "uint8[]", "name": "actionIds", "type": "uint8[]"},
-            {"internalType": "bytes32[]", "name": "nonces", "type": "bytes32[]"},
-            {"internalType": "uint256[]", "name": "timestamps", "type": "uint256[]"},
-            {"internalType": "uint8[]", "name": "vs", "type": "uint8[]"},
-            {"internalType": "bytes32[]", "name": "rs", "type": "bytes32[]"},
-            {"internalType": "bytes32[]", "name": "ss", "type": "bytes32[]"},
-        ],
-        "name": "recordActionsBatch",
-        "outputs": [
-            {"internalType": "uint256", "name": "totalAdded", "type": "uint256"}
-        ],
-        "stateMutability": "nonpayable",
-        "type": "function",
-    },
-    {
         "inputs": [],
         "name": "mainSigner",
         "outputs": [{"internalType": "address", "name": "", "type": "address"}],
@@ -140,9 +124,11 @@ SAFE_ABI = [
 
 # Safe tx gas configuration constants inspired by Valory's implementation
 MIN_GAS = 1
-GAS_ADJUSTMENT = 75_000
+GAS_ADJUSTMENT = 50_000
 ZERO_ADDRESS = "0x" + "0" * 40
-DEFAULT_SAFE_TX_GAS = 100_000
+# Increased safeTxGas to prevent "out of gas" errors in Safe.execTransaction
+# safeTxGas is the gas reserved for the inner transaction execution
+DEFAULT_SAFE_TX_GAS = 200_000
 DEFAULT_BASE_GAS = 10_000
 
 
@@ -640,13 +626,18 @@ class ActionRecorder:
 
                     # Build inner calldata for ActionRepo.recordAction (prefer direct encode)
                     try:
+                        # Ensure strict types for bytes32 fields
+                        nonce_b32 = HexBytes(nonce_hex)
+                        r_b32 = HexBytes(r)
+                        s_b32 = HexBytes(s)
+                        v_u8 = int(v)
                         fn = contract.functions.recordAction(
                             int(action_id),
-                            nonce_hex,
+                            nonce_b32,
                             int(timestamp),
-                            int(v),
-                            r,
-                            s,
+                            v_u8,
+                            r_b32,
+                            s_b32,
                         )
                         inner_data_hex = None
                         try:
@@ -658,6 +649,7 @@ class ActionRecorder:
                             raise ValueError(
                                 "Failed to produce calldata for recordAction"
                             )
+                        inner_data_bytes = self._to_bytes(inner_data_hex)
                     except Exception as exc:
                         self._logger.warning(f"Failed to encode inner calldata: {exc}")
                         return
@@ -740,7 +732,7 @@ class ActionRecorder:
                         tx_hash_bytes = safe.functions.getTransactionHash(
                             to_addr,
                             value,
-                            inner_data_hex,
+                            inner_data_bytes,
                             operation,
                             safe_tx_gas,
                             base_gas,
@@ -763,17 +755,13 @@ class ActionRecorder:
                         from eth_account.messages import encode_defunct
 
                         msg = encode_defunct(primitive=tx_hash_bytes)
-
-                        print(
-                            "Private key address: ",
-                            w3.eth.account.from_key(private_key).address,
-                        )
                         signed_msg = w3.eth.account.sign_message(
                             msg, private_key=private_key
                         )
                         sig_r = getattr(signed_msg, "r")
                         sig_s = getattr(signed_msg, "s")
-                        sig_v = int(getattr(signed_msg, "v"))
+                        # For eth_sign flow, adjust v so Safe treats it as contract-style signature
+                        sig_v = int(getattr(signed_msg, "v")) + 4
                         signatures = (
                             sig_r.to_bytes(32, "big")
                             + sig_s.to_bytes(32, "big")
@@ -784,6 +772,19 @@ class ActionRecorder:
                             recovered = w3.eth.account.recover_message(
                                 msg, signature=signed_msg.signature
                             )
+                            # get the address from the private key
+                            recovered_address = w3.eth.account.from_key(
+                                private_key
+                            ).address
+                            self._logger.info(
+                                f"Recovered signer: {recovered_address} vs account: {account.address}"
+                            )
+                            if recovered_address != account.address:
+                                self._logger.error(
+                                    f"Recovered signer {recovered_address} does not match agent EOA {account.address}; "
+                                    f"aborting execTransaction"
+                                )
+                                return
                             try:
                                 owners_dbg = list(safe.functions.getOwners().call())
                             except Exception:
@@ -802,7 +803,7 @@ class ActionRecorder:
                             )
                             self._logger.info(
                                 f"Recovered signer: {recovered}; is_owner={is_owner_recovered}; "
-                                f"threshold={threshold_dbg}"
+                                f"threshold={threshold_dbg} safe={safe.address}"
                             )
                             # Abort early if signer doesn't match the agent EOA or is not a Safe owner
                             try:
@@ -834,7 +835,7 @@ class ActionRecorder:
                         ok = safe.functions.execTransaction(
                             to_addr,
                             value,
-                            inner_data_hex,
+                            inner_data_bytes,
                             operation,
                             safe_tx_gas,
                             base_gas,
@@ -867,7 +868,7 @@ class ActionRecorder:
                     transaction_builder = safe.functions.execTransaction(
                         to_addr,
                         value,
-                        inner_data_hex,
+                        inner_data_bytes,
                         operation,
                         safe_tx_gas,
                         base_gas,
@@ -903,9 +904,8 @@ class ActionRecorder:
                         if gas_limit:
                             transaction_dict["gas"] = gas_limit
                         else:
-                            transaction_dict["gas"] = 600_000
-
-                    transaction_dict["nonce"] = nonce
+                            # Increased fallback gas to handle complex Safe transactions
+                            transaction_dict["gas"] = 800_000
 
                     signed = w3.eth.account.sign_transaction(
                         transaction_dict, private_key=private_key
@@ -984,8 +984,9 @@ class ActionRecorder:
             self._logger.debug(f"Gas estimation failed for Safe.execTransaction: {exc}")
             return None
 
-        buffered = int(gas_estimate * 1.2)
-        return max(buffered, 300_000)
+        # Increase buffer to 1.3x and ensure minimum is higher to prevent out of gas
+        buffered = int(gas_estimate * 1.3)
+        return max(buffered, 400_000)
 
     def _apply_fee_parameters(self, tx_params: Dict[str, Any]) -> None:
         """Populate the fee parameters according to the network capabilities."""

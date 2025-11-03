@@ -411,7 +411,7 @@ class OlasInterface:
             config = RecorderConfig(
                 private_key=private_key,
                 rpc_url=rpc_url,
-                contract_address=contract_address or DEFAULT_ACTION_REPO_ADDRESS,
+                contract_address=contract_address,
             )
             self.action_recorder = ActionRecorder(config=config, logger=self.logger)
         except Exception as exc:
@@ -471,6 +471,7 @@ class OlasInterface:
             "STAKING_SAFE_ADDRESS",
             "SERVICE_SAFE_ADDRESS",
             "SAFE_CONTRACT_ADDRESS",
+            "CONNECTION_CONFIGS_CONFIG_SAFE_CONTRACT_ADDRESS",
         )
         for env_name in safe_env_candidates:
             value = os.environ.get(env_name)

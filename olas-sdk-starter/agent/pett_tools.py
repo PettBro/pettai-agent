@@ -418,6 +418,7 @@ class PettTools:
                 )
                 return "❌ WebSocket client not available or connected."
 
+            consumable_id = (consumable_id or "").strip().strip('"').strip("'")
             if consumable_id not in CONSUMABLES:
                 logger.error(f"[TOOL] Invalid consumable ID provided: {consumable_id}")
                 return f"❌ Invalid consumable ID: {consumable_id}. Allowed values: {', '.join(sorted(CONSUMABLES))}"
@@ -470,6 +471,7 @@ class PettTools:
                 )
                 return "❌ WebSocket client not available or connected."
 
+            consumable_id = (consumable_id or "").strip().strip('"').strip("'")
             if consumable_id not in CONSUMABLES:
                 logger.error(f"[TOOL] Invalid consumable ID provided: {consumable_id}")
                 return f"❌ Invalid consumable ID: {consumable_id}. Allowed values: {', '.join(sorted(CONSUMABLES))}"
@@ -1156,7 +1158,7 @@ class PettTools:
                 elif action_name == "throw_ball":
                     result = self._run_async(client.throw_ball())
 
-                # If result failed due to low energy, put pet to sleep instead
+                # Fallback: if RUB failed due to low happiness, try THROWBALL
                 try:
                     last_err = (
                         client.get_last_action_error()
@@ -1165,6 +1167,17 @@ class PettTools:
                     )
                 except Exception:
                     last_err = None
+                if last_err and ("not have enough happiness" in str(last_err).lower()):
+                    logger.info(
+                        "[TOOL] RUB failed due to low happiness; trying THROWBALL instead"
+                    )
+                    fallback_ok = self._run_async(client.throw_ball())
+                    if fallback_ok:
+                        return "🎾 Happiness low: switched to throwing a ball!"
+                    else:
+                        return "❌ RUB failed (low happiness) and THROWBALL fallback failed."
+
+                # If result failed due to low energy, put pet to sleep instead
                 if last_err and ("not have enough energy" in str(last_err).lower()):
                     # Put pet to sleep only if not already sleeping
                     pet_data = client.get_pet_data() or {}

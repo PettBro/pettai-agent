@@ -873,7 +873,7 @@ class PettWebSocketClient:
             logger.error(f"Invalid consumable ID provided: {consumable_id!r}")
             return False
 
-        consumable_id = consumable_id.strip()
+        consumable_id = consumable_id.strip().strip('"').strip("'")
         logger.info(f"🍴 Using consumable: {consumable_id}")
 
         success, response = await self._send_and_wait(
@@ -949,9 +949,11 @@ class PettWebSocketClient:
             logger.error("Amount must be greater than 0")
             return False
 
+        # Normalize the ID to avoid accidental surrounding quotes
+        consumable_id = consumable_id.strip().strip('"').strip("'")
         success, resp = await self._send_and_wait(
             "CONSUMABLES_BUY",
-            {"params": {"foodId": consumable_id.strip(), "amount": amount}},
+            {"params": {"foodId": consumable_id, "amount": amount}},
             timeout=15,
             verify=record_on_chain,
         )
