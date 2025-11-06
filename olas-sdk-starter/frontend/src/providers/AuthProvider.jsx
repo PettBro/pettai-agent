@@ -14,11 +14,11 @@ export const AuthProvider = ({ children }) => {
 		getAccessToken: privyGetAccessToken,
 	} = usePrivy();
 
-
 	const [wsPet, setWsPet] = useState(null);
 	const [authFailed, setAuthFailed] = useState(false);
+	const [authError, setAuthError] = useState(null);
 
-	// Get and log Privy token when authenticated
+
 	useEffect(() => {
 		const getToken = async () => {
 			if (privyAuthenticated && privyUser) {
@@ -59,8 +59,6 @@ export const AuthProvider = ({ children }) => {
 		}
 	}, [privyAuthenticated, ready, privyUser, privyGetAccessToken]);
 
-
-	// Combined logout: clear backend token, then Privy
 	const logout = async () => {
 		try {
 			await fetch('/api/logout', { method: 'POST' });
@@ -72,6 +70,7 @@ export const AuthProvider = ({ children }) => {
 		} finally {
 			setWsPet(null);
 			setAuthFailed(false);
+			setAuthError(null);
 		}
 	};
 
@@ -83,6 +82,7 @@ export const AuthProvider = ({ children }) => {
 		user: privyUser,
 		wsPet,
 		authFailed,
+		authError,
 		isModalOpen,
 	};
 

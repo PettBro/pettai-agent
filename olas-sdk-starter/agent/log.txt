@@ -1,0 +1,1123 @@
+2025-11-06 18:13:59,330 pett_agent INFO: 🚀 Starting Pett Agent with Olas SDK compliance
+2025-11-06 18:13:59,330 pett_agent INFO: Ethereum private key: Found
+2025-11-06 18:13:59,331 pett_agent INFO: Withdrawal mode: False
+2025-11-06 18:13:59,331 pett_agent INFO: 📋 Loaded 0 environment variables
+2025-11-06 18:13:59,657 pett_agent INFO: Using Safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F on chainId 8453
+2025-11-06 18:14:00,394 pett_agent INFO: Safe owners (n=1): ['0xE43d9713a0999B965750fC94934D64CA7d5D2e15']
+2025-11-06 18:14:00,395 pett_agent INFO: Safe threshold: 1
+2025-11-06 18:14:00,395 pett_agent ERROR: Agent EOA is NOT an owner of the AI Agent Safe; execTransaction will revert (GS026)
+2025-11-06 18:14:00,395 pett_agent INFO: ActionRecorder initialised for agent address 0xDd03...2803
+2025-11-06 18:14:00,395 pett_agent INFO: Skipping staking checkpoint initialisation: staking contract address not configured
+2025-11-06 18:14:00,395 pett_agent INFO: 🔧 Olas SDK Interface initialized
+2025-11-06 18:14:00,395 pett_agent INFO: 🐾 Pett Agent initialized
+2025-11-06 18:14:00,396 pett_agent INFO: 🚀 Initializing Pett Agent components...
+2025-11-06 18:14:00,396 pett_agent INFO: 🎨 Building React frontend...
+2025-11-06 18:14:00,396 pett_agent INFO: ✅ React build already exists, skipping build
+2025-11-06 18:14:00,396 pett_agent INFO: ✅ React build available for serving
+2025-11-06 18:14:00,398 pett_agent ERROR: Failed to start web server: [Errno 48] error while attempting to bind on address ('0.0.0.0', 8716): address already in use
+2025-11-06 18:14:00,398 pett_agent ERROR: ❌ Failed to initialize Pett Agent: [Errno 48] error while attempting to bind on address ('0.0.0.0', 8716): address already in use
+2025-11-06 18:14:00,398 pett_agent ERROR: ❌ Failed to initialize agent
+2025-11-06 18:15:23,236 pett_agent INFO: 🚀 Starting Pett Agent with Olas SDK compliance
+2025-11-06 18:15:23,237 pett_agent INFO: Ethereum private key: Found
+2025-11-06 18:15:23,237 pett_agent INFO: Withdrawal mode: False
+2025-11-06 18:15:23,237 pett_agent INFO: 📋 Loaded 0 environment variables
+2025-11-06 18:15:23,528 pett_agent INFO: Using Safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F on chainId 8453
+2025-11-06 18:15:24,269 pett_agent INFO: Safe owners (n=1): ['0xE43d9713a0999B965750fC94934D64CA7d5D2e15']
+2025-11-06 18:15:24,270 pett_agent INFO: Safe threshold: 1
+2025-11-06 18:15:24,270 pett_agent ERROR: Agent EOA is NOT an owner of the AI Agent Safe; execTransaction will revert (GS026)
+2025-11-06 18:15:24,270 pett_agent INFO: ActionRecorder initialised for agent address 0xDd03...2803
+2025-11-06 18:15:24,271 pett_agent INFO: Skipping staking checkpoint initialisation: staking contract address not configured
+2025-11-06 18:15:24,271 pett_agent INFO: 🔧 Olas SDK Interface initialized
+2025-11-06 18:15:24,271 pett_agent INFO: 🐾 Pett Agent initialized
+2025-11-06 18:15:24,271 pett_agent INFO: 🚀 Initializing Pett Agent components...
+2025-11-06 18:15:24,273 pett_agent INFO: 🎨 Building React frontend...
+2025-11-06 18:15:24,273 pett_agent INFO: ✅ React build already exists, skipping build
+2025-11-06 18:15:24,273 pett_agent INFO: ✅ React build available for serving
+2025-11-06 18:15:24,275 pett_agent INFO: 🌐 Web server started on http://0.0.0.0:8716 (access via http://localhost:8716)
+2025-11-06 18:15:24,276 pett_agent INFO: 🎨 React App available at http://localhost:8716/ (Dashboard at /dashboard)
+2025-11-06 18:15:24,276 pett_agent INFO: 🏥 Health API: http://localhost:8716/api/health
+2025-11-06 18:15:24,276 pett_agent INFO: ℹ️  No PRIVY_TOKEN in environment
+2025-11-06 18:15:24,276 pett_agent INFO: ✨ Waiting for user to login via React app at http://localhost:8716/
+2025-11-06 18:15:24,276 pett_agent INFO: 🧾 On-chain action recorder ENABLED: contract=0x907afC85F3922CbdEB7b9Ed806742b4eF998DF31 rpc=https://base.llamarpc.com agent=0xDd03...2803
+2025-11-06 18:15:24,276 pett_agent INFO: ℹ️ No TELEGRAM_BOT_TOKEN found - Telegram disabled
+2025-11-06 18:15:24,277 pett_agent INFO: ✅ Pett Agent initialization complete
+2025-11-06 18:15:24,277 pett_agent INFO: 🎯 Pett Agent is now running...
+2025-11-06 18:15:28,141 pett_agent INFO: 🔐 Received login request from React frontend
+2025-11-06 18:15:28,142 pett_agent INFO: 🔐 Updating Privy token and refreshing WebSocket connection
+2025-11-06 18:15:28,143 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:15:28,143 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:15:28,143 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:15:28,143 agent.pett_websocket_client INFO: 🆕 Using environment auth token for connection
+2025-11-06 18:15:28,143 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-06 18:15:28,143 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:15:28,279 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:15:28,279 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-06 18:15:28,279 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-06 18:15:28,279 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-06 18:15:28,279 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-06 18:15:28,279 agent.pett_websocket_client INFO: 📤 Message content: {"type": "AUTH", "data": {"params": {"authHash": {"hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhub29icjkwMG5obDcwYzIzYnkzb2pnIiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NDkwNzcsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obm9vYnN2MDBuamw3MGNrNHAzMTh4ZyIsImV4cCI6MTc2MjQ3MDY3N30.IVVeh4gbR3X4T9WsRO6BbFto30-PvG9wXy6FqS6A6e3u-K7ZQyH8n2F-4jijXu3k-hKrCOA8rLU4sXl4B3X6vA"}, "authType": "privy"}}, "nonce": "15216"}
+2025-11-06 18:15:28,280 agent.pett_websocket_client INFO: 🔐 Authentication message sent, waiting for response...
+2025-11-06 18:15:28,280 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:15:28,345 agent.pett_websocket_client INFO: ✅ Authentication successful!
+2025-11-06 18:15:28,345 agent.pett_websocket_client INFO: 👤 User: 9888c4ca-6215-4c42-b287-ad4331535f38
+2025-11-06 18:15:28,345 agent.pett_websocket_client INFO: 🔑 Privy ID: did:privy:cmhnoobsv00njl70ck4p318xg
+2025-11-06 18:15:28,345 agent.pett_websocket_client INFO: 📱 Telegram ID: None
+2025-11-06 18:15:28,345 agent.pett_websocket_client INFO: 🐾 Pet: robopet463147
+2025-11-06 18:15:28,345 agent.pett_websocket_client INFO: 🆔 Pet ID: bff88e0c-6fb7-464f-8e62-0787c4aeaa4a
+2025-11-06 18:15:28,345 agent.pett_websocket_client INFO: 💰 Balance: 435.0000 $AIP
+2025-11-06 18:15:28,345 agent.pett_websocket_client INFO: 🏨 Hotel Tier: 0
+2025-11-06 18:15:28,345 agent.pett_websocket_client INFO: 💀 Dead: False
+2025-11-06 18:15:28,345 agent.pett_websocket_client INFO: 😴 Sleeping: False
+2025-11-06 18:15:28,345 agent.pett_websocket_client INFO: 📊 Pet Stats:
+2025-11-06 18:15:28,345 agent.pett_websocket_client INFO:    🍽️  Hunger: 24.11
+2025-11-06 18:15:28,345 agent.pett_websocket_client INFO:    ❤️  Health: 49.41
+2025-11-06 18:15:28,345 agent.pett_websocket_client INFO:    ⚡ Energy: 48.82
+2025-11-06 18:15:28,346 agent.pett_websocket_client INFO:    😊 Happiness: 48.71
+2025-11-06 18:15:28,346 agent.pett_websocket_client INFO:    🧼 Hygiene: 48.42
+2025-11-06 18:15:28,346 agent.pett_websocket_client INFO:    🎯 XP: 50/100 (Level 0)
+2025-11-06 18:15:28,346 agent.pett_websocket_client INFO: 🔐 Authentication result: True
+2025-11-06 18:15:28,346 agent.pett_websocket_client INFO: ✅ Connection and authentication successful!
+2025-11-06 18:15:28,346 pett_agent INFO: ✅ WebSocket re-authenticated with updated Privy token
+2025-11-06 18:15:28,952 agent.pett_tools INFO: [PetTools] Getting pet status and statistics
+2025-11-06 18:15:28,952 agent.pett_tools INFO: [TOOL] Successfully retrieved pet status data
+2025-11-06 18:15:29,278 agent.pett_tools INFO: [PetTools] Getting pet status and statistics
+2025-11-06 18:15:29,279 agent.pett_tools INFO: [TOOL] Successfully retrieved pet status data
+2025-11-06 18:15:29,280 pett_agent INFO: 🩹 Low health detected; attempting recovery
+2025-11-06 18:15:29,280 pett_agent INFO: 🧪 Trying SMALL_POTION to restore health
+2025-11-06 18:15:29,280 agent.pett_websocket_client INFO: 🍴 Using consumable: SMALL_POTION
+2025-11-06 18:15:29,281 agent.pett_websocket_client INFO: 📤 Sent message type: CONSUMABLES_USE
+2025-11-06 18:15:29,281 agent.pett_websocket_client INFO: 📤 Message content: {"type": "CONSUMABLES_USE", "data": {"params": {"foodId": "SMALL_POTION"}}, "nonce": "25254", "verify": true}
+2025-11-06 18:15:29,331 agent.pett_websocket_client ERROR: Server error: PetConsumable with ID SMALL_POTION not found
+2025-11-06 18:15:29,332 agent.pett_websocket_client INFO: 🛒 Consumable SMALL_POTION not owned. Attempting to buy one and retry.
+2025-11-06 18:15:29,332 agent.pett_websocket_client INFO: 📤 Sent message type: CONSUMABLES_BUY
+2025-11-06 18:15:29,332 agent.pett_websocket_client INFO: 📤 Message content: {"type": "CONSUMABLES_BUY", "data": {"params": {"foodId": "SMALL_POTION", "amount": 1}}, "nonce": "47404"}
+2025-11-06 18:15:29,447 agent.pett_websocket_client INFO: Pet Status updated (merged partial update)
+2025-11-06 18:15:29,448 agent.pett_websocket_client INFO: Updated pet data: {'id': 'bff88e0c-6fb7-464f-8e62-0787c4aeaa4a', 'name': 'robopet463147', 'userID': '9888c4ca-6215-4c42-b287-ad4331535f38', 'sleeping': False, 'dead': False, 'god': False, 'active': True, 'currentHotelTier': 0, 'deadTime': None, 'inRiskOfDeathTime': None, 'PetTokens': {'petID': 'bff88e0c-6fb7-464f-8e62-0787c4aeaa4a', 'tokens': '382440000000000000000', 'ethTokens': '0', 'solanaTokens': '0', 'useSolana': False, 'depositedTokens': '0'}, 'PetStats': {'petID': 'bff88e0c-6fb7-464f-8e62-0787c4aeaa4a', 'hunger': '24.11', 'health': '49.41', 'hygiene': '48.42', 'energy': '48.82', 'happiness': '48.71', 'xp': '59', 'level': 0, 'xpMax': 100, 'xpMin': 0}}
+2025-11-06 18:15:29,448 agent.pett_websocket_client INFO: 📊 Received data message
+2025-11-06 18:15:29,448 agent.pett_websocket_client INFO: Data message: {'type': 'data', 'data': {'foodId': 'SMALL_POTION', 'amount': 1}, 'nonce': '47404', 'timestamp': 1762452929464}
+2025-11-06 18:15:29,449 agent.pett_websocket_client INFO: 🔁 Retrying use of SMALL_POTION after purchase
+2025-11-06 18:15:29,449 agent.pett_websocket_client INFO: 📤 Sent message type: CONSUMABLES_USE
+2025-11-06 18:15:29,450 agent.pett_websocket_client INFO: 📤 Message content: {"type": "CONSUMABLES_USE", "data": {"params": {"foodId": "SMALL_POTION"}}, "nonce": "22819", "verify": true}
+2025-11-06 18:15:29,582 agent.pett_websocket_client INFO: Pet Status updated (merged partial update)
+2025-11-06 18:15:29,582 agent.pett_websocket_client INFO: Updated pet data: {'id': 'bff88e0c-6fb7-464f-8e62-0787c4aeaa4a', 'name': 'robopet463147', 'userID': '9888c4ca-6215-4c42-b287-ad4331535f38', 'sleeping': False, 'dead': False, 'god': False, 'active': True, 'currentHotelTier': 0, 'deadTime': None, 'inRiskOfDeathTime': None, 'PetTokens': {'petID': 'bff88e0c-6fb7-464f-8e62-0787c4aeaa4a', 'tokens': '382440000000000000000', 'ethTokens': '0', 'solanaTokens': '0', 'useSolana': False, 'depositedTokens': '0'}, 'PetStats': {'petID': 'bff88e0c-6fb7-464f-8e62-0787c4aeaa4a', 'hunger': '24.11', 'health': '74.41', 'hygiene': '48.42', 'energy': '56.82', 'happiness': '48.71', 'xp': '79.55', 'level': 0, 'xpMax': 100, 'xpMin': 0}}
+2025-11-06 18:15:29,582 agent.pett_websocket_client INFO: 📊 Received data message
+2025-11-06 18:15:29,583 agent.pett_websocket_client INFO: Data message: {'type': 'data', 'data': {'verification': {'hash': '0xda6f6fbec57d20d9366b6fcaa3b5c731465b1244d535bb5f31cab0ce00644ee1', 'signature': {'v': 28, 'r': '0x90e85ef461c91cac75bd1e4825fc7b5bdd30896133d3c088b25e8bcc260dd358', 's': '0x2046849f18d5942d9d49c6689b77e8fc0fe4ea55b5b6bddc991e05490a23b00c'}, 'message': {'action': 1, 'actionName': 'CONSUME_CONSUMABLE', 'timestamp': '1762452929', 'nonce': '0x36bd5f50811b985560aa4bc8a3116108e07b4e78e0e29222df276bb5c0a08fa1'}, 'issuedAt': '2025-11-06T18:15:29.000Z', 'reason': 'socket-request'}}, 'nonce': '22819', 'timestamp': 1762452929599}
+2025-11-06 18:15:29,583 pett_agent INFO: ✅ SMALL_POTION use confirmed
+2025-11-06 18:15:29,583 pett_agent INFO: On-chain recordAction queued: action=CONSUMABLES_USE id=1 agent=0xDd03...2803
+2025-11-06 18:15:30,343 pett_agent INFO: Inner recordAction signer: 0x6a08382311AA9971a79a21d4FE2D613aE0FebFa9; equals_mainSigner=True; expected=0x6a08382311AA9971a79a21d4FE2D613aE0FebFa9
+2025-11-06 18:15:30,710 pett_agent INFO: Estimated safeTxGas from recordAction: 173311
+2025-11-06 18:15:30,959 pett_agent INFO: 🔓 Received logout request from React frontend
+2025-11-06 18:15:30,959 pett_agent INFO: 🔓 Logging out: clearing Privy token and disconnecting
+2025-11-06 18:15:30,959 agent.pett_websocket_client WARNING: ⚠️ Attempted to set an empty Privy token - authentication will be disabled
+2025-11-06 18:15:30,960 agent.pett_websocket_client INFO: Saved auth token cleared
+2025-11-06 18:15:31,002 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:15:31,002 pett_agent INFO: ✅ Logout complete; awaiting React login
+2025-11-06 18:15:31,616 pett_agent INFO: Safe nonce: 141
+2025-11-06 18:15:31,989 pett_agent INFO: Safe tx hash to sign: f75f0fd485215365b6a6bfd16670d51bfefa4245c80938a268c36cb0dccf49fd
+2025-11-06 18:15:32,011 pett_agent INFO: Recovered signer: 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803 vs account: 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803
+2025-11-06 18:15:32,811 pett_agent INFO: Recovered signer: 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803; is_owner=False; threshold=1 safe=0x066B82E413b30eCcbe65622aF31a65fde95Be88F
+2025-11-06 18:15:32,811 pett_agent ERROR: Recovered signer 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803 is not an owner of the Safe; aborting execTransaction
+2025-11-06 18:15:34,025 pett_agent INFO: 🛑 Shutting down Pett Agent...
+2025-11-06 18:15:34,025 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:15:34,025 pett_agent INFO: 🔌 WebSocket disconnected
+2025-11-06 18:15:34,026 pett_agent INFO: 🛑 Web server stopped
+2025-11-06 18:15:34,026 pett_agent INFO: ✅ Pett Agent shutdown complete
+2025-11-06 18:15:35,368 pett_agent INFO: 🚀 Starting Pett Agent with Olas SDK compliance
+2025-11-06 18:15:35,368 pett_agent INFO: Ethereum private key: Found
+2025-11-06 18:15:35,368 pett_agent INFO: Withdrawal mode: False
+2025-11-06 18:15:35,368 pett_agent INFO: 📋 Loaded 0 environment variables
+2025-11-06 18:15:35,659 pett_agent INFO: Using Safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F on chainId 8453
+2025-11-06 18:15:39,929 pett_agent INFO: Safe owners (n=0): []
+2025-11-06 18:15:39,929 pett_agent INFO: Safe threshold: unknown
+2025-11-06 18:15:39,929 pett_agent INFO: ActionRecorder initialised for agent address 0xDd03...2803
+2025-11-06 18:15:39,929 pett_agent INFO: Skipping staking checkpoint initialisation: staking contract address not configured
+2025-11-06 18:15:39,929 pett_agent INFO: 🔧 Olas SDK Interface initialized
+2025-11-06 18:15:39,929 pett_agent INFO: 🐾 Pett Agent initialized
+2025-11-06 18:15:39,929 pett_agent INFO: 🚀 Initializing Pett Agent components...
+2025-11-06 18:15:39,930 pett_agent INFO: 🎨 Building React frontend...
+2025-11-06 18:15:39,930 pett_agent INFO: ✅ React build already exists, skipping build
+2025-11-06 18:15:39,930 pett_agent INFO: ✅ React build available for serving
+2025-11-06 18:15:39,931 pett_agent INFO: 🌐 Web server started on http://0.0.0.0:8716 (access via http://localhost:8716)
+2025-11-06 18:15:39,931 pett_agent INFO: 🎨 React App available at http://localhost:8716/ (Dashboard at /dashboard)
+2025-11-06 18:15:39,931 pett_agent INFO: 🏥 Health API: http://localhost:8716/api/health
+2025-11-06 18:15:39,931 pett_agent INFO: ℹ️  No PRIVY_TOKEN in environment
+2025-11-06 18:15:39,931 pett_agent INFO: ✨ Waiting for user to login via React app at http://localhost:8716/
+2025-11-06 18:15:39,931 pett_agent INFO: 🧾 On-chain action recorder ENABLED: contract=0x907afC85F3922CbdEB7b9Ed806742b4eF998DF31 rpc=https://base.llamarpc.com agent=0xDd03...2803
+2025-11-06 18:15:39,931 pett_agent INFO: ℹ️ No TELEGRAM_BOT_TOKEN found - Telegram disabled
+2025-11-06 18:15:39,931 pett_agent INFO: ✅ Pett Agent initialization complete
+2025-11-06 18:15:39,931 pett_agent INFO: 🎯 Pett Agent is now running...
+2025-11-06 18:15:56,376 pett_agent INFO: 🔐 Received login request from React frontend
+2025-11-06 18:15:56,377 pett_agent INFO: 🔐 Updating Privy token and refreshing WebSocket connection
+2025-11-06 18:15:56,378 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:15:56,378 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:15:56,378 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:15:56,378 agent.pett_websocket_client INFO: 🆕 Using environment auth token for connection
+2025-11-06 18:15:56,379 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-06 18:15:56,379 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:15:56,531 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:15:56,532 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-06 18:15:56,532 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-06 18:15:56,532 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-06 18:15:56,533 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-06 18:15:56,533 agent.pett_websocket_client INFO: 📤 Message content: {"type": "AUTH", "data": {"params": {"authHash": {"hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucXpnY3UwMDRybDQwY3I5a3R4emU0IiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTI5NTYsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnF6Z2YxMDA0dGw0MGNoOGJnNGMzdSIsImV4cCI6MTc2MjQ3NDU1Nn0.dUkfCuV3LVSg3VreOTlh3TcJ8ZR0K03XGRyIFrQtcqdzFGfQpthj_EP3dKP9Dg_muzkybiGuDtZ9a-RtYX-1ow"}, "authType": "privy"}}, "nonce": "31656"}
+2025-11-06 18:15:56,534 agent.pett_websocket_client INFO: 🔐 Authentication message sent, waiting for response...
+2025-11-06 18:15:56,534 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:15:56,585 agent.pett_websocket_client ERROR: ❌ Authentication failed: User not found with privy ID: did:privy:cmhnqzgf1004tl40ch8bg4c3u
+2025-11-06 18:15:56,586 agent.pett_websocket_client INFO: 🔐 Authentication result: False
+2025-11-06 18:15:56,586 agent.pett_websocket_client WARNING: ❌ Authentication attempt 1 failed
+2025-11-06 18:15:56,628 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:15:56,628 agent.pett_websocket_client INFO: 🛑 Stopping auth retries due to missing user; caller should register
+2025-11-06 18:15:56,628 pett_agent ERROR: ❌ Failed to authenticate WebSocket with new Privy token
+2025-11-06 18:15:56,628 pett_agent INFO: 🆕 Attempting automatic pet registration with name: robopet872627
+2025-11-06 18:15:56,629 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:15:56,629 agent.pett_websocket_client INFO: 🔌 Connecting WebSocket for pet registration
+2025-11-06 18:15:56,629 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:15:56,748 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:15:56,749 agent.pett_websocket_client INFO: 📤 Sent message type: REGISTER
+2025-11-06 18:15:56,749 agent.pett_websocket_client INFO: 📤 Message content: {"type": "REGISTER", "data": {"params": {"registerHash": {"name": "robopet872627", "hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucXpnY3UwMDRybDQwY3I5a3R4emU0IiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTI5NTYsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnF6Z2YxMDA0dGw0MGNoOGJnNGMzdSIsImV4cCI6MTc2MjQ3NDU1Nn0.dUkfCuV3LVSg3VreOTlh3TcJ8ZR0K03XGRyIFrQtcqdzFGfQpthj_EP3dKP9Dg_muzkybiGuDtZ9a-RtYX-1ow"}, "authType": "privy"}}, "nonce": "74713"}
+2025-11-06 18:15:56,749 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:15:57,553 agent.pett_websocket_client INFO: ✅ Authentication successful!
+2025-11-06 18:15:57,554 agent.pett_websocket_client INFO: 👤 User: 05a64648-2cca-4c79-9ea8-fe2f46be619c
+2025-11-06 18:15:57,554 agent.pett_websocket_client INFO: 🔑 Privy ID: did:privy:cmhnqzgf1004tl40ch8bg4c3u
+2025-11-06 18:15:57,554 agent.pett_websocket_client INFO: 📱 Telegram ID: None
+2025-11-06 18:15:57,554 agent.pett_websocket_client INFO: 🐾 Pet: robopet872627
+2025-11-06 18:15:57,554 agent.pett_websocket_client INFO: 🆔 Pet ID: ec168139-bbda-4f1d-9777-430c8c2aa425
+2025-11-06 18:15:57,554 agent.pett_websocket_client INFO: 💰 Balance: 438.0000 $AIP
+2025-11-06 18:15:57,555 agent.pett_websocket_client INFO: 🏨 Hotel Tier: 0
+2025-11-06 18:15:57,555 agent.pett_websocket_client INFO: 💀 Dead: False
+2025-11-06 18:15:57,555 agent.pett_websocket_client INFO: 😴 Sleeping: False
+2025-11-06 18:15:57,555 agent.pett_websocket_client INFO: 📊 Pet Stats:
+2025-11-06 18:15:57,555 agent.pett_websocket_client INFO:    🍽️  Hunger: 25
+2025-11-06 18:15:57,556 agent.pett_websocket_client INFO:    ❤️  Health: 50
+2025-11-06 18:15:57,556 agent.pett_websocket_client INFO:    ⚡ Energy: 50
+2025-11-06 18:15:57,556 agent.pett_websocket_client INFO:    😊 Happiness: 50
+2025-11-06 18:15:57,556 agent.pett_websocket_client INFO:    🧼 Hygiene: 50
+2025-11-06 18:15:57,556 agent.pett_websocket_client INFO:    🎯 XP: 50/100 (Level 0)
+2025-11-06 18:15:57,556 pett_agent INFO: 🔐 Re-authenticating after successful registration
+2025-11-06 18:15:57,556 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:15:57,598 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:15:57,598 agent.pett_websocket_client INFO: 🔄 Using saved auth token for reconnection
+2025-11-06 18:15:57,598 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-06 18:15:57,598 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:15:57,717 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:15:57,718 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-06 18:15:57,718 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-06 18:15:57,718 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-06 18:15:57,719 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-06 18:15:57,719 agent.pett_websocket_client INFO: 📤 Message content: {"type": "AUTH", "data": {"params": {"authHash": {"hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucXpnY3UwMDRybDQwY3I5a3R4emU0IiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTI5NTYsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnF6Z2YxMDA0dGw0MGNoOGJnNGMzdSIsImV4cCI6MTc2MjQ3NDU1Nn0.dUkfCuV3LVSg3VreOTlh3TcJ8ZR0K03XGRyIFrQtcqdzFGfQpthj_EP3dKP9Dg_muzkybiGuDtZ9a-RtYX-1ow"}, "authType": "privy"}}, "nonce": "91191"}
+2025-11-06 18:15:57,719 agent.pett_websocket_client INFO: 🔐 Authentication message sent, waiting for response...
+2025-11-06 18:15:57,719 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:15:57,788 agent.pett_websocket_client INFO: ✅ Authentication successful!
+2025-11-06 18:15:57,789 agent.pett_websocket_client INFO: 👤 User: 05a64648-2cca-4c79-9ea8-fe2f46be619c
+2025-11-06 18:15:57,789 agent.pett_websocket_client INFO: 🔑 Privy ID: did:privy:cmhnqzgf1004tl40ch8bg4c3u
+2025-11-06 18:15:57,789 agent.pett_websocket_client INFO: 📱 Telegram ID: None
+2025-11-06 18:15:57,789 agent.pett_websocket_client INFO: 🐾 Pet: robopet872627
+2025-11-06 18:15:57,789 agent.pett_websocket_client INFO: 🆔 Pet ID: ec168139-bbda-4f1d-9777-430c8c2aa425
+2025-11-06 18:15:57,789 agent.pett_websocket_client INFO: 💰 Balance: 438.0000 $AIP
+2025-11-06 18:15:57,789 agent.pett_websocket_client INFO: 🏨 Hotel Tier: 0
+2025-11-06 18:15:57,789 agent.pett_websocket_client INFO: 💀 Dead: False
+2025-11-06 18:15:57,789 agent.pett_websocket_client INFO: 😴 Sleeping: False
+2025-11-06 18:15:57,789 agent.pett_websocket_client INFO: 📊 Pet Stats:
+2025-11-06 18:15:57,790 agent.pett_websocket_client INFO:    🍽️  Hunger: 25
+2025-11-06 18:15:57,790 agent.pett_websocket_client INFO:    ❤️  Health: 50
+2025-11-06 18:15:57,790 agent.pett_websocket_client INFO:    ⚡ Energy: 50
+2025-11-06 18:15:57,790 agent.pett_websocket_client INFO:    😊 Happiness: 50
+2025-11-06 18:15:57,790 agent.pett_websocket_client INFO:    🧼 Hygiene: 50
+2025-11-06 18:15:57,790 agent.pett_websocket_client INFO:    🎯 XP: 50/100 (Level 0)
+2025-11-06 18:15:57,790 agent.pett_websocket_client INFO: 🔐 Authentication result: True
+2025-11-06 18:15:57,790 agent.pett_websocket_client INFO: ✅ Connection and authentication successful!
+2025-11-06 18:15:57,790 pett_agent INFO: ✅ Registration + authentication successful
+2025-11-06 18:15:58,253 agent.pett_tools INFO: [PetTools] Getting pet status and statistics
+2025-11-06 18:15:58,253 agent.pett_tools INFO: [TOOL] Successfully retrieved pet status data
+2025-11-06 18:15:59,935 agent.pett_tools INFO: [PetTools] Getting pet status and statistics
+2025-11-06 18:15:59,936 agent.pett_tools INFO: [TOOL] Successfully retrieved pet status data
+2025-11-06 18:15:59,936 pett_agent INFO: 🩹 Low health detected; attempting recovery
+2025-11-06 18:15:59,936 pett_agent INFO: 🧪 Trying SMALL_POTION to restore health
+2025-11-06 18:15:59,936 agent.pett_websocket_client INFO: 🍴 Using consumable: SMALL_POTION
+2025-11-06 18:15:59,936 agent.pett_websocket_client INFO: 📤 Sent message type: CONSUMABLES_USE
+2025-11-06 18:15:59,936 agent.pett_websocket_client INFO: 📤 Message content: {"type": "CONSUMABLES_USE", "data": {"params": {"foodId": "SMALL_POTION"}}, "nonce": "91912", "verify": true}
+2025-11-06 18:15:59,990 agent.pett_websocket_client ERROR: Server error: PetConsumable with ID SMALL_POTION not found
+2025-11-06 18:15:59,991 agent.pett_websocket_client INFO: 🛒 Consumable SMALL_POTION not owned. Attempting to buy one and retry.
+2025-11-06 18:15:59,991 agent.pett_websocket_client INFO: 📤 Sent message type: CONSUMABLES_BUY
+2025-11-06 18:15:59,992 agent.pett_websocket_client INFO: 📤 Message content: {"type": "CONSUMABLES_BUY", "data": {"params": {"foodId": "SMALL_POTION", "amount": 1}}, "nonce": "90768"}
+2025-11-06 18:16:00,108 agent.pett_websocket_client INFO: Pet Status updated (merged partial update)
+2025-11-06 18:16:00,108 agent.pett_websocket_client INFO: Updated pet data: {'id': 'ec168139-bbda-4f1d-9777-430c8c2aa425', 'name': 'robopet872627', 'userID': '05a64648-2cca-4c79-9ea8-fe2f46be619c', 'sleeping': False, 'dead': False, 'god': False, 'active': True, 'currentHotelTier': 0, 'deadTime': None, 'inRiskOfDeathTime': None, 'PetTokens': {'petID': 'ec168139-bbda-4f1d-9777-430c8c2aa425', 'tokens': '385440000000000000000', 'ethTokens': '0', 'solanaTokens': '0', 'useSolana': False, 'depositedTokens': '0'}, 'PetStats': {'petID': 'ec168139-bbda-4f1d-9777-430c8c2aa425', 'hunger': '25', 'health': '50', 'hygiene': '50', 'energy': '50', 'happiness': '50', 'xp': '59', 'level': 0, 'xpMax': 100, 'xpMin': 0}}
+2025-11-06 18:16:00,108 agent.pett_websocket_client INFO: 📊 Received data message
+2025-11-06 18:16:00,108 agent.pett_websocket_client INFO: Data message: {'type': 'data', 'data': {'foodId': 'SMALL_POTION', 'amount': 1}, 'nonce': '90768', 'timestamp': 1762452960124}
+2025-11-06 18:16:00,108 agent.pett_websocket_client INFO: 🔁 Retrying use of SMALL_POTION after purchase
+2025-11-06 18:16:00,109 agent.pett_websocket_client INFO: 📤 Sent message type: CONSUMABLES_USE
+2025-11-06 18:16:00,109 agent.pett_websocket_client INFO: 📤 Message content: {"type": "CONSUMABLES_USE", "data": {"params": {"foodId": "SMALL_POTION"}}, "nonce": "17904", "verify": true}
+2025-11-06 18:16:00,248 agent.pett_websocket_client INFO: Pet Status updated (merged partial update)
+2025-11-06 18:16:00,248 agent.pett_websocket_client INFO: Updated pet data: {'id': 'ec168139-bbda-4f1d-9777-430c8c2aa425', 'name': 'robopet872627', 'userID': '05a64648-2cca-4c79-9ea8-fe2f46be619c', 'sleeping': False, 'dead': False, 'god': False, 'active': True, 'currentHotelTier': 0, 'deadTime': None, 'inRiskOfDeathTime': None, 'PetTokens': {'petID': 'ec168139-bbda-4f1d-9777-430c8c2aa425', 'tokens': '385440000000000000000', 'ethTokens': '0', 'solanaTokens': '0', 'useSolana': False, 'depositedTokens': '0'}, 'PetStats': {'petID': 'ec168139-bbda-4f1d-9777-430c8c2aa425', 'hunger': '25', 'health': '75', 'hygiene': '50', 'energy': '58', 'happiness': '50', 'xp': '78.7', 'level': 0, 'xpMax': 100, 'xpMin': 0}}
+2025-11-06 18:16:00,248 agent.pett_websocket_client INFO: 📊 Received data message
+2025-11-06 18:16:00,248 agent.pett_websocket_client INFO: Data message: {'type': 'data', 'data': {'verification': {'hash': '0x869fe3baa3c87c1685775f28b1d2838f34200a80674c57e618768c0d3e0bde1d', 'signature': {'v': 27, 'r': '0x022cbf8de9a2fa5e41ee9a021fc7a574ff3898f15fd67084aa0b1709af1c44dc', 's': '0x268e20f881c091079daf6afca3a75bda6683696fb7914680f8516f112243354f'}, 'message': {'action': 1, 'actionName': 'CONSUME_CONSUMABLE', 'timestamp': '1762452960', 'nonce': '0x9d49efe3cca42cc973e3e3038e452a0cc80ce7e932b076c8c7b27148db8ea732'}, 'issuedAt': '2025-11-06T18:16:00.000Z', 'reason': 'socket-request'}}, 'nonce': '17904', 'timestamp': 1762452960264}
+2025-11-06 18:16:00,249 pett_agent INFO: ✅ SMALL_POTION use confirmed
+2025-11-06 18:16:00,249 pett_agent INFO: On-chain recordAction queued: action=CONSUMABLES_USE id=1 agent=0xDd03...2803
+2025-11-06 18:16:00,792 pett_agent INFO: Inner recordAction signer: 0x6a08382311AA9971a79a21d4FE2D613aE0FebFa9; equals_mainSigner=True; expected=0x6a08382311AA9971a79a21d4FE2D613aE0FebFa9
+2025-11-06 18:16:01,172 pett_agent INFO: Estimated safeTxGas from recordAction: 173311
+2025-11-06 18:16:02,068 pett_agent INFO: Safe nonce: 141
+2025-11-06 18:16:02,451 pett_agent INFO: Safe tx hash to sign: 8520bd528460d945e22ebd8f903324c94d6fca010be9115b620bd26c9fefaac3
+2025-11-06 18:16:02,474 pett_agent INFO: Recovered signer: 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803 vs account: 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803
+2025-11-06 18:16:03,244 pett_agent INFO: Recovered signer: 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803; is_owner=False; threshold=1 safe=0x066B82E413b30eCcbe65622aF31a65fde95Be88F
+2025-11-06 18:16:03,245 pett_agent ERROR: Recovered signer 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803 is not an owner of the Safe; aborting execTransaction
+2025-11-06 18:16:06,464 pett_agent INFO: 🔐 Received login request from React frontend
+2025-11-06 18:16:06,464 pett_agent INFO: 🔐 Updating Privy token and refreshing WebSocket connection
+2025-11-06 18:16:06,464 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:16:06,464 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:16:06,508 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:16:06,508 agent.pett_websocket_client INFO: 🔄 Using saved auth token for reconnection
+2025-11-06 18:16:06,508 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-06 18:16:06,509 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:16:06,624 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:16:06,624 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-06 18:16:06,624 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-06 18:16:06,624 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-06 18:16:06,624 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-06 18:16:06,624 agent.pett_websocket_client INFO: 📤 Message content: {"type": "AUTH", "data": {"params": {"authHash": {"hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucXpnY3UwMDRybDQwY3I5a3R4emU0IiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTI5NTYsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnF6Z2YxMDA0dGw0MGNoOGJnNGMzdSIsImV4cCI6MTc2MjQ3NDU1Nn0.dUkfCuV3LVSg3VreOTlh3TcJ8ZR0K03XGRyIFrQtcqdzFGfQpthj_EP3dKP9Dg_muzkybiGuDtZ9a-RtYX-1ow"}, "authType": "privy"}}, "nonce": "19684"}
+2025-11-06 18:16:06,625 agent.pett_websocket_client INFO: 🔐 Authentication message sent, waiting for response...
+2025-11-06 18:16:06,625 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:16:06,687 agent.pett_websocket_client INFO: ✅ Authentication successful!
+2025-11-06 18:16:06,688 agent.pett_websocket_client INFO: 👤 User: 05a64648-2cca-4c79-9ea8-fe2f46be619c
+2025-11-06 18:16:06,688 agent.pett_websocket_client INFO: 🔑 Privy ID: did:privy:cmhnqzgf1004tl40ch8bg4c3u
+2025-11-06 18:16:06,688 agent.pett_websocket_client INFO: 📱 Telegram ID: None
+2025-11-06 18:16:06,688 agent.pett_websocket_client INFO: 🐾 Pet: robopet872627
+2025-11-06 18:16:06,688 agent.pett_websocket_client INFO: 🆔 Pet ID: ec168139-bbda-4f1d-9777-430c8c2aa425
+2025-11-06 18:16:06,688 agent.pett_websocket_client INFO: 💰 Balance: 385.4400 $AIP
+2025-11-06 18:16:06,688 agent.pett_websocket_client INFO: 🏨 Hotel Tier: 0
+2025-11-06 18:16:06,688 agent.pett_websocket_client INFO: 💀 Dead: False
+2025-11-06 18:16:06,688 agent.pett_websocket_client INFO: 😴 Sleeping: False
+2025-11-06 18:16:06,688 agent.pett_websocket_client INFO: 📊 Pet Stats:
+2025-11-06 18:16:06,688 agent.pett_websocket_client INFO:    🍽️  Hunger: 25
+2025-11-06 18:16:06,688 agent.pett_websocket_client INFO:    ❤️  Health: 75
+2025-11-06 18:16:06,688 agent.pett_websocket_client INFO:    ⚡ Energy: 58
+2025-11-06 18:16:06,688 agent.pett_websocket_client INFO:    😊 Happiness: 50
+2025-11-06 18:16:06,688 agent.pett_websocket_client INFO:    🧼 Hygiene: 50
+2025-11-06 18:16:06,688 agent.pett_websocket_client INFO:    🎯 XP: 78.7/100 (Level 0)
+2025-11-06 18:16:06,688 agent.pett_websocket_client INFO: 🔐 Authentication result: True
+2025-11-06 18:16:06,688 agent.pett_websocket_client INFO: ✅ Connection and authentication successful!
+2025-11-06 18:16:06,689 pett_agent INFO: ✅ WebSocket re-authenticated with updated Privy token
+2025-11-06 18:16:06,689 agent.pett_tools INFO: [PetTools] Getting pet status and statistics
+2025-11-06 18:16:06,689 agent.pett_tools INFO: [TOOL] Successfully retrieved pet status data
+2025-11-06 18:16:08,556 pett_agent INFO: 🔓 Received logout request from React frontend
+2025-11-06 18:16:08,557 pett_agent INFO: 🔓 Logging out: clearing Privy token and disconnecting
+2025-11-06 18:16:08,557 agent.pett_websocket_client WARNING: ⚠️ Attempted to set an empty Privy token - authentication will be disabled
+2025-11-06 18:16:08,557 agent.pett_websocket_client INFO: Saved auth token cleared
+2025-11-06 18:16:08,601 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:16:08,602 pett_agent INFO: ✅ Logout complete; awaiting React login
+2025-11-06 18:16:31,922 pett_agent INFO: 🔐 Received login request from React frontend
+2025-11-06 18:16:31,924 pett_agent INFO: 🔐 Updating Privy token and refreshing WebSocket connection
+2025-11-06 18:16:31,924 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:16:31,924 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:16:31,925 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:16:31,925 agent.pett_websocket_client INFO: 🆕 Using environment auth token for connection
+2025-11-06 18:16:31,925 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-06 18:16:31,925 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:16:32,058 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:16:32,059 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-06 18:16:32,059 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-06 18:16:32,059 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-06 18:16:32,059 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-06 18:16:32,059 agent.pett_websocket_client INFO: 📤 Message content: {"type": "AUTH", "data": {"params": {"authHash": {"hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucjA3cTYwMDUzbDEwZDE2M2k0b3RhIiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTI5OTEsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnIwN3M5MDA1NWwxMGRlaDVlcDBjbSIsImV4cCI6MTc2MjQ3NDU5MX0.cp9O-PJU6yGhVL1-QXc5VM1kCyQcM_XClbs9qjm_HcuLbbEc4auWwqnsz2uWFdI_sZfXC2Nitzgq7xLtEZWz-A"}, "authType": "privy"}}, "nonce": "88022"}
+2025-11-06 18:16:32,060 agent.pett_websocket_client INFO: 🔐 Authentication message sent, waiting for response...
+2025-11-06 18:16:32,060 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:16:32,115 agent.pett_websocket_client ERROR: ❌ Authentication failed: User not found with privy ID: did:privy:cmhnr07s90055l10deh5ep0cm
+2025-11-06 18:16:32,115 agent.pett_websocket_client INFO: 🔐 Authentication result: False
+2025-11-06 18:16:32,116 agent.pett_websocket_client WARNING: ❌ Authentication attempt 1 failed
+2025-11-06 18:16:32,159 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:16:32,159 agent.pett_websocket_client INFO: 🛑 Stopping auth retries due to missing user; caller should register
+2025-11-06 18:16:32,159 pett_agent ERROR: ❌ Failed to authenticate WebSocket with new Privy token
+2025-11-06 18:16:32,159 pett_agent INFO: 🆕 Attempting automatic pet registration with name: robopet677004
+2025-11-06 18:16:32,159 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:16:32,159 agent.pett_websocket_client INFO: 🔌 Connecting WebSocket for pet registration
+2025-11-06 18:16:32,159 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:16:32,274 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:16:32,275 agent.pett_websocket_client INFO: 📤 Sent message type: REGISTER
+2025-11-06 18:16:32,275 agent.pett_websocket_client INFO: 📤 Message content: {"type": "REGISTER", "data": {"params": {"registerHash": {"name": "robopet677004", "hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucjA3cTYwMDUzbDEwZDE2M2k0b3RhIiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTI5OTEsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnIwN3M5MDA1NWwxMGRlaDVlcDBjbSIsImV4cCI6MTc2MjQ3NDU5MX0.cp9O-PJU6yGhVL1-QXc5VM1kCyQcM_XClbs9qjm_HcuLbbEc4auWwqnsz2uWFdI_sZfXC2Nitzgq7xLtEZWz-A"}, "authType": "privy"}}, "nonce": "13565"}
+2025-11-06 18:16:32,275 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:16:33,050 agent.pett_websocket_client INFO: ✅ Authentication successful!
+2025-11-06 18:16:33,050 agent.pett_websocket_client INFO: 👤 User: a11beb73-1496-4050-bd5b-99cea642e4c9
+2025-11-06 18:16:33,050 agent.pett_websocket_client INFO: 🔑 Privy ID: did:privy:cmhnr07s90055l10deh5ep0cm
+2025-11-06 18:16:33,050 agent.pett_websocket_client INFO: 📱 Telegram ID: None
+2025-11-06 18:16:33,050 agent.pett_websocket_client INFO: 🐾 Pet: robopet677004
+2025-11-06 18:16:33,051 agent.pett_websocket_client INFO: 🆔 Pet ID: ffc7ccbe-6395-4fb5-a505-c96371344178
+2025-11-06 18:16:33,051 agent.pett_websocket_client INFO: 💰 Balance: 440.0000 $AIP
+2025-11-06 18:16:33,051 agent.pett_websocket_client INFO: 🏨 Hotel Tier: 0
+2025-11-06 18:16:33,051 agent.pett_websocket_client INFO: 💀 Dead: False
+2025-11-06 18:16:33,051 agent.pett_websocket_client INFO: 😴 Sleeping: False
+2025-11-06 18:16:33,051 agent.pett_websocket_client INFO: 📊 Pet Stats:
+2025-11-06 18:16:33,051 agent.pett_websocket_client INFO:    🍽️  Hunger: 25
+2025-11-06 18:16:33,051 agent.pett_websocket_client INFO:    ❤️  Health: 50
+2025-11-06 18:16:33,051 agent.pett_websocket_client INFO:    ⚡ Energy: 50
+2025-11-06 18:16:33,051 agent.pett_websocket_client INFO:    😊 Happiness: 50
+2025-11-06 18:16:33,051 agent.pett_websocket_client INFO:    🧼 Hygiene: 50
+2025-11-06 18:16:33,051 agent.pett_websocket_client INFO:    🎯 XP: 50/100 (Level 0)
+2025-11-06 18:16:33,051 pett_agent INFO: 🔐 Re-authenticating after successful registration
+2025-11-06 18:16:33,051 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:16:33,092 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:16:33,093 agent.pett_websocket_client INFO: 🔄 Using saved auth token for reconnection
+2025-11-06 18:16:33,093 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-06 18:16:33,093 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:16:33,211 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:16:33,211 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-06 18:16:33,211 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-06 18:16:33,211 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-06 18:16:33,211 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-06 18:16:33,211 agent.pett_websocket_client INFO: 📤 Message content: {"type": "AUTH", "data": {"params": {"authHash": {"hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucjA3cTYwMDUzbDEwZDE2M2k0b3RhIiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTI5OTEsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnIwN3M5MDA1NWwxMGRlaDVlcDBjbSIsImV4cCI6MTc2MjQ3NDU5MX0.cp9O-PJU6yGhVL1-QXc5VM1kCyQcM_XClbs9qjm_HcuLbbEc4auWwqnsz2uWFdI_sZfXC2Nitzgq7xLtEZWz-A"}, "authType": "privy"}}, "nonce": "83158"}
+2025-11-06 18:16:33,212 agent.pett_websocket_client INFO: 🔐 Authentication message sent, waiting for response...
+2025-11-06 18:16:33,212 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:16:33,281 agent.pett_websocket_client INFO: ✅ Authentication successful!
+2025-11-06 18:16:33,281 agent.pett_websocket_client INFO: 👤 User: a11beb73-1496-4050-bd5b-99cea642e4c9
+2025-11-06 18:16:33,282 agent.pett_websocket_client INFO: 🔑 Privy ID: did:privy:cmhnr07s90055l10deh5ep0cm
+2025-11-06 18:16:33,282 agent.pett_websocket_client INFO: 📱 Telegram ID: None
+2025-11-06 18:16:33,282 agent.pett_websocket_client INFO: 🐾 Pet: robopet677004
+2025-11-06 18:16:33,282 agent.pett_websocket_client INFO: 🆔 Pet ID: ffc7ccbe-6395-4fb5-a505-c96371344178
+2025-11-06 18:16:33,282 agent.pett_websocket_client INFO: 💰 Balance: 440.0000 $AIP
+2025-11-06 18:16:33,282 agent.pett_websocket_client INFO: 🏨 Hotel Tier: 0
+2025-11-06 18:16:33,282 agent.pett_websocket_client INFO: 💀 Dead: False
+2025-11-06 18:16:33,282 agent.pett_websocket_client INFO: 😴 Sleeping: False
+2025-11-06 18:16:33,282 agent.pett_websocket_client INFO: 📊 Pet Stats:
+2025-11-06 18:16:33,282 agent.pett_websocket_client INFO:    🍽️  Hunger: 25
+2025-11-06 18:16:33,282 agent.pett_websocket_client INFO:    ❤️  Health: 50
+2025-11-06 18:16:33,282 agent.pett_websocket_client INFO:    ⚡ Energy: 50
+2025-11-06 18:16:33,282 agent.pett_websocket_client INFO:    😊 Happiness: 50
+2025-11-06 18:16:33,282 agent.pett_websocket_client INFO:    🧼 Hygiene: 50
+2025-11-06 18:16:33,282 agent.pett_websocket_client INFO:    🎯 XP: 50/100 (Level 0)
+2025-11-06 18:16:33,283 agent.pett_websocket_client INFO: 🔐 Authentication result: True
+2025-11-06 18:16:33,283 agent.pett_websocket_client INFO: ✅ Connection and authentication successful!
+2025-11-06 18:16:33,283 pett_agent INFO: ✅ Registration + authentication successful
+2025-11-06 18:16:33,283 agent.pett_tools INFO: [PetTools] Getting pet status and statistics
+2025-11-06 18:16:33,283 agent.pett_tools INFO: [TOOL] Successfully retrieved pet status data
+2025-11-06 18:17:23,081 pett_agent INFO: 🔐 Received login request from React frontend
+2025-11-06 18:17:23,082 pett_agent INFO: 🔐 Updating Privy token and refreshing WebSocket connection
+2025-11-06 18:17:23,083 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:17:23,083 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:17:23,131 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:17:23,131 agent.pett_websocket_client INFO: 🔄 Using saved auth token for reconnection
+2025-11-06 18:17:23,131 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-06 18:17:23,131 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:17:23,263 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:17:23,263 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-06 18:17:23,264 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-06 18:17:23,264 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-06 18:17:23,264 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-06 18:17:23,265 agent.pett_websocket_client INFO: 📤 Message content: {"type": "AUTH", "data": {"params": {"authHash": {"hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucjA3cTYwMDUzbDEwZDE2M2k0b3RhIiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTI5OTEsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnIwN3M5MDA1NWwxMGRlaDVlcDBjbSIsImV4cCI6MTc2MjQ3NDU5MX0.cp9O-PJU6yGhVL1-QXc5VM1kCyQcM_XClbs9qjm_HcuLbbEc4auWwqnsz2uWFdI_sZfXC2Nitzgq7xLtEZWz-A"}, "authType": "privy"}}, "nonce": "31463"}
+2025-11-06 18:17:23,265 agent.pett_websocket_client INFO: 🔐 Authentication message sent, waiting for response...
+2025-11-06 18:17:23,265 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:17:23,336 agent.pett_websocket_client INFO: ✅ Authentication successful!
+2025-11-06 18:17:23,337 agent.pett_websocket_client INFO: 👤 User: a11beb73-1496-4050-bd5b-99cea642e4c9
+2025-11-06 18:17:23,337 agent.pett_websocket_client INFO: 🔑 Privy ID: did:privy:cmhnr07s90055l10deh5ep0cm
+2025-11-06 18:17:23,337 agent.pett_websocket_client INFO: 📱 Telegram ID: None
+2025-11-06 18:17:23,337 agent.pett_websocket_client INFO: 🐾 Pet: robopet677004
+2025-11-06 18:17:23,337 agent.pett_websocket_client INFO: 🆔 Pet ID: ffc7ccbe-6395-4fb5-a505-c96371344178
+2025-11-06 18:17:23,337 agent.pett_websocket_client INFO: 💰 Balance: 440.0000 $AIP
+2025-11-06 18:17:23,337 agent.pett_websocket_client INFO: 🏨 Hotel Tier: 0
+2025-11-06 18:17:23,337 agent.pett_websocket_client INFO: 💀 Dead: False
+2025-11-06 18:17:23,337 agent.pett_websocket_client INFO: 😴 Sleeping: False
+2025-11-06 18:17:23,337 agent.pett_websocket_client INFO: 📊 Pet Stats:
+2025-11-06 18:17:23,337 agent.pett_websocket_client INFO:    🍽️  Hunger: 24.98
+2025-11-06 18:17:23,337 agent.pett_websocket_client INFO:    ❤️  Health: 49.99
+2025-11-06 18:17:23,337 agent.pett_websocket_client INFO:    ⚡ Energy: 49.98
+2025-11-06 18:17:23,337 agent.pett_websocket_client INFO:    😊 Happiness: 49.97
+2025-11-06 18:17:23,337 agent.pett_websocket_client INFO:    🧼 Hygiene: 49.97
+2025-11-06 18:17:23,337 agent.pett_websocket_client INFO:    🎯 XP: 50/100 (Level 0)
+2025-11-06 18:17:23,338 agent.pett_websocket_client INFO: 🔐 Authentication result: True
+2025-11-06 18:17:23,338 agent.pett_websocket_client INFO: ✅ Connection and authentication successful!
+2025-11-06 18:17:23,338 pett_agent INFO: ✅ WebSocket re-authenticated with updated Privy token
+2025-11-06 18:17:23,338 agent.pett_tools INFO: [PetTools] Getting pet status and statistics
+2025-11-06 18:17:23,338 agent.pett_tools INFO: [TOOL] Successfully retrieved pet status data
+2025-11-06 18:17:33,303 pett_agent INFO: 🛑 Shutting down Pett Agent...
+2025-11-06 18:17:33,346 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:17:33,346 pett_agent INFO: 🔌 WebSocket disconnected
+2025-11-06 18:17:33,347 pett_agent INFO: 🛑 Web server stopped
+2025-11-06 18:17:33,347 pett_agent INFO: ✅ Pett Agent shutdown complete
+2025-11-06 18:22:42,024 pett_agent INFO: 🚀 Starting Pett Agent with Olas SDK compliance
+2025-11-06 18:22:42,024 pett_agent INFO: Ethereum private key: Found
+2025-11-06 18:22:42,024 pett_agent INFO: Withdrawal mode: False
+2025-11-06 18:22:42,024 pett_agent INFO: 📋 Loaded 0 environment variables
+2025-11-06 18:22:42,322 pett_agent INFO: Using Safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F on chainId 8453
+2025-11-06 18:22:43,104 pett_agent INFO: Safe owners (n=1): ['0xE43d9713a0999B965750fC94934D64CA7d5D2e15']
+2025-11-06 18:22:43,104 pett_agent INFO: Safe threshold: 1
+2025-11-06 18:22:43,104 pett_agent ERROR: Agent EOA is NOT an owner of the AI Agent Safe; execTransaction will revert (GS026)
+2025-11-06 18:22:43,105 pett_agent INFO: ActionRecorder initialised for agent address 0xDd03...2803
+2025-11-06 18:22:43,105 pett_agent INFO: Skipping staking checkpoint initialisation: staking contract address not configured
+2025-11-06 18:22:43,105 pett_agent INFO: 🔧 Olas SDK Interface initialized
+2025-11-06 18:22:43,105 pett_agent INFO: 🐾 Pett Agent initialized
+2025-11-06 18:22:43,105 pett_agent INFO: 🚀 Initializing Pett Agent components...
+2025-11-06 18:22:43,105 pett_agent INFO: 🎨 Building React frontend...
+2025-11-06 18:22:43,106 pett_agent INFO: ✅ React build already exists, skipping build
+2025-11-06 18:22:43,106 pett_agent INFO: ✅ React build available for serving
+2025-11-06 18:22:43,108 pett_agent INFO: 🌐 Web server started on http://0.0.0.0:8716 (access via http://localhost:8716)
+2025-11-06 18:22:43,108 pett_agent INFO: 🎨 React App available at http://localhost:8716/ (Dashboard at /dashboard)
+2025-11-06 18:22:43,108 pett_agent INFO: 🏥 Health API: http://localhost:8716/api/health
+2025-11-06 18:22:43,108 pett_agent INFO: ℹ️  No PRIVY_TOKEN in environment
+2025-11-06 18:22:43,108 pett_agent INFO: ✨ Waiting for user to login via React app at http://localhost:8716/
+2025-11-06 18:22:43,108 pett_agent INFO: 🧾 On-chain action recorder ENABLED: contract=0x907afC85F3922CbdEB7b9Ed806742b4eF998DF31 rpc=https://base.llamarpc.com agent=0xDd03...2803
+2025-11-06 18:22:43,108 pett_agent INFO: ℹ️ No TELEGRAM_BOT_TOKEN found - Telegram disabled
+2025-11-06 18:22:43,109 pett_agent INFO: ✅ Pett Agent initialization complete
+2025-11-06 18:22:43,109 pett_agent INFO: 🎯 Pett Agent is now running...
+2025-11-06 18:22:45,991 pett_agent INFO: 🔐 Received login request from React frontend
+2025-11-06 18:22:45,992 pett_agent INFO: 🔐 Updating Privy token and refreshing WebSocket connection
+2025-11-06 18:22:45,992 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:22:45,992 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:22:45,992 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:22:45,992 agent.pett_websocket_client INFO: 🆕 Using environment auth token for connection
+2025-11-06 18:22:45,992 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-06 18:22:45,992 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:22:46,143 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:22:46,143 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-06 18:22:46,143 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-06 18:22:46,143 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-06 18:22:46,143 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-06 18:22:46,143 agent.pett_websocket_client INFO: 📤 Message content: {"type": "AUTH", "data": {"params": {"authHash": {"hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucjA3cTYwMDUzbDEwZDE2M2k0b3RhIiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTI5OTEsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnIwN3M5MDA1NWwxMGRlaDVlcDBjbSIsImV4cCI6MTc2MjQ3NDU5MX0.cp9O-PJU6yGhVL1-QXc5VM1kCyQcM_XClbs9qjm_HcuLbbEc4auWwqnsz2uWFdI_sZfXC2Nitzgq7xLtEZWz-A"}, "authType": "privy"}}, "nonce": "44600"}
+2025-11-06 18:22:46,143 agent.pett_websocket_client INFO: 🔐 Authentication message sent, waiting for response...
+2025-11-06 18:22:46,143 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:22:46,210 agent.pett_websocket_client INFO: ✅ Authentication successful!
+2025-11-06 18:22:46,210 agent.pett_websocket_client INFO: 👤 User: a11beb73-1496-4050-bd5b-99cea642e4c9
+2025-11-06 18:22:46,210 agent.pett_websocket_client INFO: 🔑 Privy ID: did:privy:cmhnr07s90055l10deh5ep0cm
+2025-11-06 18:22:46,210 agent.pett_websocket_client INFO: 📱 Telegram ID: None
+2025-11-06 18:22:46,210 agent.pett_websocket_client INFO: 🐾 Pet: robopet677004
+2025-11-06 18:22:46,210 agent.pett_websocket_client INFO: 🆔 Pet ID: ffc7ccbe-6395-4fb5-a505-c96371344178
+2025-11-06 18:22:46,210 agent.pett_websocket_client INFO: 💰 Balance: 440.0000 $AIP
+2025-11-06 18:22:46,211 agent.pett_websocket_client INFO: 🏨 Hotel Tier: 0
+2025-11-06 18:22:46,211 agent.pett_websocket_client INFO: 💀 Dead: False
+2025-11-06 18:22:46,211 agent.pett_websocket_client INFO: 😴 Sleeping: False
+2025-11-06 18:22:46,211 agent.pett_websocket_client INFO: 📊 Pet Stats:
+2025-11-06 18:22:46,211 agent.pett_websocket_client INFO:    🍽️  Hunger: 24.87
+2025-11-06 18:22:46,211 agent.pett_websocket_client INFO:    ❤️  Health: 49.91
+2025-11-06 18:22:46,211 agent.pett_websocket_client INFO:    ⚡ Energy: 49.83
+2025-11-06 18:22:46,211 agent.pett_websocket_client INFO:    😊 Happiness: 49.81
+2025-11-06 18:22:46,211 agent.pett_websocket_client INFO:    🧼 Hygiene: 49.77
+2025-11-06 18:22:46,211 agent.pett_websocket_client INFO:    🎯 XP: 50/100 (Level 0)
+2025-11-06 18:22:46,212 agent.pett_websocket_client INFO: 🔐 Authentication result: True
+2025-11-06 18:22:46,212 agent.pett_websocket_client INFO: ✅ Connection and authentication successful!
+2025-11-06 18:22:46,212 pett_agent INFO: ✅ WebSocket re-authenticated with updated Privy token
+2025-11-06 18:22:46,717 agent.pett_tools INFO: [PetTools] Getting pet status and statistics
+2025-11-06 18:22:46,717 agent.pett_tools INFO: [TOOL] Successfully retrieved pet status data
+2025-11-06 18:22:48,110 agent.pett_tools INFO: [PetTools] Getting pet status and statistics
+2025-11-06 18:22:48,111 agent.pett_tools INFO: [TOOL] Successfully retrieved pet status data
+2025-11-06 18:22:48,112 pett_agent INFO: 🩹 Low health detected; attempting recovery
+2025-11-06 18:22:48,112 pett_agent INFO: 🧪 Trying SMALL_POTION to restore health
+2025-11-06 18:22:48,112 agent.pett_websocket_client INFO: 🍴 Using consumable: SMALL_POTION
+2025-11-06 18:22:48,113 agent.pett_websocket_client INFO: 📤 Sent message type: CONSUMABLES_USE
+2025-11-06 18:22:48,113 agent.pett_websocket_client INFO: 📤 Message content: {"type": "CONSUMABLES_USE", "data": {"params": {"foodId": "SMALL_POTION"}}, "nonce": "92913", "verify": true}
+2025-11-06 18:22:48,163 agent.pett_websocket_client ERROR: Server error: PetConsumable with ID SMALL_POTION not found
+2025-11-06 18:22:48,163 agent.pett_websocket_client INFO: 🛒 Consumable SMALL_POTION not owned. Attempting to buy one and retry.
+2025-11-06 18:22:48,164 agent.pett_websocket_client INFO: 📤 Sent message type: CONSUMABLES_BUY
+2025-11-06 18:22:48,164 agent.pett_websocket_client INFO: 📤 Message content: {"type": "CONSUMABLES_BUY", "data": {"params": {"foodId": "SMALL_POTION", "amount": 1}}, "nonce": "20600"}
+2025-11-06 18:22:48,275 agent.pett_websocket_client INFO: Pet Status updated (merged partial update)
+2025-11-06 18:22:48,275 agent.pett_websocket_client INFO: Updated pet data: {'id': 'ffc7ccbe-6395-4fb5-a505-c96371344178', 'name': 'robopet677004', 'userID': 'a11beb73-1496-4050-bd5b-99cea642e4c9', 'sleeping': False, 'dead': False, 'god': False, 'active': True, 'currentHotelTier': 0, 'deadTime': None, 'inRiskOfDeathTime': None, 'PetTokens': {'petID': 'ffc7ccbe-6395-4fb5-a505-c96371344178', 'tokens': '386720000000000000000', 'ethTokens': '0', 'solanaTokens': '0', 'useSolana': False, 'depositedTokens': '0'}, 'PetStats': {'petID': 'ffc7ccbe-6395-4fb5-a505-c96371344178', 'hunger': '24.87', 'health': '49.91', 'hygiene': '49.77', 'energy': '49.83', 'happiness': '49.81', 'xp': '59', 'level': 0, 'xpMax': 100, 'xpMin': 0}}
+2025-11-06 18:22:48,276 agent.pett_websocket_client INFO: 📊 Received data message
+2025-11-06 18:22:48,276 agent.pett_websocket_client INFO: Data message: {'type': 'data', 'data': {'foodId': 'SMALL_POTION', 'amount': 1}, 'nonce': '20600', 'timestamp': 1762453368308}
+2025-11-06 18:22:48,276 agent.pett_websocket_client INFO: 🔁 Retrying use of SMALL_POTION after purchase
+2025-11-06 18:22:48,276 agent.pett_websocket_client INFO: 📤 Sent message type: CONSUMABLES_USE
+2025-11-06 18:22:48,276 agent.pett_websocket_client INFO: 📤 Message content: {"type": "CONSUMABLES_USE", "data": {"params": {"foodId": "SMALL_POTION"}}, "nonce": "52453", "verify": true}
+2025-11-06 18:22:48,390 agent.pett_websocket_client INFO: Pet Status updated (merged partial update)
+2025-11-06 18:22:48,390 agent.pett_websocket_client INFO: Updated pet data: {'id': 'ffc7ccbe-6395-4fb5-a505-c96371344178', 'name': 'robopet677004', 'userID': 'a11beb73-1496-4050-bd5b-99cea642e4c9', 'sleeping': False, 'dead': False, 'god': False, 'active': True, 'currentHotelTier': 0, 'deadTime': None, 'inRiskOfDeathTime': None, 'PetTokens': {'petID': 'ffc7ccbe-6395-4fb5-a505-c96371344178', 'tokens': '386720000000000000000', 'ethTokens': '0', 'solanaTokens': '0', 'useSolana': False, 'depositedTokens': '0'}, 'PetStats': {'petID': 'ffc7ccbe-6395-4fb5-a505-c96371344178', 'hunger': '24.87', 'health': '74.91', 'hygiene': '49.77', 'energy': '57.83', 'happiness': '49.81', 'xp': '79.05', 'level': 0, 'xpMax': 100, 'xpMin': 1}}
+2025-11-06 18:22:48,390 agent.pett_websocket_client INFO: 📊 Received data message
+2025-11-06 18:22:48,391 agent.pett_websocket_client INFO: Data message: {'type': 'data', 'data': {'verification': {'hash': '0x99b5ccef9fda4ef8030d0cf60126e7490c3158d27a641d6eab5e44930d0ca3c2', 'signature': {'v': 28, 'r': '0xa8770154fb65b24c9d87cbc56228f38104c22fab146eee49bd5add0de8f604f9', 's': '0x37093093b474515a5e06002c68f2a4abb905911c67c7faae7235d1b6d63b9d47'}, 'message': {'action': 1, 'actionName': 'CONSUME_CONSUMABLE', 'timestamp': '1762453368', 'nonce': '0xe0e6b3d68cde1048e8cee30256f58e4ba652ab997521cf46d8de8927e43f38b6'}, 'issuedAt': '2025-11-06T18:22:48.000Z', 'reason': 'socket-request'}}, 'nonce': '52453', 'timestamp': 1762453368422}
+2025-11-06 18:22:48,391 pett_agent INFO: ✅ SMALL_POTION use confirmed
+2025-11-06 18:22:48,391 pett_agent INFO: On-chain recordAction queued: action=CONSUMABLES_USE id=1 agent=0xDd03...2803
+2025-11-06 18:22:48,458 pett_agent INFO: 🔓 Received logout request from React frontend
+2025-11-06 18:22:48,458 pett_agent INFO: 🔓 Logging out: clearing Privy token and disconnecting
+2025-11-06 18:22:48,458 agent.pett_websocket_client WARNING: ⚠️ Attempted to set an empty Privy token - authentication will be disabled
+2025-11-06 18:22:48,458 agent.pett_websocket_client INFO: Saved auth token cleared
+2025-11-06 18:22:48,503 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:22:48,503 pett_agent INFO: ✅ Logout complete; awaiting React login
+2025-11-06 18:22:49,037 pett_agent INFO: Inner recordAction signer: 0x6a08382311AA9971a79a21d4FE2D613aE0FebFa9; equals_mainSigner=True; expected=0x6a08382311AA9971a79a21d4FE2D613aE0FebFa9
+2025-11-06 18:22:49,407 pett_agent INFO: Estimated safeTxGas from recordAction: 173296
+2025-11-06 18:22:50,284 pett_agent INFO: Safe nonce: 141
+2025-11-06 18:22:50,735 pett_agent INFO: Safe tx hash to sign: 46b1a9c08bf544f32c26b9bc00576f3b0aeec8ef6e70bed2aa6202e734e0e625
+2025-11-06 18:22:50,758 pett_agent INFO: Recovered signer: 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803 vs account: 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803
+2025-11-06 18:22:51,488 pett_agent INFO: Recovered signer: 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803; is_owner=False; threshold=1 safe=0x066B82E413b30eCcbe65622aF31a65fde95Be88F
+2025-11-06 18:22:51,488 pett_agent ERROR: Recovered signer 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803 is not an owner of the Safe; aborting execTransaction
+2025-11-06 18:23:05,976 pett_agent INFO: 🔐 Received login request from React frontend
+2025-11-06 18:23:05,977 pett_agent INFO: 🔐 Updating Privy token and refreshing WebSocket connection
+2025-11-06 18:23:05,977 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:23:05,978 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:23:05,978 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:23:05,978 agent.pett_websocket_client INFO: 🆕 Using environment auth token for connection
+2025-11-06 18:23:05,978 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-06 18:23:05,978 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:23:06,100 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:23:06,101 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-06 18:23:06,101 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-06 18:23:06,101 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-06 18:23:06,102 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-06 18:23:06,102 agent.pett_websocket_client INFO: 📤 Message content: {"type": "AUTH", "data": {"params": {"authHash": {"hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucjhudWIwMGJsbDcwZHBpZXZtbnIyIiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTMzODUsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnI4bndyMDBibmw3MGQwcTJoaGcwOSIsImV4cCI6MTc2MjQ3NDk4NX0.SpmqoRz6ndqjde1j5NFUwM3K-MYT9XH7QDIVKZ927NGn-om_ye5FR_hJkQT2s653dcsRkIBYwpqvi98X9SN8xg"}, "authType": "privy"}}, "nonce": "30595"}
+2025-11-06 18:23:06,102 agent.pett_websocket_client INFO: 🔐 Authentication message sent, waiting for response...
+2025-11-06 18:23:06,102 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:23:06,168 agent.pett_websocket_client ERROR: ❌ Authentication failed: User not found with privy ID: did:privy:cmhnr8nwr00bnl70d0q2hhg09
+2025-11-06 18:23:06,169 agent.pett_websocket_client INFO: 🔐 Authentication result: False
+2025-11-06 18:23:06,169 agent.pett_websocket_client WARNING: ❌ Authentication attempt 1 failed
+2025-11-06 18:23:06,213 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:23:06,213 agent.pett_websocket_client INFO: 🛑 Stopping auth retries due to missing user; caller should register
+2025-11-06 18:23:06,213 pett_agent ERROR: ❌ Failed to authenticate WebSocket with new Privy token
+2025-11-06 18:23:06,213 pett_agent INFO: 🆕 Attempting automatic pet registration with name: robopet236491
+2025-11-06 18:23:06,214 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:23:06,214 agent.pett_websocket_client INFO: 🔌 Connecting WebSocket for pet registration
+2025-11-06 18:23:06,214 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:23:06,330 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:23:06,331 agent.pett_websocket_client INFO: 📤 Sent message type: REGISTER
+2025-11-06 18:23:06,332 agent.pett_websocket_client INFO: 📤 Message content: {"type": "REGISTER", "data": {"params": {"registerHash": {"name": "robopet236491", "hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucjhudWIwMGJsbDcwZHBpZXZtbnIyIiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTMzODUsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnI4bndyMDBibmw3MGQwcTJoaGcwOSIsImV4cCI6MTc2MjQ3NDk4NX0.SpmqoRz6ndqjde1j5NFUwM3K-MYT9XH7QDIVKZ927NGn-om_ye5FR_hJkQT2s653dcsRkIBYwpqvi98X9SN8xg"}, "authType": "privy"}}, "nonce": "44849"}
+2025-11-06 18:23:06,332 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:23:07,040 agent.pett_websocket_client INFO: ✅ Authentication successful!
+2025-11-06 18:23:07,040 agent.pett_websocket_client INFO: 👤 User: 2e614dbc-97b4-4878-8a92-e130b7bf3c72
+2025-11-06 18:23:07,040 agent.pett_websocket_client INFO: 🔑 Privy ID: did:privy:cmhnr8nwr00bnl70d0q2hhg09
+2025-11-06 18:23:07,040 agent.pett_websocket_client INFO: 📱 Telegram ID: None
+2025-11-06 18:23:07,040 agent.pett_websocket_client INFO: 🐾 Pet: robopet236491
+2025-11-06 18:23:07,040 agent.pett_websocket_client INFO: 🆔 Pet ID: da5eec85-a4f6-4897-a4e8-42ba55bbd940
+2025-11-06 18:23:07,040 agent.pett_websocket_client INFO: 💰 Balance: 444.0000 $AIP
+2025-11-06 18:23:07,040 agent.pett_websocket_client INFO: 🏨 Hotel Tier: 0
+2025-11-06 18:23:07,040 agent.pett_websocket_client INFO: 💀 Dead: False
+2025-11-06 18:23:07,040 agent.pett_websocket_client INFO: 😴 Sleeping: False
+2025-11-06 18:23:07,040 agent.pett_websocket_client INFO: 📊 Pet Stats:
+2025-11-06 18:23:07,040 agent.pett_websocket_client INFO:    🍽️  Hunger: 25
+2025-11-06 18:23:07,040 agent.pett_websocket_client INFO:    ❤️  Health: 50
+2025-11-06 18:23:07,040 agent.pett_websocket_client INFO:    ⚡ Energy: 50
+2025-11-06 18:23:07,041 agent.pett_websocket_client INFO:    😊 Happiness: 50
+2025-11-06 18:23:07,041 agent.pett_websocket_client INFO:    🧼 Hygiene: 50
+2025-11-06 18:23:07,041 agent.pett_websocket_client INFO:    🎯 XP: 50/100 (Level 0)
+2025-11-06 18:23:07,041 pett_agent INFO: 🔐 Re-authenticating after successful registration
+2025-11-06 18:23:07,041 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:23:07,084 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:23:07,084 agent.pett_websocket_client INFO: 🔄 Using saved auth token for reconnection
+2025-11-06 18:23:07,084 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-06 18:23:07,084 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:23:07,204 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:23:07,205 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-06 18:23:07,205 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-06 18:23:07,205 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-06 18:23:07,205 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-06 18:23:07,206 agent.pett_websocket_client INFO: 📤 Message content: {"type": "AUTH", "data": {"params": {"authHash": {"hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucjhudWIwMGJsbDcwZHBpZXZtbnIyIiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTMzODUsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnI4bndyMDBibmw3MGQwcTJoaGcwOSIsImV4cCI6MTc2MjQ3NDk4NX0.SpmqoRz6ndqjde1j5NFUwM3K-MYT9XH7QDIVKZ927NGn-om_ye5FR_hJkQT2s653dcsRkIBYwpqvi98X9SN8xg"}, "authType": "privy"}}, "nonce": "70591"}
+2025-11-06 18:23:07,206 agent.pett_websocket_client INFO: 🔐 Authentication message sent, waiting for response...
+2025-11-06 18:23:07,206 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:23:07,279 agent.pett_websocket_client INFO: ✅ Authentication successful!
+2025-11-06 18:23:07,279 agent.pett_websocket_client INFO: 👤 User: 2e614dbc-97b4-4878-8a92-e130b7bf3c72
+2025-11-06 18:23:07,279 agent.pett_websocket_client INFO: 🔑 Privy ID: did:privy:cmhnr8nwr00bnl70d0q2hhg09
+2025-11-06 18:23:07,280 agent.pett_websocket_client INFO: 📱 Telegram ID: None
+2025-11-06 18:23:07,280 agent.pett_websocket_client INFO: 🐾 Pet: robopet236491
+2025-11-06 18:23:07,280 agent.pett_websocket_client INFO: 🆔 Pet ID: da5eec85-a4f6-4897-a4e8-42ba55bbd940
+2025-11-06 18:23:07,280 agent.pett_websocket_client INFO: 💰 Balance: 444.0000 $AIP
+2025-11-06 18:23:07,280 agent.pett_websocket_client INFO: 🏨 Hotel Tier: 0
+2025-11-06 18:23:07,280 agent.pett_websocket_client INFO: 💀 Dead: False
+2025-11-06 18:23:07,280 agent.pett_websocket_client INFO: 😴 Sleeping: False
+2025-11-06 18:23:07,280 agent.pett_websocket_client INFO: 📊 Pet Stats:
+2025-11-06 18:23:07,280 agent.pett_websocket_client INFO:    🍽️  Hunger: 25
+2025-11-06 18:23:07,280 agent.pett_websocket_client INFO:    ❤️  Health: 50
+2025-11-06 18:23:07,280 agent.pett_websocket_client INFO:    ⚡ Energy: 50
+2025-11-06 18:23:07,280 agent.pett_websocket_client INFO:    😊 Happiness: 50
+2025-11-06 18:23:07,280 agent.pett_websocket_client INFO:    🧼 Hygiene: 50
+2025-11-06 18:23:07,281 agent.pett_websocket_client INFO:    🎯 XP: 50/100 (Level 0)
+2025-11-06 18:23:07,281 agent.pett_websocket_client INFO: 🔐 Authentication result: True
+2025-11-06 18:23:07,281 agent.pett_websocket_client INFO: ✅ Connection and authentication successful!
+2025-11-06 18:23:07,281 pett_agent INFO: ✅ Registration + authentication successful
+2025-11-06 18:23:07,282 agent.pett_tools INFO: [PetTools] Getting pet status and statistics
+2025-11-06 18:23:07,282 agent.pett_tools INFO: [TOOL] Successfully retrieved pet status data
+2025-11-06 18:23:52,464 pett_agent INFO: 🛑 Shutting down Pett Agent...
+2025-11-06 18:23:52,510 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:23:52,510 pett_agent INFO: 🔌 WebSocket disconnected
+2025-11-06 18:23:52,512 pett_agent INFO: 🛑 Web server stopped
+2025-11-06 18:23:52,512 pett_agent INFO: ✅ Pett Agent shutdown complete
+2025-11-06 18:23:55,108 pett_agent INFO: 🚀 Starting Pett Agent with Olas SDK compliance
+2025-11-06 18:23:55,108 pett_agent INFO: Ethereum private key: Found
+2025-11-06 18:23:55,108 pett_agent INFO: Withdrawal mode: False
+2025-11-06 18:23:55,108 pett_agent INFO: 📋 Loaded 0 environment variables
+2025-11-06 18:23:55,613 pett_agent INFO: Using Safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F on chainId 8453
+2025-11-06 18:23:56,346 pett_agent INFO: Safe owners (n=1): ['0xE43d9713a0999B965750fC94934D64CA7d5D2e15']
+2025-11-06 18:23:56,347 pett_agent INFO: Safe threshold: 1
+2025-11-06 18:23:56,347 pett_agent ERROR: Agent EOA is NOT an owner of the AI Agent Safe; execTransaction will revert (GS026)
+2025-11-06 18:23:56,347 pett_agent INFO: ActionRecorder initialised for agent address 0xDd03...2803
+2025-11-06 18:23:56,347 pett_agent INFO: Skipping staking checkpoint initialisation: staking contract address not configured
+2025-11-06 18:23:56,348 pett_agent INFO: 🔧 Olas SDK Interface initialized
+2025-11-06 18:23:56,348 pett_agent INFO: 🐾 Pett Agent initialized
+2025-11-06 18:23:56,348 pett_agent INFO: 🚀 Initializing Pett Agent components...
+2025-11-06 18:23:56,348 pett_agent INFO: 🎨 Building React frontend...
+2025-11-06 18:23:56,348 pett_agent INFO: ✅ React build already exists, skipping build
+2025-11-06 18:23:56,349 pett_agent INFO: ✅ React build available for serving
+2025-11-06 18:23:56,350 pett_agent INFO: 🌐 Web server started on http://0.0.0.0:8716 (access via http://localhost:8716)
+2025-11-06 18:23:56,350 pett_agent INFO: 🎨 React App available at http://localhost:8716/ (Dashboard at /dashboard)
+2025-11-06 18:23:56,350 pett_agent INFO: 🏥 Health API: http://localhost:8716/api/health
+2025-11-06 18:23:56,350 pett_agent INFO: ℹ️  No PRIVY_TOKEN in environment
+2025-11-06 18:23:56,350 pett_agent INFO: ✨ Waiting for user to login via React app at http://localhost:8716/
+2025-11-06 18:23:56,351 pett_agent INFO: 🧾 On-chain action recorder ENABLED: contract=0x907afC85F3922CbdEB7b9Ed806742b4eF998DF31 rpc=https://base.llamarpc.com agent=0xDd03...2803
+2025-11-06 18:23:56,351 pett_agent INFO: ℹ️ No TELEGRAM_BOT_TOKEN found - Telegram disabled
+2025-11-06 18:23:56,351 pett_agent INFO: ✅ Pett Agent initialization complete
+2025-11-06 18:23:56,351 pett_agent INFO: 🎯 Pett Agent is now running...
+2025-11-06 18:23:59,120 pett_agent INFO: 🔐 Received login request from React frontend
+2025-11-06 18:23:59,121 pett_agent INFO: 🔐 Updating Privy token and refreshing WebSocket connection
+2025-11-06 18:23:59,121 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:23:59,121 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:23:59,121 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:23:59,121 agent.pett_websocket_client INFO: 🆕 Using environment auth token for connection
+2025-11-06 18:23:59,121 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-06 18:23:59,121 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:23:59,234 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:23:59,234 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-06 18:23:59,234 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-06 18:23:59,234 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-06 18:23:59,235 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-06 18:23:59,235 agent.pett_websocket_client INFO: 📤 Message content: {"type": "AUTH", "data": {"params": {"authHash": {"hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucjhudWIwMGJsbDcwZHBpZXZtbnIyIiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTMzODUsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnI4bndyMDBibmw3MGQwcTJoaGcwOSIsImV4cCI6MTc2MjQ3NDk4NX0.SpmqoRz6ndqjde1j5NFUwM3K-MYT9XH7QDIVKZ927NGn-om_ye5FR_hJkQT2s653dcsRkIBYwpqvi98X9SN8xg"}, "authType": "privy"}}, "nonce": "76956"}
+2025-11-06 18:23:59,235 agent.pett_websocket_client INFO: 🔐 Authentication message sent, waiting for response...
+2025-11-06 18:23:59,236 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:23:59,298 agent.pett_websocket_client INFO: ✅ Authentication successful!
+2025-11-06 18:23:59,298 agent.pett_websocket_client INFO: 👤 User: 2e614dbc-97b4-4878-8a92-e130b7bf3c72
+2025-11-06 18:23:59,298 agent.pett_websocket_client INFO: 🔑 Privy ID: did:privy:cmhnr8nwr00bnl70d0q2hhg09
+2025-11-06 18:23:59,298 agent.pett_websocket_client INFO: 📱 Telegram ID: None
+2025-11-06 18:23:59,298 agent.pett_websocket_client INFO: 🐾 Pet: robopet236491
+2025-11-06 18:23:59,298 agent.pett_websocket_client INFO: 🆔 Pet ID: da5eec85-a4f6-4897-a4e8-42ba55bbd940
+2025-11-06 18:23:59,298 agent.pett_websocket_client INFO: 💰 Balance: 444.0000 $AIP
+2025-11-06 18:23:59,298 agent.pett_websocket_client INFO: 🏨 Hotel Tier: 0
+2025-11-06 18:23:59,298 agent.pett_websocket_client INFO: 💀 Dead: False
+2025-11-06 18:23:59,298 agent.pett_websocket_client INFO: 😴 Sleeping: False
+2025-11-06 18:23:59,298 agent.pett_websocket_client INFO: 📊 Pet Stats:
+2025-11-06 18:23:59,298 agent.pett_websocket_client INFO:    🍽️  Hunger: 24.98
+2025-11-06 18:23:59,298 agent.pett_websocket_client INFO:    ❤️  Health: 49.99
+2025-11-06 18:23:59,298 agent.pett_websocket_client INFO:    ⚡ Energy: 49.98
+2025-11-06 18:23:59,298 agent.pett_websocket_client INFO:    😊 Happiness: 49.97
+2025-11-06 18:23:59,299 agent.pett_websocket_client INFO:    🧼 Hygiene: 49.97
+2025-11-06 18:23:59,299 agent.pett_websocket_client INFO:    🎯 XP: 50/100 (Level 0)
+2025-11-06 18:23:59,299 agent.pett_websocket_client INFO: 🔐 Authentication result: True
+2025-11-06 18:23:59,299 agent.pett_websocket_client INFO: ✅ Connection and authentication successful!
+2025-11-06 18:23:59,299 pett_agent INFO: ✅ WebSocket re-authenticated with updated Privy token
+2025-11-06 18:23:59,742 agent.pett_tools INFO: [PetTools] Getting pet status and statistics
+2025-11-06 18:23:59,742 agent.pett_tools INFO: [TOOL] Successfully retrieved pet status data
+2025-11-06 18:24:01,352 agent.pett_tools INFO: [PetTools] Getting pet status and statistics
+2025-11-06 18:24:01,353 agent.pett_tools INFO: [TOOL] Successfully retrieved pet status data
+2025-11-06 18:24:01,353 pett_agent INFO: 🩹 Low health detected; attempting recovery
+2025-11-06 18:24:01,353 pett_agent INFO: 🧪 Trying SMALL_POTION to restore health
+2025-11-06 18:24:01,353 agent.pett_websocket_client INFO: 🍴 Using consumable: SMALL_POTION
+2025-11-06 18:24:01,354 agent.pett_websocket_client INFO: 📤 Sent message type: CONSUMABLES_USE
+2025-11-06 18:24:01,354 agent.pett_websocket_client INFO: 📤 Message content: {"type": "CONSUMABLES_USE", "data": {"params": {"foodId": "SMALL_POTION"}}, "nonce": "82504", "verify": true}
+2025-11-06 18:24:01,413 agent.pett_websocket_client ERROR: Server error: PetConsumable with ID SMALL_POTION not found
+2025-11-06 18:24:01,413 agent.pett_websocket_client INFO: 🛒 Consumable SMALL_POTION not owned. Attempting to buy one and retry.
+2025-11-06 18:24:01,414 agent.pett_websocket_client INFO: 📤 Sent message type: CONSUMABLES_BUY
+2025-11-06 18:24:01,414 agent.pett_websocket_client INFO: 📤 Message content: {"type": "CONSUMABLES_BUY", "data": {"params": {"foodId": "SMALL_POTION", "amount": 1}}, "nonce": "43530"}
+2025-11-06 18:24:01,559 agent.pett_websocket_client INFO: Pet Status updated (merged partial update)
+2025-11-06 18:24:01,560 agent.pett_websocket_client INFO: Updated pet data: {'id': 'da5eec85-a4f6-4897-a4e8-42ba55bbd940', 'name': 'robopet236491', 'userID': '2e614dbc-97b4-4878-8a92-e130b7bf3c72', 'sleeping': False, 'dead': False, 'god': False, 'active': True, 'currentHotelTier': 0, 'deadTime': None, 'inRiskOfDeathTime': None, 'PetTokens': {'petID': 'da5eec85-a4f6-4897-a4e8-42ba55bbd940', 'tokens': '390720000000000000000', 'ethTokens': '0', 'solanaTokens': '0', 'useSolana': False, 'depositedTokens': '0'}, 'PetStats': {'petID': 'da5eec85-a4f6-4897-a4e8-42ba55bbd940', 'hunger': '24.98', 'health': '49.99', 'hygiene': '49.97', 'energy': '49.98', 'happiness': '49.97', 'xp': '59', 'level': 0, 'xpMax': 100, 'xpMin': 0}}
+2025-11-06 18:24:01,560 agent.pett_websocket_client INFO: 📊 Received data message
+2025-11-06 18:24:01,560 agent.pett_websocket_client INFO: Data message: {'type': 'data', 'data': {'foodId': 'SMALL_POTION', 'amount': 1}, 'nonce': '43530', 'timestamp': 1762453441584}
+2025-11-06 18:24:01,560 agent.pett_websocket_client INFO: 🔁 Retrying use of SMALL_POTION after purchase
+2025-11-06 18:24:01,560 agent.pett_websocket_client INFO: 📤 Sent message type: CONSUMABLES_USE
+2025-11-06 18:24:01,561 agent.pett_websocket_client INFO: 📤 Message content: {"type": "CONSUMABLES_USE", "data": {"params": {"foodId": "SMALL_POTION"}}, "nonce": "69388", "verify": true}
+2025-11-06 18:24:01,687 agent.pett_websocket_client INFO: Pet Status updated (merged partial update)
+2025-11-06 18:24:01,687 agent.pett_websocket_client INFO: Updated pet data: {'id': 'da5eec85-a4f6-4897-a4e8-42ba55bbd940', 'name': 'robopet236491', 'userID': '2e614dbc-97b4-4878-8a92-e130b7bf3c72', 'sleeping': False, 'dead': False, 'god': False, 'active': True, 'currentHotelTier': 0, 'deadTime': None, 'inRiskOfDeathTime': None, 'PetTokens': {'petID': 'da5eec85-a4f6-4897-a4e8-42ba55bbd940', 'tokens': '390720000000000000000', 'ethTokens': '0', 'solanaTokens': '0', 'useSolana': False, 'depositedTokens': '0'}, 'PetStats': {'petID': 'da5eec85-a4f6-4897-a4e8-42ba55bbd940', 'hunger': '24.98', 'health': '74.99', 'hygiene': '49.97', 'energy': '57.97', 'happiness': '49.97', 'xp': '79.98', 'level': 0, 'xpMax': 100, 'xpMin': 0}}
+2025-11-06 18:24:01,687 agent.pett_websocket_client INFO: 📊 Received data message
+2025-11-06 18:24:01,688 agent.pett_websocket_client INFO: Data message: {'type': 'data', 'data': {'verification': {'hash': '0xe22d04c74bd6e8c52468246a90026fd0b3ac239e0ecb8e9b1886fccbb0da54d7', 'signature': {'v': 27, 'r': '0x55282fc2bc8da3b7986eec89dee6421c493d0d6d50e8024a9311c1e5c6b34a10', 's': '0x7b1e6cd678954e6df84453dd0fe9ba399e3969bcffd6621b130e27ff4d346152'}, 'message': {'action': 1, 'actionName': 'CONSUME_CONSUMABLE', 'timestamp': '1762453441', 'nonce': '0x3143cbe21b7fdab67f27ab9ca90b2b4f1332178f769db417cf3949647dc11a29'}, 'issuedAt': '2025-11-06T18:24:01.000Z', 'reason': 'socket-request'}}, 'nonce': '69388', 'timestamp': 1762453441719}
+2025-11-06 18:24:01,688 pett_agent INFO: ✅ SMALL_POTION use confirmed
+2025-11-06 18:24:01,688 pett_agent INFO: On-chain recordAction queued: action=CONSUMABLES_USE id=1 agent=0xDd03...2803
+2025-11-06 18:24:01,840 pett_agent INFO: 🔓 Received logout request from React frontend
+2025-11-06 18:24:01,841 pett_agent INFO: 🔓 Logging out: clearing Privy token and disconnecting
+2025-11-06 18:24:01,841 agent.pett_websocket_client WARNING: ⚠️ Attempted to set an empty Privy token - authentication will be disabled
+2025-11-06 18:24:01,841 agent.pett_websocket_client INFO: Saved auth token cleared
+2025-11-06 18:24:01,883 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:24:01,884 pett_agent INFO: ✅ Logout complete; awaiting React login
+2025-11-06 18:24:02,247 pett_agent INFO: Inner recordAction signer: 0x6a08382311AA9971a79a21d4FE2D613aE0FebFa9; equals_mainSigner=True; expected=0x6a08382311AA9971a79a21d4FE2D613aE0FebFa9
+2025-11-06 18:24:02,619 pett_agent INFO: Estimated safeTxGas from recordAction: 173311
+2025-11-06 18:24:03,484 pett_agent INFO: Safe nonce: 141
+2025-11-06 18:24:03,867 pett_agent INFO: Safe tx hash to sign: 40d2bec914a9b5809d126e725f755e2115f01490d8817f522ce903f69f794f5a
+2025-11-06 18:24:03,895 pett_agent INFO: Recovered signer: 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803 vs account: 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803
+2025-11-06 18:24:04,630 pett_agent INFO: Recovered signer: 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803; is_owner=False; threshold=1 safe=0x066B82E413b30eCcbe65622aF31a65fde95Be88F
+2025-11-06 18:24:04,631 pett_agent ERROR: Recovered signer 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803 is not an owner of the Safe; aborting execTransaction
+2025-11-06 18:24:16,865 pett_agent INFO: 🔐 Received login request from React frontend
+2025-11-06 18:24:16,866 pett_agent INFO: 🔐 Updating Privy token and refreshing WebSocket connection
+2025-11-06 18:24:16,866 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:24:16,866 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:24:16,867 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:24:16,867 agent.pett_websocket_client INFO: 🆕 Using environment auth token for connection
+2025-11-06 18:24:16,867 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-06 18:24:16,867 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:24:16,999 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:24:16,999 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-06 18:24:16,999 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-06 18:24:17,000 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-06 18:24:17,000 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-06 18:24:17,000 agent.pett_websocket_client INFO: 📤 Message content: {"type": "AUTH", "data": {"params": {"authHash": {"hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucmE2a3kwMDdybDgwZHl4eWwxZDc4IiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTM0NTYsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnJhNm1zMDA3dGw4MGRoM3Q5a2xweCIsImV4cCI6MTc2MjQ3NTA1Nn0.CkRI0axznHF4Rxr6ydZeBPJ0zdWKabS04e2Ji2XVf2C2xh_jG512WCFnb_oulkqrZIkNQSzN-VajtUI5LJMKcw"}, "authType": "privy"}}, "nonce": "69131"}
+2025-11-06 18:24:17,001 agent.pett_websocket_client INFO: 🔐 Authentication message sent, waiting for response...
+2025-11-06 18:24:17,001 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:24:17,054 agent.pett_websocket_client ERROR: ❌ Authentication failed: User not found with privy ID: did:privy:cmhnra6ms007tl80dh3t9klpx
+2025-11-06 18:24:17,054 agent.pett_websocket_client INFO: 🔐 Authentication result: False
+2025-11-06 18:24:17,054 agent.pett_websocket_client WARNING: ❌ Authentication attempt 1 failed
+2025-11-06 18:24:17,099 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:24:17,099 agent.pett_websocket_client INFO: 🛑 Stopping auth retries due to missing user; caller should register
+2025-11-06 18:24:17,099 pett_agent ERROR: ❌ Failed to authenticate WebSocket with new Privy token
+2025-11-06 18:24:17,099 pett_agent INFO: 🆕 Attempting automatic pet registration with name: robopet854230
+2025-11-06 18:24:17,100 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:24:17,100 agent.pett_websocket_client INFO: 🔌 Connecting WebSocket for pet registration
+2025-11-06 18:24:17,100 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:24:17,221 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:24:17,222 agent.pett_websocket_client INFO: 📤 Sent message type: REGISTER
+2025-11-06 18:24:17,222 agent.pett_websocket_client INFO: 📤 Message content: {"type": "REGISTER", "data": {"params": {"registerHash": {"name": "robopet854230", "hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucmE2a3kwMDdybDgwZHl4eWwxZDc4IiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTM0NTYsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnJhNm1zMDA3dGw4MGRoM3Q5a2xweCIsImV4cCI6MTc2MjQ3NTA1Nn0.CkRI0axznHF4Rxr6ydZeBPJ0zdWKabS04e2Ji2XVf2C2xh_jG512WCFnb_oulkqrZIkNQSzN-VajtUI5LJMKcw"}, "authType": "privy"}}, "nonce": "41424"}
+2025-11-06 18:24:17,223 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:24:18,287 agent.pett_websocket_client INFO: ✅ Authentication successful!
+2025-11-06 18:24:18,287 agent.pett_websocket_client INFO: 👤 User: afe53fa8-708e-40a5-a656-46ef38dcdc40
+2025-11-06 18:24:18,288 agent.pett_websocket_client INFO: 🔑 Privy ID: did:privy:cmhnra6ms007tl80dh3t9klpx
+2025-11-06 18:24:18,288 agent.pett_websocket_client INFO: 📱 Telegram ID: None
+2025-11-06 18:24:18,288 agent.pett_websocket_client INFO: 🐾 Pet: robopet854230
+2025-11-06 18:24:18,288 agent.pett_websocket_client INFO: 🆔 Pet ID: c61ec467-f34b-458a-9fc1-33fa74e26153
+2025-11-06 18:24:18,288 agent.pett_websocket_client INFO: 💰 Balance: 444.0000 $AIP
+2025-11-06 18:24:18,288 agent.pett_websocket_client INFO: 🏨 Hotel Tier: 0
+2025-11-06 18:24:18,288 agent.pett_websocket_client INFO: 💀 Dead: False
+2025-11-06 18:24:18,288 agent.pett_websocket_client INFO: 😴 Sleeping: False
+2025-11-06 18:24:18,289 agent.pett_websocket_client INFO: 📊 Pet Stats:
+2025-11-06 18:24:18,289 agent.pett_websocket_client INFO:    🍽️  Hunger: 25
+2025-11-06 18:24:18,289 agent.pett_websocket_client INFO:    ❤️  Health: 50
+2025-11-06 18:24:18,289 agent.pett_websocket_client INFO:    ⚡ Energy: 50
+2025-11-06 18:24:18,289 agent.pett_websocket_client INFO:    😊 Happiness: 50
+2025-11-06 18:24:18,289 agent.pett_websocket_client INFO:    🧼 Hygiene: 50
+2025-11-06 18:24:18,289 agent.pett_websocket_client INFO:    🎯 XP: 50/100 (Level 0)
+2025-11-06 18:24:18,290 pett_agent INFO: 🔐 Re-authenticating after successful registration
+2025-11-06 18:24:18,290 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:24:18,332 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:24:18,332 agent.pett_websocket_client INFO: 🔄 Using saved auth token for reconnection
+2025-11-06 18:24:18,332 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-06 18:24:18,332 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:24:18,440 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:24:18,441 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-06 18:24:18,441 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-06 18:24:18,441 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-06 18:24:18,441 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-06 18:24:18,442 agent.pett_websocket_client INFO: 📤 Message content: {"type": "AUTH", "data": {"params": {"authHash": {"hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucmE2a3kwMDdybDgwZHl4eWwxZDc4IiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTM0NTYsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnJhNm1zMDA3dGw4MGRoM3Q5a2xweCIsImV4cCI6MTc2MjQ3NTA1Nn0.CkRI0axznHF4Rxr6ydZeBPJ0zdWKabS04e2Ji2XVf2C2xh_jG512WCFnb_oulkqrZIkNQSzN-VajtUI5LJMKcw"}, "authType": "privy"}}, "nonce": "22101"}
+2025-11-06 18:24:18,442 agent.pett_websocket_client INFO: 🔐 Authentication message sent, waiting for response...
+2025-11-06 18:24:18,442 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:24:18,503 agent.pett_websocket_client INFO: ✅ Authentication successful!
+2025-11-06 18:24:18,504 agent.pett_websocket_client INFO: 👤 User: afe53fa8-708e-40a5-a656-46ef38dcdc40
+2025-11-06 18:24:18,504 agent.pett_websocket_client INFO: 🔑 Privy ID: did:privy:cmhnra6ms007tl80dh3t9klpx
+2025-11-06 18:24:18,504 agent.pett_websocket_client INFO: 📱 Telegram ID: None
+2025-11-06 18:24:18,504 agent.pett_websocket_client INFO: 🐾 Pet: robopet854230
+2025-11-06 18:24:18,504 agent.pett_websocket_client INFO: 🆔 Pet ID: c61ec467-f34b-458a-9fc1-33fa74e26153
+2025-11-06 18:24:18,504 agent.pett_websocket_client INFO: 💰 Balance: 444.0000 $AIP
+2025-11-06 18:24:18,504 agent.pett_websocket_client INFO: 🏨 Hotel Tier: 0
+2025-11-06 18:24:18,504 agent.pett_websocket_client INFO: 💀 Dead: False
+2025-11-06 18:24:18,504 agent.pett_websocket_client INFO: 😴 Sleeping: False
+2025-11-06 18:24:18,504 agent.pett_websocket_client INFO: 📊 Pet Stats:
+2025-11-06 18:24:18,504 agent.pett_websocket_client INFO:    🍽️  Hunger: 25
+2025-11-06 18:24:18,504 agent.pett_websocket_client INFO:    ❤️  Health: 50
+2025-11-06 18:24:18,505 agent.pett_websocket_client INFO:    ⚡ Energy: 50
+2025-11-06 18:24:18,505 agent.pett_websocket_client INFO:    😊 Happiness: 50
+2025-11-06 18:24:18,505 agent.pett_websocket_client INFO:    🧼 Hygiene: 50
+2025-11-06 18:24:18,505 agent.pett_websocket_client INFO:    🎯 XP: 50/100 (Level 0)
+2025-11-06 18:24:18,505 agent.pett_websocket_client INFO: 🔐 Authentication result: True
+2025-11-06 18:24:18,505 agent.pett_websocket_client INFO: ✅ Connection and authentication successful!
+2025-11-06 18:24:18,505 pett_agent INFO: ✅ Registration + authentication successful
+2025-11-06 18:24:18,505 agent.pett_tools INFO: [PetTools] Getting pet status and statistics
+2025-11-06 18:24:18,506 agent.pett_tools INFO: [TOOL] Successfully retrieved pet status data
+2025-11-06 18:24:23,516 pett_agent INFO: 🔐 Received login request from React frontend
+2025-11-06 18:24:23,516 pett_agent INFO: 🔐 Updating Privy token and refreshing WebSocket connection
+2025-11-06 18:24:23,516 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:24:23,517 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:24:23,558 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:24:23,558 agent.pett_websocket_client INFO: 🔄 Using saved auth token for reconnection
+2025-11-06 18:24:23,559 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-06 18:24:23,559 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:24:23,687 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:24:23,687 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-06 18:24:23,687 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-06 18:24:23,687 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-06 18:24:23,687 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-06 18:24:23,688 agent.pett_websocket_client INFO: 📤 Message content: {"type": "AUTH", "data": {"params": {"authHash": {"hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucmE2a3kwMDdybDgwZHl4eWwxZDc4IiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTM0NTYsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnJhNm1zMDA3dGw4MGRoM3Q5a2xweCIsImV4cCI6MTc2MjQ3NTA1Nn0.CkRI0axznHF4Rxr6ydZeBPJ0zdWKabS04e2Ji2XVf2C2xh_jG512WCFnb_oulkqrZIkNQSzN-VajtUI5LJMKcw"}, "authType": "privy"}}, "nonce": "64259"}
+2025-11-06 18:24:23,688 agent.pett_websocket_client INFO: 🔐 Authentication message sent, waiting for response...
+2025-11-06 18:24:23,688 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:24:23,757 agent.pett_websocket_client INFO: ✅ Authentication successful!
+2025-11-06 18:24:23,757 agent.pett_websocket_client INFO: 👤 User: afe53fa8-708e-40a5-a656-46ef38dcdc40
+2025-11-06 18:24:23,757 agent.pett_websocket_client INFO: 🔑 Privy ID: did:privy:cmhnra6ms007tl80dh3t9klpx
+2025-11-06 18:24:23,757 agent.pett_websocket_client INFO: 📱 Telegram ID: None
+2025-11-06 18:24:23,757 agent.pett_websocket_client INFO: 🐾 Pet: robopet854230
+2025-11-06 18:24:23,757 agent.pett_websocket_client INFO: 🆔 Pet ID: c61ec467-f34b-458a-9fc1-33fa74e26153
+2025-11-06 18:24:23,757 agent.pett_websocket_client INFO: 💰 Balance: 444.0000 $AIP
+2025-11-06 18:24:23,758 agent.pett_websocket_client INFO: 🏨 Hotel Tier: 0
+2025-11-06 18:24:23,758 agent.pett_websocket_client INFO: 💀 Dead: False
+2025-11-06 18:24:23,758 agent.pett_websocket_client INFO: 😴 Sleeping: False
+2025-11-06 18:24:23,758 agent.pett_websocket_client INFO: 📊 Pet Stats:
+2025-11-06 18:24:23,758 agent.pett_websocket_client INFO:    🍽️  Hunger: 25
+2025-11-06 18:24:23,758 agent.pett_websocket_client INFO:    ❤️  Health: 50
+2025-11-06 18:24:23,758 agent.pett_websocket_client INFO:    ⚡ Energy: 50
+2025-11-06 18:24:23,758 agent.pett_websocket_client INFO:    😊 Happiness: 50
+2025-11-06 18:24:23,758 agent.pett_websocket_client INFO:    🧼 Hygiene: 50
+2025-11-06 18:24:23,758 agent.pett_websocket_client INFO:    🎯 XP: 50/100 (Level 0)
+2025-11-06 18:24:23,758 agent.pett_websocket_client INFO: 🔐 Authentication result: True
+2025-11-06 18:24:23,758 agent.pett_websocket_client INFO: ✅ Connection and authentication successful!
+2025-11-06 18:24:23,758 pett_agent INFO: ✅ WebSocket re-authenticated with updated Privy token
+2025-11-06 18:24:23,758 agent.pett_tools INFO: [PetTools] Getting pet status and statistics
+2025-11-06 18:24:23,758 agent.pett_tools INFO: [TOOL] Successfully retrieved pet status data
+2025-11-06 18:24:26,398 pett_agent INFO: 🔓 Received logout request from React frontend
+2025-11-06 18:24:26,398 pett_agent INFO: 🔓 Logging out: clearing Privy token and disconnecting
+2025-11-06 18:24:26,398 agent.pett_websocket_client WARNING: ⚠️ Attempted to set an empty Privy token - authentication will be disabled
+2025-11-06 18:24:26,398 agent.pett_websocket_client INFO: Saved auth token cleared
+2025-11-06 18:24:26,440 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:24:26,440 pett_agent INFO: ✅ Logout complete; awaiting React login
+2025-11-06 18:24:48,882 pett_agent INFO: 🔐 Received login request from React frontend
+2025-11-06 18:24:48,882 pett_agent INFO: 🔐 Updating Privy token and refreshing WebSocket connection
+2025-11-06 18:24:48,884 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:24:48,885 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:24:48,885 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:24:48,886 agent.pett_websocket_client INFO: 🆕 Using environment auth token for connection
+2025-11-06 18:24:48,886 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-06 18:24:48,887 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:24:49,014 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:24:49,015 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-06 18:24:49,015 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-06 18:24:49,015 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-06 18:24:49,015 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-06 18:24:49,015 agent.pett_websocket_client INFO: 📤 Message content: {"type": "AUTH", "data": {"params": {"authHash": {"hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucmF2OXAwMDJ2bDUwYzliOGkwd3FuIiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTM0ODgsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnJhdmJqMDAyeGw1MGN3cjM5YTdlbiIsImV4cCI6MTc2MjQ3NTA4OH0.x-Fkfw8gZTOhN9LLhmF28yPZbeZlZ83Y2J-F-NQg2quCnAl9fzVnHN9K5GnwJtzboojWYiDEPPQzxQ3LkUODkg"}, "authType": "privy"}}, "nonce": "14099"}
+2025-11-06 18:24:49,015 agent.pett_websocket_client INFO: 🔐 Authentication message sent, waiting for response...
+2025-11-06 18:24:49,015 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:24:49,073 agent.pett_websocket_client ERROR: ❌ Authentication failed: User not found with privy ID: did:privy:cmhnravbj002xl50cwr39a7en
+2025-11-06 18:24:49,073 agent.pett_websocket_client INFO: 🔐 Authentication result: False
+2025-11-06 18:24:49,073 agent.pett_websocket_client WARNING: ❌ Authentication attempt 1 failed
+2025-11-06 18:24:49,117 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:24:49,117 agent.pett_websocket_client INFO: 🛑 Stopping auth retries due to missing user; caller should register
+2025-11-06 18:24:49,118 pett_agent ERROR: ❌ Failed to authenticate WebSocket with new Privy token
+2025-11-06 18:24:49,118 pett_agent INFO: 🆕 Attempting automatic pet registration with name: robopet26925
+2025-11-06 18:24:49,118 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:24:49,118 agent.pett_websocket_client INFO: 🔌 Connecting WebSocket for pet registration
+2025-11-06 18:24:49,118 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:24:49,233 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:24:49,234 agent.pett_websocket_client INFO: 📤 Sent message type: REGISTER
+2025-11-06 18:24:49,234 agent.pett_websocket_client INFO: 📤 Message content: {"type": "REGISTER", "data": {"params": {"registerHash": {"name": "robopet26925", "hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucmF2OXAwMDJ2bDUwYzliOGkwd3FuIiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTM0ODgsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnJhdmJqMDAyeGw1MGN3cjM5YTdlbiIsImV4cCI6MTc2MjQ3NTA4OH0.x-Fkfw8gZTOhN9LLhmF28yPZbeZlZ83Y2J-F-NQg2quCnAl9fzVnHN9K5GnwJtzboojWYiDEPPQzxQ3LkUODkg"}, "authType": "privy"}}, "nonce": "56506"}
+2025-11-06 18:24:49,235 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:24:49,984 agent.pett_websocket_client INFO: ✅ Authentication successful!
+2025-11-06 18:24:49,984 agent.pett_websocket_client INFO: 👤 User: 6f175779-6e7c-49a6-b6a3-cae7da506703
+2025-11-06 18:24:49,984 agent.pett_websocket_client INFO: 🔑 Privy ID: did:privy:cmhnravbj002xl50cwr39a7en
+2025-11-06 18:24:49,985 agent.pett_websocket_client INFO: 📱 Telegram ID: None
+2025-11-06 18:24:49,985 agent.pett_websocket_client INFO: 🐾 Pet: robopet26925
+2025-11-06 18:24:49,985 agent.pett_websocket_client INFO: 🆔 Pet ID: 0618de33-6489-4179-9114-224cd5da3159
+2025-11-06 18:24:49,985 agent.pett_websocket_client INFO: 💰 Balance: 444.0000 $AIP
+2025-11-06 18:24:49,985 agent.pett_websocket_client INFO: 🏨 Hotel Tier: 0
+2025-11-06 18:24:49,985 agent.pett_websocket_client INFO: 💀 Dead: False
+2025-11-06 18:24:49,985 agent.pett_websocket_client INFO: 😴 Sleeping: False
+2025-11-06 18:24:49,985 agent.pett_websocket_client INFO: 📊 Pet Stats:
+2025-11-06 18:24:49,985 agent.pett_websocket_client INFO:    🍽️  Hunger: 25
+2025-11-06 18:24:49,985 agent.pett_websocket_client INFO:    ❤️  Health: 50
+2025-11-06 18:24:49,985 agent.pett_websocket_client INFO:    ⚡ Energy: 50
+2025-11-06 18:24:49,985 agent.pett_websocket_client INFO:    😊 Happiness: 50
+2025-11-06 18:24:49,985 agent.pett_websocket_client INFO:    🧼 Hygiene: 50
+2025-11-06 18:24:49,985 agent.pett_websocket_client INFO:    🎯 XP: 50/100 (Level 0)
+2025-11-06 18:24:49,986 pett_agent INFO: 🔐 Re-authenticating after successful registration
+2025-11-06 18:24:49,986 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:24:50,029 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:24:50,029 agent.pett_websocket_client INFO: 🔄 Using saved auth token for reconnection
+2025-11-06 18:24:50,029 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-06 18:24:50,029 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:24:50,143 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:24:50,144 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-06 18:24:50,144 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-06 18:24:50,144 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-06 18:24:50,144 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-06 18:24:50,144 agent.pett_websocket_client INFO: 📤 Message content: {"type": "AUTH", "data": {"params": {"authHash": {"hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucmF2OXAwMDJ2bDUwYzliOGkwd3FuIiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTM0ODgsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnJhdmJqMDAyeGw1MGN3cjM5YTdlbiIsImV4cCI6MTc2MjQ3NTA4OH0.x-Fkfw8gZTOhN9LLhmF28yPZbeZlZ83Y2J-F-NQg2quCnAl9fzVnHN9K5GnwJtzboojWYiDEPPQzxQ3LkUODkg"}, "authType": "privy"}}, "nonce": "23041"}
+2025-11-06 18:24:50,144 agent.pett_websocket_client INFO: 🔐 Authentication message sent, waiting for response...
+2025-11-06 18:24:50,145 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:24:50,210 agent.pett_websocket_client INFO: ✅ Authentication successful!
+2025-11-06 18:24:50,211 agent.pett_websocket_client INFO: 👤 User: 6f175779-6e7c-49a6-b6a3-cae7da506703
+2025-11-06 18:24:50,211 agent.pett_websocket_client INFO: 🔑 Privy ID: did:privy:cmhnravbj002xl50cwr39a7en
+2025-11-06 18:24:50,211 agent.pett_websocket_client INFO: 📱 Telegram ID: None
+2025-11-06 18:24:50,211 agent.pett_websocket_client INFO: 🐾 Pet: robopet26925
+2025-11-06 18:24:50,211 agent.pett_websocket_client INFO: 🆔 Pet ID: 0618de33-6489-4179-9114-224cd5da3159
+2025-11-06 18:24:50,211 agent.pett_websocket_client INFO: 💰 Balance: 444.0000 $AIP
+2025-11-06 18:24:50,211 agent.pett_websocket_client INFO: 🏨 Hotel Tier: 0
+2025-11-06 18:24:50,211 agent.pett_websocket_client INFO: 💀 Dead: False
+2025-11-06 18:24:50,211 agent.pett_websocket_client INFO: 😴 Sleeping: False
+2025-11-06 18:24:50,211 agent.pett_websocket_client INFO: 📊 Pet Stats:
+2025-11-06 18:24:50,211 agent.pett_websocket_client INFO:    🍽️  Hunger: 25
+2025-11-06 18:24:50,211 agent.pett_websocket_client INFO:    ❤️  Health: 50
+2025-11-06 18:24:50,211 agent.pett_websocket_client INFO:    ⚡ Energy: 50
+2025-11-06 18:24:50,211 agent.pett_websocket_client INFO:    😊 Happiness: 50
+2025-11-06 18:24:50,211 agent.pett_websocket_client INFO:    🧼 Hygiene: 50
+2025-11-06 18:24:50,211 agent.pett_websocket_client INFO:    🎯 XP: 50/100 (Level 0)
+2025-11-06 18:24:50,211 agent.pett_websocket_client INFO: 🔐 Authentication result: True
+2025-11-06 18:24:50,212 agent.pett_websocket_client INFO: ✅ Connection and authentication successful!
+2025-11-06 18:24:50,212 pett_agent INFO: ✅ Registration + authentication successful
+2025-11-06 18:24:50,213 agent.pett_tools INFO: [PetTools] Getting pet status and statistics
+2025-11-06 18:24:50,213 agent.pett_tools INFO: [TOOL] Successfully retrieved pet status data
+2025-11-06 18:26:54,702 pett_agent INFO: 🛑 Shutting down Pett Agent...
+2025-11-06 18:26:54,744 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:26:54,745 pett_agent INFO: 🔌 WebSocket disconnected
+2025-11-06 18:26:54,746 pett_agent INFO: 🛑 Web server stopped
+2025-11-06 18:26:54,746 pett_agent INFO: ✅ Pett Agent shutdown complete
+2025-11-06 18:26:56,105 pett_agent INFO: 🚀 Starting Pett Agent with Olas SDK compliance
+2025-11-06 18:26:56,106 pett_agent INFO: Ethereum private key: Found
+2025-11-06 18:26:56,106 pett_agent INFO: Withdrawal mode: False
+2025-11-06 18:26:56,106 pett_agent INFO: 📋 Loaded 0 environment variables
+2025-11-06 18:26:56,397 pett_agent INFO: Using Safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F on chainId 8453
+2025-11-06 18:26:57,230 pett_agent INFO: Safe owners (n=1): ['0xE43d9713a0999B965750fC94934D64CA7d5D2e15']
+2025-11-06 18:26:57,231 pett_agent INFO: Safe threshold: 1
+2025-11-06 18:26:57,231 pett_agent ERROR: Agent EOA is NOT an owner of the AI Agent Safe; execTransaction will revert (GS026)
+2025-11-06 18:26:57,232 pett_agent INFO: ActionRecorder initialised for agent address 0xDd03...2803
+2025-11-06 18:26:57,232 pett_agent INFO: Skipping staking checkpoint initialisation: staking contract address not configured
+2025-11-06 18:26:57,232 pett_agent INFO: 🔧 Olas SDK Interface initialized
+2025-11-06 18:26:57,232 pett_agent INFO: 🐾 Pett Agent initialized
+2025-11-06 18:26:57,232 pett_agent INFO: 🚀 Initializing Pett Agent components...
+2025-11-06 18:26:57,233 pett_agent INFO: 🎨 Building React frontend...
+2025-11-06 18:26:57,233 pett_agent INFO: ✅ React build already exists, skipping build
+2025-11-06 18:26:57,233 pett_agent INFO: ✅ React build available for serving
+2025-11-06 18:26:57,234 pett_agent INFO: 🌐 Web server started on http://0.0.0.0:8716 (access via http://localhost:8716)
+2025-11-06 18:26:57,234 pett_agent INFO: 🎨 React App available at http://localhost:8716/ (Dashboard at /dashboard)
+2025-11-06 18:26:57,234 pett_agent INFO: 🏥 Health API: http://localhost:8716/api/health
+2025-11-06 18:26:57,234 pett_agent INFO: ℹ️  No PRIVY_TOKEN in environment
+2025-11-06 18:26:57,234 pett_agent INFO: ✨ Waiting for user to login via React app at http://localhost:8716/
+2025-11-06 18:26:57,234 pett_agent INFO: 🧾 On-chain action recorder ENABLED: contract=0x907afC85F3922CbdEB7b9Ed806742b4eF998DF31 rpc=https://base.llamarpc.com agent=0xDd03...2803
+2025-11-06 18:26:57,234 pett_agent INFO: ℹ️ No TELEGRAM_BOT_TOKEN found - Telegram disabled
+2025-11-06 18:26:57,234 pett_agent INFO: ✅ Pett Agent initialization complete
+2025-11-06 18:26:57,234 pett_agent INFO: 🎯 Pett Agent is now running...
+2025-11-06 18:26:59,864 pett_agent INFO: 🔐 Received login request from React frontend
+2025-11-06 18:26:59,864 pett_agent INFO: 🔐 Updating Privy token and refreshing WebSocket connection
+2025-11-06 18:26:59,864 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:26:59,864 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:26:59,864 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:26:59,864 agent.pett_websocket_client INFO: 🆕 Using environment auth token for connection
+2025-11-06 18:26:59,864 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-06 18:26:59,865 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:26:59,994 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:26:59,994 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-06 18:26:59,994 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-06 18:26:59,994 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-06 18:26:59,995 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-06 18:26:59,995 agent.pett_websocket_client INFO: 📤 Message content: {"type": "AUTH", "data": {"params": {"authHash": {"hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucmF2OXAwMDJ2bDUwYzliOGkwd3FuIiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTM0ODgsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnJhdmJqMDAyeGw1MGN3cjM5YTdlbiIsImV4cCI6MTc2MjQ3NTA4OH0.x-Fkfw8gZTOhN9LLhmF28yPZbeZlZ83Y2J-F-NQg2quCnAl9fzVnHN9K5GnwJtzboojWYiDEPPQzxQ3LkUODkg"}, "authType": "privy"}}, "nonce": "93967"}
+2025-11-06 18:26:59,995 agent.pett_websocket_client INFO: 🔐 Authentication message sent, waiting for response...
+2025-11-06 18:26:59,995 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:27:00,063 agent.pett_websocket_client INFO: ✅ Authentication successful!
+2025-11-06 18:27:00,063 agent.pett_websocket_client INFO: 👤 User: 6f175779-6e7c-49a6-b6a3-cae7da506703
+2025-11-06 18:27:00,063 agent.pett_websocket_client INFO: 🔑 Privy ID: did:privy:cmhnravbj002xl50cwr39a7en
+2025-11-06 18:27:00,063 agent.pett_websocket_client INFO: 📱 Telegram ID: None
+2025-11-06 18:27:00,063 agent.pett_websocket_client INFO: 🐾 Pet: robopet26925
+2025-11-06 18:27:00,063 agent.pett_websocket_client INFO: 🆔 Pet ID: 0618de33-6489-4179-9114-224cd5da3159
+2025-11-06 18:27:00,063 agent.pett_websocket_client INFO: 💰 Balance: 444.0000 $AIP
+2025-11-06 18:27:00,063 agent.pett_websocket_client INFO: 🏨 Hotel Tier: 0
+2025-11-06 18:27:00,063 agent.pett_websocket_client INFO: 💀 Dead: False
+2025-11-06 18:27:00,063 agent.pett_websocket_client INFO: 😴 Sleeping: False
+2025-11-06 18:27:00,064 agent.pett_websocket_client INFO: 📊 Pet Stats:
+2025-11-06 18:27:00,064 agent.pett_websocket_client INFO:    🍽️  Hunger: 24.95
+2025-11-06 18:27:00,064 agent.pett_websocket_client INFO:    ❤️  Health: 49.97
+2025-11-06 18:27:00,064 agent.pett_websocket_client INFO:    ⚡ Energy: 49.94
+2025-11-06 18:27:00,064 agent.pett_websocket_client INFO:    😊 Happiness: 49.93
+2025-11-06 18:27:00,064 agent.pett_websocket_client INFO:    🧼 Hygiene: 49.92
+2025-11-06 18:27:00,064 agent.pett_websocket_client INFO:    🎯 XP: 50/100 (Level 0)
+2025-11-06 18:27:00,064 agent.pett_websocket_client INFO: 🔐 Authentication result: True
+2025-11-06 18:27:00,064 agent.pett_websocket_client INFO: ✅ Connection and authentication successful!
+2025-11-06 18:27:00,064 pett_agent INFO: ✅ WebSocket re-authenticated with updated Privy token
+2025-11-06 18:27:00,533 agent.pett_tools INFO: [PetTools] Getting pet status and statistics
+2025-11-06 18:27:00,533 agent.pett_tools INFO: [TOOL] Successfully retrieved pet status data
+2025-11-06 18:27:02,078 pett_agent INFO: 🔓 Received logout request from React frontend
+2025-11-06 18:27:02,079 pett_agent INFO: 🔓 Logging out: clearing Privy token and disconnecting
+2025-11-06 18:27:02,079 agent.pett_websocket_client WARNING: ⚠️ Attempted to set an empty Privy token - authentication will be disabled
+2025-11-06 18:27:02,079 agent.pett_websocket_client INFO: Saved auth token cleared
+2025-11-06 18:27:02,123 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:27:02,123 pett_agent INFO: ✅ Logout complete; awaiting React login
+2025-11-06 18:27:20,927 pett_agent INFO: 🔐 Received login request from React frontend
+2025-11-06 18:27:20,928 pett_agent INFO: 🔐 Updating Privy token and refreshing WebSocket connection
+2025-11-06 18:27:20,928 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:27:20,928 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:27:20,928 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:27:20,929 agent.pett_websocket_client INFO: 🆕 Using environment auth token for connection
+2025-11-06 18:27:20,929 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-06 18:27:20,929 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:27:21,052 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:27:21,052 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-06 18:27:21,052 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-06 18:27:21,052 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-06 18:27:21,053 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-06 18:27:21,053 agent.pett_websocket_client INFO: 📤 Message content: {"type": "AUTH", "data": {"params": {"authHash": {"hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucmU0bHYwMGVsamwwY2U2ZmV5Mms2IiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTM2NDAsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnJlNG5uMDBlbmpsMGNjb284cnRnMiIsImV4cCI6MTc2MjQ3NTI0MH0.tlxahWfDYxWRN8deHaxzHWteDoYe1dnfO0JVtHw5Jc2N3mH1hM3pLyOmeIsqLpUKIsHYtve494ULRTWfdv0A2w"}, "authType": "privy"}}, "nonce": "21412"}
+2025-11-06 18:27:21,054 agent.pett_websocket_client INFO: 🔐 Authentication message sent, waiting for response...
+2025-11-06 18:27:21,054 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:27:21,112 agent.pett_websocket_client ERROR: ❌ Authentication failed: User not found with privy ID: did:privy:cmhnre4nn00enjl0ccoo8rtg2
+2025-11-06 18:27:21,112 agent.pett_websocket_client INFO: 🔐 Authentication result: False
+2025-11-06 18:27:21,112 agent.pett_websocket_client WARNING: ❌ Authentication attempt 1 failed
+2025-11-06 18:27:21,155 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:27:21,155 agent.pett_websocket_client INFO: 🛑 Stopping auth retries due to missing user; caller should register
+2025-11-06 18:27:21,155 pett_agent ERROR: ❌ Failed to authenticate WebSocket with new Privy token
+2025-11-06 18:27:21,155 pett_agent INFO: 🆕 Attempting automatic pet registration with name: robopet708295
+2025-11-06 18:27:21,155 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:27:21,155 agent.pett_websocket_client INFO: 🔌 Connecting WebSocket for pet registration
+2025-11-06 18:27:21,155 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:27:21,269 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:27:21,270 agent.pett_websocket_client INFO: 📤 Sent message type: REGISTER
+2025-11-06 18:27:21,270 agent.pett_websocket_client INFO: 📤 Message content: {"type": "REGISTER", "data": {"params": {"registerHash": {"name": "robopet708295", "hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucmU0bHYwMGVsamwwY2U2ZmV5Mms2IiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTM2NDAsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnJlNG5uMDBlbmpsMGNjb284cnRnMiIsImV4cCI6MTc2MjQ3NTI0MH0.tlxahWfDYxWRN8deHaxzHWteDoYe1dnfO0JVtHw5Jc2N3mH1hM3pLyOmeIsqLpUKIsHYtve494ULRTWfdv0A2w"}, "authType": "privy"}}, "nonce": "82900"}
+2025-11-06 18:27:21,270 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:27:21,846 agent.pett_websocket_client INFO: ✅ Authentication successful!
+2025-11-06 18:27:21,846 agent.pett_websocket_client INFO: 👤 User: 65383483-b450-4184-af2c-9fe7a9445166
+2025-11-06 18:27:21,846 agent.pett_websocket_client INFO: 🔑 Privy ID: did:privy:cmhnre4nn00enjl0ccoo8rtg2
+2025-11-06 18:27:21,846 agent.pett_websocket_client INFO: 📱 Telegram ID: None
+2025-11-06 18:27:21,846 agent.pett_websocket_client INFO: 🐾 Pet: robopet708295
+2025-11-06 18:27:21,846 agent.pett_websocket_client INFO: 🆔 Pet ID: 1a080381-2b2a-4791-8cc1-2edaf5cf7c20
+2025-11-06 18:27:21,846 agent.pett_websocket_client INFO: 💰 Balance: 446.0000 $AIP
+2025-11-06 18:27:21,846 agent.pett_websocket_client INFO: 🏨 Hotel Tier: 0
+2025-11-06 18:27:21,846 agent.pett_websocket_client INFO: 💀 Dead: False
+2025-11-06 18:27:21,846 agent.pett_websocket_client INFO: 😴 Sleeping: False
+2025-11-06 18:27:21,846 agent.pett_websocket_client INFO: 📊 Pet Stats:
+2025-11-06 18:27:21,846 agent.pett_websocket_client INFO:    🍽️  Hunger: 25
+2025-11-06 18:27:21,846 agent.pett_websocket_client INFO:    ❤️  Health: 50
+2025-11-06 18:27:21,846 agent.pett_websocket_client INFO:    ⚡ Energy: 50
+2025-11-06 18:27:21,847 agent.pett_websocket_client INFO:    😊 Happiness: 50
+2025-11-06 18:27:21,847 agent.pett_websocket_client INFO:    🧼 Hygiene: 50
+2025-11-06 18:27:21,847 agent.pett_websocket_client INFO:    🎯 XP: 50/100 (Level 0)
+2025-11-06 18:27:21,847 pett_agent INFO: 🔐 Re-authenticating after successful registration
+2025-11-06 18:27:21,847 agent.pett_websocket_client INFO: Privy token updated on WebSocket client
+2025-11-06 18:27:21,888 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:27:21,889 agent.pett_websocket_client INFO: 🔄 Using saved auth token for reconnection
+2025-11-06 18:27:21,889 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-06 18:27:21,889 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-06 18:27:21,999 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-06 18:27:21,999 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-06 18:27:21,999 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-06 18:27:21,999 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-06 18:27:22,000 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-06 18:27:22,000 agent.pett_websocket_client INFO: 📤 Message content: {"type": "AUTH", "data": {"params": {"authHash": {"hash": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU3bU9NMzBNZGJRY3RQMmdoWE4wU0dhTDFIWjNSUWVoZWxkZUNHNF9OaWsifQ.eyJzaWQiOiJjbWhucmU0bHYwMGVsamwwY2U2ZmV5Mms2IiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3NjI0NTM2NDAsImF1ZCI6ImNtN2dldjVzNjAwdmJrMmxzajZlMWU5ZzciLCJzdWIiOiJkaWQ6cHJpdnk6Y21obnJlNG5uMDBlbmpsMGNjb284cnRnMiIsImV4cCI6MTc2MjQ3NTI0MH0.tlxahWfDYxWRN8deHaxzHWteDoYe1dnfO0JVtHw5Jc2N3mH1hM3pLyOmeIsqLpUKIsHYtve494ULRTWfdv0A2w"}, "authType": "privy"}}, "nonce": "77727"}
+2025-11-06 18:27:22,000 agent.pett_websocket_client INFO: 🔐 Authentication message sent, waiting for response...
+2025-11-06 18:27:22,000 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-06 18:27:22,066 agent.pett_websocket_client INFO: ✅ Authentication successful!
+2025-11-06 18:27:22,066 agent.pett_websocket_client INFO: 👤 User: 65383483-b450-4184-af2c-9fe7a9445166
+2025-11-06 18:27:22,067 agent.pett_websocket_client INFO: 🔑 Privy ID: did:privy:cmhnre4nn00enjl0ccoo8rtg2
+2025-11-06 18:27:22,067 agent.pett_websocket_client INFO: 📱 Telegram ID: None
+2025-11-06 18:27:22,067 agent.pett_websocket_client INFO: 🐾 Pet: robopet708295
+2025-11-06 18:27:22,067 agent.pett_websocket_client INFO: 🆔 Pet ID: 1a080381-2b2a-4791-8cc1-2edaf5cf7c20
+2025-11-06 18:27:22,067 agent.pett_websocket_client INFO: 💰 Balance: 446.0000 $AIP
+2025-11-06 18:27:22,067 agent.pett_websocket_client INFO: 🏨 Hotel Tier: 0
+2025-11-06 18:27:22,067 agent.pett_websocket_client INFO: 💀 Dead: False
+2025-11-06 18:27:22,068 agent.pett_websocket_client INFO: 😴 Sleeping: False
+2025-11-06 18:27:22,068 agent.pett_websocket_client INFO: 📊 Pet Stats:
+2025-11-06 18:27:22,068 agent.pett_websocket_client INFO:    🍽️  Hunger: 25
+2025-11-06 18:27:22,068 agent.pett_websocket_client INFO:    ❤️  Health: 50
+2025-11-06 18:27:22,068 agent.pett_websocket_client INFO:    ⚡ Energy: 50
+2025-11-06 18:27:22,068 agent.pett_websocket_client INFO:    😊 Happiness: 50
+2025-11-06 18:27:22,068 agent.pett_websocket_client INFO:    🧼 Hygiene: 50
+2025-11-06 18:27:22,068 agent.pett_websocket_client INFO:    🎯 XP: 50/100 (Level 0)
+2025-11-06 18:27:22,069 agent.pett_websocket_client INFO: 🔐 Authentication result: True
+2025-11-06 18:27:22,069 agent.pett_websocket_client INFO: ✅ Connection and authentication successful!
+2025-11-06 18:27:22,069 pett_agent INFO: ✅ Registration + authentication successful
+2025-11-06 18:27:22,069 agent.pett_tools INFO: [PetTools] Getting pet status and statistics
+2025-11-06 18:27:22,069 agent.pett_tools INFO: [TOOL] Successfully retrieved pet status data
+2025-11-06 18:27:22,241 agent.pett_tools INFO: [PetTools] Getting pet status and statistics
+2025-11-06 18:27:22,241 agent.pett_tools INFO: [TOOL] Successfully retrieved pet status data
+2025-11-06 18:27:22,242 pett_agent INFO: 🩹 Low health detected; attempting recovery
+2025-11-06 18:27:22,242 pett_agent INFO: 🧪 Trying SMALL_POTION to restore health
+2025-11-06 18:27:22,242 agent.pett_websocket_client INFO: 🍴 Using consumable: SMALL_POTION
+2025-11-06 18:27:22,242 agent.pett_websocket_client INFO: 📤 Sent message type: CONSUMABLES_USE
+2025-11-06 18:27:22,242 agent.pett_websocket_client INFO: 📤 Message content: {"type": "CONSUMABLES_USE", "data": {"params": {"foodId": "SMALL_POTION"}}, "nonce": "31498", "verify": true}
+2025-11-06 18:27:22,299 agent.pett_websocket_client ERROR: Server error: PetConsumable with ID SMALL_POTION not found
+2025-11-06 18:27:22,299 agent.pett_websocket_client INFO: 🛒 Consumable SMALL_POTION not owned. Attempting to buy one and retry.
+2025-11-06 18:27:22,300 agent.pett_websocket_client INFO: 📤 Sent message type: CONSUMABLES_BUY
+2025-11-06 18:27:22,300 agent.pett_websocket_client INFO: 📤 Message content: {"type": "CONSUMABLES_BUY", "data": {"params": {"foodId": "SMALL_POTION", "amount": 1}}, "nonce": "29374"}
+2025-11-06 18:27:22,451 agent.pett_websocket_client INFO: Pet Status updated (merged partial update)
+2025-11-06 18:27:22,452 agent.pett_websocket_client INFO: Updated pet data: {'id': '1a080381-2b2a-4791-8cc1-2edaf5cf7c20', 'name': 'robopet708295', 'userID': '65383483-b450-4184-af2c-9fe7a9445166', 'sleeping': False, 'dead': False, 'god': False, 'active': True, 'currentHotelTier': 0, 'deadTime': None, 'inRiskOfDeathTime': None, 'PetTokens': {'petID': '1a080381-2b2a-4791-8cc1-2edaf5cf7c20', 'tokens': '392540000000000000000', 'ethTokens': '0', 'solanaTokens': '0', 'useSolana': False, 'depositedTokens': '0'}, 'PetStats': {'petID': '1a080381-2b2a-4791-8cc1-2edaf5cf7c20', 'hunger': '25', 'health': '50', 'hygiene': '50', 'energy': '50', 'happiness': '50', 'xp': '59', 'level': 0, 'xpMax': 100, 'xpMin': 0}}
+2025-11-06 18:27:22,452 agent.pett_websocket_client INFO: 📊 Received data message
+2025-11-06 18:27:22,452 agent.pett_websocket_client INFO: Data message: {'type': 'data', 'data': {'foodId': 'SMALL_POTION', 'amount': 1}, 'nonce': '29374', 'timestamp': 1762453642483}
+2025-11-06 18:27:22,452 agent.pett_websocket_client INFO: 🔁 Retrying use of SMALL_POTION after purchase
+2025-11-06 18:27:22,452 agent.pett_websocket_client INFO: 📤 Sent message type: CONSUMABLES_USE
+2025-11-06 18:27:22,452 agent.pett_websocket_client INFO: 📤 Message content: {"type": "CONSUMABLES_USE", "data": {"params": {"foodId": "SMALL_POTION"}}, "nonce": "83986", "verify": true}
+2025-11-06 18:27:22,602 agent.pett_websocket_client INFO: Pet Status updated (merged partial update)
+2025-11-06 18:27:22,602 agent.pett_websocket_client INFO: Updated pet data: {'id': '1a080381-2b2a-4791-8cc1-2edaf5cf7c20', 'name': 'robopet708295', 'userID': '65383483-b450-4184-af2c-9fe7a9445166', 'sleeping': False, 'dead': False, 'god': False, 'active': True, 'currentHotelTier': 0, 'deadTime': None, 'inRiskOfDeathTime': None, 'PetTokens': {'petID': '1a080381-2b2a-4791-8cc1-2edaf5cf7c20', 'tokens': '392540000000000000000', 'ethTokens': '0', 'solanaTokens': '0', 'useSolana': False, 'depositedTokens': '0'}, 'PetStats': {'petID': '1a080381-2b2a-4791-8cc1-2edaf5cf7c20', 'hunger': '25', 'health': '75', 'hygiene': '50', 'energy': '58', 'happiness': '50', 'xp': '79.98', 'level': 0, 'xpMax': 100, 'xpMin': 0}}
+2025-11-06 18:27:22,603 agent.pett_websocket_client INFO: 📊 Received data message
+2025-11-06 18:27:22,603 agent.pett_websocket_client INFO: Data message: {'type': 'data', 'data': {'verification': {'hash': '0xeb5dd68972bdc1b3390270ff29a628d680e30ba9074b657136d53159add9f2c2', 'signature': {'v': 28, 'r': '0x124b06df20ff573083bb78e629a3667cab8ad3c37bd593eff8be49b8f1b0f3a4', 's': '0x615e926c0c7a21867e10321a94ca0201bd7bd4d92f3dcf1d7ff7828b82948c29'}, 'message': {'action': 1, 'actionName': 'CONSUME_CONSUMABLE', 'timestamp': '1762453642', 'nonce': '0x30f38acf7901d9b1e616f12d29a4c01e9e27a3ae80a35ce549c4f330db7da1f4'}, 'issuedAt': '2025-11-06T18:27:22.000Z', 'reason': 'socket-request'}}, 'nonce': '83986', 'timestamp': 1762453642634}
+2025-11-06 18:27:22,603 pett_agent INFO: ✅ SMALL_POTION use confirmed
+2025-11-06 18:27:22,604 pett_agent INFO: On-chain recordAction queued: action=CONSUMABLES_USE id=1 agent=0xDd03...2803
+2025-11-06 18:27:23,255 pett_agent INFO: Inner recordAction signer: 0x6a08382311AA9971a79a21d4FE2D613aE0FebFa9; equals_mainSigner=True; expected=0x6a08382311AA9971a79a21d4FE2D613aE0FebFa9
+2025-11-06 18:27:23,640 pett_agent INFO: Estimated safeTxGas from recordAction: 173311
+2025-11-06 18:27:24,526 pett_agent INFO: Safe nonce: 141
+2025-11-06 18:27:25,039 pett_agent INFO: Safe tx hash to sign: a553a45884f82c1773b6cdff8a99576c2c6f03cc9269190decd92b476aef8d41
+2025-11-06 18:27:25,061 pett_agent INFO: Recovered signer: 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803 vs account: 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803
+2025-11-06 18:27:25,809 pett_agent INFO: Recovered signer: 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803; is_owner=False; threshold=1 safe=0x066B82E413b30eCcbe65622aF31a65fde95Be88F
+2025-11-06 18:27:25,810 pett_agent ERROR: Recovered signer 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803 is not an owner of the Safe; aborting execTransaction
+2025-11-06 18:27:30,031 pett_agent INFO: 🛑 Shutting down Pett Agent...
+2025-11-06 18:27:30,073 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-06 18:27:30,073 pett_agent INFO: 🔌 WebSocket disconnected
+2025-11-06 18:27:30,074 pett_agent INFO: 🛑 Web server stopped
+2025-11-06 18:27:30,075 pett_agent INFO: ✅ Pett Agent shutdown complete

@@ -9,7 +9,7 @@ import floating2 from '../assets/images/floating-2.png';
 import { useNavigate } from 'react-router-dom';
 
 const LoginPage = () => {
-	const { login, isModalOpen, wsPet, authFailed, authenticated } = useAuth();
+	const { login, isModalOpen, wsPet, authFailed, authenticated, authError } = useAuth();
 	const hasCalledLogin = useRef(false);
 	const privyModalHeight = usePrivyModalHeight();
 	const navigate = useNavigate();
@@ -30,14 +30,16 @@ const LoginPage = () => {
 		}
 	}, [wsPet, navigate]);
 
+
+
 	useEffect(() => {
-		if (!isModalOpen && hasCalledLogin.current) {
+		if (!isModalOpen && hasCalledLogin.current && !registrationRequired) {
 			login();
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [isModalOpen]);
+	}, [isModalOpen, registrationRequired]);
 
-	// Show loader while authenticating/connecting
+	// Show loader while authenticating/connecting (but not when registration is required)
 	if (authenticated && wsPet === null) {
 		return (
 			<div className="h-dvh w-full flex flex-col items-center justify-center bg-global-grey-10">
@@ -60,7 +62,7 @@ const LoginPage = () => {
 			<div className="absolute z-[4] text-white text-sm leading-relaxed login-screen__intro left-6 right-6">
 				<p className="bg-black bg-opacity-30 px-4 py-3 rounded-lg backdrop-blur-sm">
 					You can log in at <span className="font-semibold">app.pett.ai</span> even if you
-					created your agent with Pearl. After logging in, well show a quick
+					created your agent with Pearl. After logging in, we'll show a quick
 					confirmation.
 				</p>
 			</div>
@@ -88,9 +90,16 @@ const LoginPage = () => {
 				className="absolute bottom-6 left-6 right-6 z-[4]"
 				style={{ paddingBottom: 'calc(var(--safe-area-inset-bottom) + 1.5rem)' }}
 			>
-				<Button onClick={login} disabled={wsPet !== null} className="w-full">
-					{authFailed ? 'Mint' : 'Login'}
-				</Button>
+				<div className="flex flex-col gap-3">
+					{authError && (
+						<p className="text-center text-sm text-red-200 bg-black bg-opacity-40 rounded-lg px-4 py-2 backdrop-blur-sm">
+							{authError}
+						</p>
+					)}
+					<Button onClick={login} disabled={wsPet !== null} className="w-full">
+						Login
+					</Button>
+				</div>
 			</div>
 		</div>
 	);

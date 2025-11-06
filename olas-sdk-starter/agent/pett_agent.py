@@ -427,26 +427,10 @@ class PettAgent:
                 self.logger.error(f"❌ Error in health monitor: {e}")
                 await asyncio.sleep(10)  # Shorter sleep on error
 
-    async def update_privy_token(
-        self, privy_token: str, *, max_retries: int = 3, auth_timeout: int = 10
-    ) -> bool:
-        """Update the Privy token at runtime and refresh WebSocket state."""
-        token = (privy_token or "").strip()
+    def _configure_websocket_client_for_token(self, token: str) -> None:
+        """Ensure the websocket client exists and is configured for the provided token."""
         if not token:
-            self.logger.error("❌ Received empty Privy token from UI")
-            return False
-
-        self.logger.info("🔐 Updating Privy token and refreshing WebSocket connection")
-
-        # Clear waiting flag since we have a new token
-        self.waiting_for_react_login = False
-
-        # Persist the token for other components
-        self.privy_token = token
-        os.environ["PRIVY_TOKEN"] = token
-
-        token_preview = f"{token[:6]}...{token[-4:]}" if len(token) > 12 else token
-        self.olas.env_vars["PRIVY_TOKEN"] = token_preview
+            return
 
         if not self.websocket_client:
             self.logger.info("🔌 Creating WebSocket client with new Privy token")
@@ -458,17 +442,19 @@ class PettAgent:
                     self.olas.get_action_recorder()
                 )
                 try:
-                    recorder3 = self.olas.get_action_recorder()
-                    if recorder3 and recorder3.is_enabled:
-                        addr_preview3 = "unknown"
-                        if recorder3.account_address:
-                            aa3 = recorder3.account_address
-                            addr_preview3 = f"{aa3[:6]}...{aa3[-4:]}"
+                    recorder = self.olas.get_action_recorder()
+                    if recorder and recorder.is_enabled:
+                        addr_preview = "unknown"
+                        if recorder.account_address:
+                            addr_preview = (
+                                f"{recorder.account_address[:6]}..."
+                                f"{recorder.account_address[-4:]}"
+                            )
                         self.logger.info(
                             "🧾 On-chain action recorder ENABLED: contract=%s rpc=%s agent=%s",
-                            recorder3.contract_address,
-                            recorder3.rpc_url,
-                            addr_preview3,
+                            recorder.contract_address,
+                            recorder.rpc_url,
+                            addr_preview,
                         )
                     else:
                         self.logger.info(
@@ -480,12 +466,12 @@ class PettAgent:
                 pass
             try:
 
-                def _recorder_msg2(
-                    m: Dict[str, Any], success: bool, err: Optional[str]
+                def _recorder_msg(
+                    message: Dict[str, Any], success: bool, err: Optional[str]
                 ) -> None:
-                    self.olas.record_client_send(m, success=success, error=err)
+                    self.olas.record_client_send(message, success=success, error=err)
 
-                self.websocket_client.set_telemetry_recorder(_recorder_msg2)
+                self.websocket_client.set_telemetry_recorder(_recorder_msg)
             except Exception:
                 pass
         else:
@@ -497,15 +483,202 @@ class PettAgent:
             except Exception:
                 pass
 
-        connected = await self.websocket_client.refresh_token_and_reconnect(
+    async def update_privy_token(
+        self, privy_token: str, *, max_retries: int = 3, auth_timeout: int = 10
+    ) -> bool:
+        """Update the Privy token at runtime and refresh WebSocket state."""
+        token = (privy_token or "").strip()
+        if not token:
+            self.logger.error("❌ Received empty Privy token from UI")
+            return False
+
+        self.logger.info("🔐 Updating Privy token and refreshing WebSocket connection")
+
+        # Reset registration prompts and auth error state before attempting login
+        try:
+            self.olas.update_registration_state(False, None)
+            self.olas.update_auth_error(None)
+        except Exception:
+            pass
+
+        # Clear waiting flag since we have a new token
+        self.waiting_for_react_login = False
+
+        # Persist the token for other components
+        self.privy_token = token
+        os.environ["PRIVY_TOKEN"] = token
+
+        token_preview = f"{token[:6]}...{token[-4:]}" if len(token) > 12 else token
+        self.olas.env_vars["PRIVY_TOKEN"] = token_preview
+
+        self._configure_websocket_client_for_token(token)
+
+        client = self.websocket_client
+        if client is None:
+            self.logger.error("❌ WebSocket client unavailable after configuration")
+            self.olas.update_websocket_status(connected=False, authenticated=False)
+            return False
+
+        connected = await client.refresh_token_and_reconnect(
             token, max_retries=max_retries, auth_timeout=auth_timeout
         )
         if not connected:
             self.logger.error(
                 "❌ Failed to authenticate WebSocket with new Privy token"
             )
+            last_error = None
+            try:
+                if hasattr(client, "get_last_auth_error"):
+                    last_error = client.get_last_auth_error()
+            except Exception:
+                last_error = None
+            if last_error:
+                try:
+                    self.olas.update_auth_error(last_error)
+                except Exception:
+                    pass
+            requires_registration = self._is_registration_error(last_error)
+            if requires_registration:
+                # Attempt automatic registration with a default or configured name
+                try:
+                    pet_name = self._get_default_pet_name()
+                except Exception:
+                    pet_name = f"robopet{random.randint(1, 999999)}"
+
+                self.logger.info(
+                    "🆕 Attempting automatic pet registration with name: %s", pet_name
+                )
+
+                try:
+                    reg_success, reg_response = await client.register_privy(
+                        pet_name, token, timeout=max(20, auth_timeout + 5)
+                    )
+                except Exception as reg_exc:
+                    reg_success = False
+                    reg_response = None
+                    self.logger.error("❌ Registration threw an exception: %s", reg_exc)
+
+                if not reg_success:
+                    # Surface registration error and keep UI in registration-required state
+                    try:
+                        err_text = None
+                        if isinstance(reg_response, dict):
+                            err_text = reg_response.get("error") or reg_response.get(
+                                "data", {}
+                            ).get("error")
+                        err_text = (
+                            err_text
+                            or getattr(client, "get_last_action_error", lambda: None)()
+                            or last_error
+                            or "Registration failed"
+                        )
+                        self.olas.update_registration_state(True, err_text)
+                        self.olas.update_auth_error(err_text)
+                    except Exception:
+                        pass
+                    self.olas.update_websocket_status(
+                        connected=client.is_connected(), authenticated=False
+                    )
+                    return False
+
+                # Registration reported success; re-authenticate with the same token
+                self.logger.info("🔐 Re-authenticating after successful registration")
+                connected_after_register = await client.refresh_token_and_reconnect(
+                    token, max_retries=max_retries, auth_timeout=auth_timeout
+                )
+                if not connected_after_register:
+                    err_after = None
+                    try:
+                        err_after = client.get_last_auth_error()
+                    except Exception:
+                        pass
+                    self.logger.error(
+                        "❌ Authentication failed after registration: %s", err_after
+                    )
+                    try:
+                        self.olas.update_auth_error(
+                            err_after or "Authentication failed after registration"
+                        )
+                        self.olas.update_registration_state(False, None)
+                    except Exception:
+                        pass
+                    self.olas.update_websocket_status(
+                        connected=client.is_connected(), authenticated=False
+                    )
+                    return False
+
+                # Treat as overall success
+                self.logger.info("✅ Registration + authentication successful")
+                self.olas.update_websocket_status(connected=True, authenticated=True)
+                # Update pet data if available
+                try:
+                    pet_data = client.get_pet_data()
+                    if pet_data:
+                        self.olas.update_pet_data(pet_data)
+                except Exception:
+                    pass
+                self.olas.update_registration_state(False, None)
+                self.olas.update_auth_error(None)
+
+                # Ensure OpenAI API key is set
+                try:
+                    openai_key = self.olas.get_env_var("OPENAI_API_KEY")
+                    if openai_key:
+                        os.environ["OPENAI_API_KEY"] = openai_key
+                except Exception:
+                    pass
+
+                # Wire up decision engine and tools if needed
+                if self.decision_engine:
+                    self.decision_engine.websocket_client = client
+                    try:
+                        self.decision_engine.pett_tools.set_client(client)
+                    except Exception:
+                        pass
+                    self.pett_tools = self.decision_engine.pett_tools
+                else:
+                    self.decision_engine = PetDecisionEngine(client)
+                    try:
+
+                        def _recorder_prompt2(
+                            kind: str, prompt: str, ctx: Optional[Dict[str, Any]]
+                        ) -> None:
+                            self.olas.record_openai_prompt(kind, prompt, context=ctx)
+
+                        self.decision_engine.set_prompt_recorder(_recorder_prompt2)
+                    except Exception:
+                        pass
+                    self.pett_tools = self.decision_engine.pett_tools
+
+                # Refresh pet status once more for UI
+                try:
+                    pet_status_result = self.pett_tools.get_pet_status()
+                    if "❌" not in pet_status_result:
+                        pet_connected = True
+                        pet_status = (
+                            "Active"
+                            if "Pet Status:" in pet_status_result
+                            else "Connected"
+                        )
+                        try:
+                            pd = client.get_pet_data()
+                            if pd:
+                                self.olas.update_pet_data(pd)
+                        except Exception:
+                            pass
+                    else:
+                        pet_connected = False
+                        pet_status = "Error"
+                        self.olas.update_pet_data(None)
+                    self.olas.update_pet_status(pet_connected, pet_status)
+                except Exception:
+                    self.olas.update_pet_status(True, "Connected")
+                # Continue to standard success return below
+                return True
+
+            # Non-registration failure path
             self.olas.update_websocket_status(
-                connected=self.websocket_client.is_connected(), authenticated=False
+                connected=client.is_connected(), authenticated=False
             )
             return False
 
@@ -519,8 +692,8 @@ class PettAgent:
             os.environ["OPENAI_API_KEY"] = openai_key
 
         if self.decision_engine:
-            self.decision_engine.websocket_client = self.websocket_client
-            self.decision_engine.pett_tools.set_client(self.websocket_client)
+            self.decision_engine.websocket_client = client
+            self.decision_engine.pett_tools.set_client(client)
             # Ensure recorder remains wired
             try:
 
@@ -534,7 +707,7 @@ class PettAgent:
                 pass
             self.pett_tools = self.decision_engine.pett_tools
         else:
-            self.decision_engine = PetDecisionEngine(self.websocket_client)
+            self.decision_engine = PetDecisionEngine(client)
             try:
 
                 def _recorder_prompt3(
@@ -554,7 +727,7 @@ class PettAgent:
                 pet_status = (
                     "Active" if "Pet Status:" in pet_status_result else "Connected"
                 )
-                pet_data = self.websocket_client.get_pet_data()
+                pet_data = client.get_pet_data()
                 if pet_data:
                     self.olas.update_pet_data(pet_data)
             else:
@@ -567,6 +740,165 @@ class PettAgent:
             self.olas.update_pet_status(True, "Connected")
 
         return True
+
+    def _get_default_pet_name(self) -> str:
+        """Choose a default pet name using env var or a generated fallback."""
+        # Fallback randomized name
+        return f"robopet{random.randint(1, 999999)}"
+
+    @staticmethod
+    def _is_registration_error(error: Optional[str]) -> bool:
+        if not error:
+            return False
+        lowered = error.lower()
+        registration_indicators = [
+            "user not found",
+            "pet not found",
+            "no pet",
+            "needs registration",
+        ]
+        return any(indicator in lowered for indicator in registration_indicators)
+
+    async def register_pet(
+        self,
+        pet_name: str,
+        privy_token: str,
+        *,
+        timeout: int = 20,
+    ) -> Dict[str, Any]:
+        """Register a new pet for the Privy user when no existing pet is found."""
+        name = (pet_name or "").strip()
+        token = (privy_token or "").strip()
+
+        if not token:
+            error_msg = "Privy token is required for registration"
+            self.logger.error(error_msg)
+            self.olas.update_registration_state(True, error_msg)
+            self.olas.update_auth_error(error_msg)
+            return {
+                "success": False,
+                "error": error_msg,
+                "requires_registration": True,
+            }
+
+        if not name:
+            error_msg = "Pet name is required"
+            self.logger.error(error_msg)
+            self.olas.update_registration_state(True, error_msg)
+            return {
+                "success": False,
+                "error": error_msg,
+                "requires_registration": True,
+            }
+
+        try:
+            self.logger.info("🆕 Registering new pet with name: %s", name)
+
+            self.waiting_for_react_login = False
+            self.privy_token = token
+            os.environ["PRIVY_TOKEN"] = token
+            token_preview = f"{token[:6]}...{token[-4:]}" if len(token) > 12 else token
+            self.olas.env_vars["PRIVY_TOKEN"] = token_preview
+
+            self._configure_websocket_client_for_token(token)
+
+            if not self.websocket_client:
+                error_msg = "WebSocket client unavailable for registration"
+                self.logger.error(error_msg)
+                self.olas.update_registration_state(True, error_msg)
+                return {
+                    "success": False,
+                    "error": error_msg,
+                    "requires_registration": True,
+                }
+
+            register_success, response = await self.websocket_client.register_privy(
+                name, token, timeout=timeout
+            )
+
+            if not register_success:
+                potential_errors: List[Optional[str]] = [
+                    self.websocket_client.get_last_action_error(),
+                    self.websocket_client.get_last_auth_error(),
+                ]
+                if isinstance(response, dict):
+                    potential_errors.append(response.get("error"))
+                    data_section = response.get("data")
+                    if isinstance(data_section, dict):
+                        potential_errors.append(data_section.get("error"))
+                error_msg = next(
+                    (msg for msg in potential_errors if msg), "Registration failed"
+                )
+                self.logger.error("❌ Pet registration failed: %s", error_msg)
+                self.olas.update_registration_state(True, error_msg)
+                self.olas.update_auth_error(error_msg)
+                self.olas.update_websocket_status(
+                    connected=self.websocket_client.is_connected(), authenticated=False
+                )
+                return {
+                    "success": False,
+                    "error": error_msg,
+                    "requires_registration": True,
+                }
+
+            payload: Dict[str, Any] = {}
+            if isinstance(response, dict):
+                payload = response.get("data", response)
+            user_payload = payload.get("user") if isinstance(payload, dict) else None
+            pet_payload = payload.get("pet") if isinstance(payload, dict) else None
+
+            auth_success = await self.update_privy_token(token)
+            if not auth_success:
+                fallback_error: Optional[str] = None
+                if self.websocket_client:
+                    fallback_error = self.websocket_client.get_last_auth_error()
+                error_msg = fallback_error or "Authentication failed after registration"
+                self.logger.error(
+                    "❌ Authentication after registration failed: %s", error_msg
+                )
+                self.olas.update_auth_error(error_msg)
+                return {
+                    "success": False,
+                    "error": error_msg,
+                    "requires_registration": False,
+                    "user": user_payload,
+                    "pet": pet_payload,
+                }
+
+            pet_data = (
+                self.websocket_client.get_pet_data() if self.websocket_client else None
+            )
+            if pet_data:
+                self.olas.update_pet_data(pet_data)
+
+            self.olas.update_registration_state(False, None)
+            self.olas.update_auth_error(None)
+
+            auth_result = response or {"success": True, "pet": pet_data}
+
+            return {
+                "success": True,
+                "requires_registration": False,
+                "user": user_payload,
+                "pet": pet_data or pet_payload,
+                "auth_result": auth_result,
+                "pet_name": (
+                    (pet_data or pet_payload or {}).get("name", name)
+                    if isinstance(pet_data or pet_payload, dict)
+                    else name
+                ),
+            }
+
+        except Exception as exc:
+            error_msg = f"Registration error: {exc}"
+            self.logger.error("❌ Unexpected error during registration: %s", exc)
+            self.olas.update_registration_state(True, error_msg)
+            self.olas.update_auth_error(error_msg)
+            return {
+                "success": False,
+                "error": error_msg,
+                "requires_registration": True,
+            }
 
     async def logout_privy(self) -> bool:
         """Clear Privy token, disconnect, and return to pre-login state."""
@@ -609,6 +941,8 @@ class PettAgent:
             self.olas.update_pet_status(False, "Disconnected")
             self.olas.update_pet_data(None)
             self.olas.update_health_status("running", is_transitioning=False)
+            self.olas.update_registration_state(False, None)
+            self.olas.update_auth_error(None)
 
             self.logger.info("✅ Logout complete; awaiting React login")
             return True

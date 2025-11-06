@@ -73,6 +73,11 @@ class OlasInterface:
         self.pet_status: str = "Unknown"
         self.last_websocket_activity: Optional[datetime] = None
 
+        # Registration/auth tracking for UI feedback
+        self.registration_required: bool = False
+        self.registration_error: Optional[str] = None
+        self.last_auth_error: Optional[str] = None
+
         # Pet data storage
         self.pet_data: Optional[Dict[str, Any]] = None
         self.pet_name: str = "Unknown"
@@ -203,10 +208,29 @@ class OlasInterface:
         self.pet_status = status
         self.logger.debug(f"Pet status updated: connected={connected}, status={status}")
 
+    def update_registration_state(
+        self, required: bool, error: Optional[str] = None
+    ) -> None:
+        """Track whether the UI needs to prompt for pet registration."""
+        self.registration_required = required
+        self.registration_error = error
+        if required:
+            # Clear stale connection flags so UI knows authentication is pending
+            self.websocket_authenticated = False
+            self.pet_connected = False
+        self.logger.debug(
+            "Registration state updated: required=%s error=%s",
+            required,
+            error,
+        )
+
+    def update_auth_error(self, error: Optional[str]) -> None:
+        """Store the latest authentication error message for UI consumption."""
+        self.last_auth_error = error
+
     def update_pet_data(self, pet_data: Optional[Dict[str, Any]]) -> None:
         """Update pet data with detailed information."""
         self.pet_data = pet_data
-        print("pet_data", pet_data)
         if pet_data and pet_data.get("name"):
             self.pet_name = pet_data.get("name", "Unknown")
             self.pet_id = pet_data.get("id", "Unknown")
@@ -612,9 +636,7 @@ class OlasInterface:
             agent_health["is_staking_kpi_met"] = bool(
                 staking_snapshot.get("threshold_met")
             )
-            agent_health["staking_status"] = staking_snapshot.get(
-                "status", "unknown"
-            )
+            agent_health["staking_status"] = staking_snapshot.get("status", "unknown")
             agent_health["staking_epoch"] = {
                 "service_id": staking_snapshot.get("service_id"),
                 "txs_in_epoch": staking_snapshot.get("txs_in_epoch"),
@@ -845,8 +867,16 @@ class OlasInterface:
                         {
                             "success": success,
                             "authenticated": self.websocket_authenticated,
+                            "websocket_connected": self.websocket_connected,
                             "pet_connected": self.pet_connected,
                             "pet_name": self.pet_name,
+                            "pet_status": self.pet_status,
+                            "pet_balance": self.pet_balance,
+                            "pet_hotel_tier": self.pet_hotel_tier,
+                            "pet": self.pet_data,
+                            "requires_registration": self.registration_required,
+                            "auth_error": self.last_auth_error,
+                            "register_error": self.registration_error,
                         }
                     )
                 else:
@@ -857,6 +887,61 @@ class OlasInterface:
             except Exception as e:
                 self.logger.error(f"❌ Error handling login: {e}")
                 return web.json_response({"error": str(e)}, status=500)
+
+        return web.json_response({"error": "Method not allowed"}, status=405)
+
+    async def _register_api_handler(self, request: web.Request) -> web.Response:
+        """Register a new pet for a Privy user via React frontend."""
+        if request.method == "POST":
+            try:
+                data = await request.json()
+                privy_token = data.get("privy_token")
+                pet_name = data.get("pet_name")
+
+                if not privy_token:
+                    return web.json_response(
+                        {
+                            "success": False,
+                            "error": "privy_token is required",
+                            "requires_registration": True,
+                        },
+                        status=400,
+                    )
+
+                if not pet_name:
+                    return web.json_response(
+                        {
+                            "success": False,
+                            "error": "pet_name is required",
+                            "requires_registration": True,
+                        },
+                        status=400,
+                    )
+
+                if self.agent and hasattr(self.agent, "register_pet"):
+                    result = await self.agent.register_pet(pet_name, privy_token)
+                    response_payload = {
+                        **result,
+                        "authenticated": self.websocket_authenticated,
+                        "pet_connected": self.pet_connected,
+                        "pet_name": self.pet_name,
+                        "requires_registration": self.registration_required,
+                        "auth_error": self.last_auth_error,
+                        "register_error": self.registration_error,
+                    }
+                    status_code = 200 if result.get("success") else 400
+                    return web.json_response(response_payload, status=status_code)
+                else:
+                    return web.json_response(
+                        {"success": False, "error": "Agent not initialized"},
+                        status=500,
+                    )
+
+            except Exception as e:
+                self.logger.error(f"❌ Error handling registration: {e}")
+                return web.json_response(
+                    {"success": False, "error": str(e)}, status=500
+                )
 
         return web.json_response({"error": "Method not allowed"}, status=405)
 
@@ -1033,6 +1118,7 @@ class OlasInterface:
             self.app.router.add_get("/api/status", self._health_check_handler)
             self.app.router.add_get("/healthcheck", self._health_check_handler)
             self.app.router.add_post("/api/login", self._login_api_handler)
+            self.app.router.add_post("/api/register", self._register_api_handler)
             self.app.router.add_post("/api/logout", self._logout_api_handler)
             self.app.router.add_post("/", self._agent_api_handler)
             self.app.router.add_get("/exit", self._exit_handler)
@@ -1097,10 +1183,16 @@ class OlasInterface:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S,%f")[:-3]
         log_entry = f"[{timestamp}] [{level}] [agent] {message}\n"
 
+        level_value = getattr(logging, level.upper(), logging.INFO)
+        self.logger.log(level_value, message)
+
         try:
-            print(log_entry)
-        except Exception as e:
-            self.logger.error(f"Failed to write to log.txt: {e}")
+            log_file_path = Path(__file__).resolve().parent / "log.txt"
+            log_file_path.parent.mkdir(parents=True, exist_ok=True)
+            with log_file_path.open("a", encoding="utf-8") as f:
+                f.write(log_entry)
+        except Exception as exc:
+            self.logger.error("Failed to write to log.txt: %s", exc)
 
     def handle_withdrawal(self) -> bool:
         """Handle withdrawal mode (Olas SDK optional requirement)."""

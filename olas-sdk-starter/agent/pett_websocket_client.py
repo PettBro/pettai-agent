@@ -3,7 +3,7 @@ import json
 import logging
 import os
 import random
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import websockets
 from dotenv import load_dotenv
@@ -295,30 +295,77 @@ class PettWebSocketClient:
             # Clean up the future
             self.auth_future = None
 
-    async def register_privy(self, pet_name: str, privy_auth_token: str) -> bool:
-        """Register a new pet using Privy authentication."""
-        if not pet_name or not pet_name.strip():
+    async def register_privy(
+        self,
+        pet_name: str,
+        privy_auth_token: str,
+        *,
+        timeout: int = 15,
+    ) -> Tuple[bool, Optional[Dict[str, Any]]]:
+        """Register a new pet using Privy authentication and wait for the result."""
+        name = (pet_name or "").strip()
+        token = (privy_auth_token or "").strip()
+
+        if not name:
             logger.error("Invalid pet name provided")
-            return False
+            self._last_action_error = "Pet name is required"
+            return False, None
 
-        if not privy_auth_token or not privy_auth_token.strip():
+        if not token:
             logger.error("Invalid Privy auth token provided")
-            return False
+            self._last_action_error = "Privy token is required"
+            return False, None
 
-        register_message = {
-            "type": "REGISTER",
-            "data": {
-                "params": {
-                    "registerHash": {
-                        "name": pet_name.strip(),
-                        "hash": "Bearer " + privy_auth_token.strip(),
-                    },
-                    "authType": "privy",
-                }
-            },
+        # Ensure the client is ready to send messages
+        self.set_privy_token(token)
+
+        if not self.connection_established or not self.websocket:
+            logger.info("🔌 Connecting WebSocket for pet registration")
+            if not await self.connect():
+                error_msg = "WebSocket connection failed during registration"
+                logger.error(error_msg)
+                self._last_action_error = error_msg
+                return False, None
+
+        # Ensure we are listening for responses before sending the register command
+        if not self._listener_task or self._listener_task.done():
+            logger.debug("👂 Starting listener task prior to registration")
+            self._listener_task = asyncio.create_task(self.listen_for_messages())
+
+        register_payload = {
+            "params": {
+                "registerHash": {
+                    "name": name,
+                    "hash": "Bearer " + token,
+                },
+                "authType": "privy",
+            }
         }
 
-        return await self._send_message(register_message)
+        success, response = await self._send_and_wait(
+            "REGISTER", register_payload, timeout=timeout
+        )
+
+        if not success:
+            # Preserve any error routed through the correlated response
+            if isinstance(response, dict):
+                self._last_action_error = (
+                    response.get("error")
+                    or response.get("data", {}).get("error")
+                    or self._last_action_error
+                )
+            return False, response
+
+        # Inspect the response (if present) for explicit success/failure
+        if isinstance(response, dict):
+            payload = response.get("data", response)
+            register_success = bool(payload.get("success", self.authenticated))
+            if not register_success:
+                err_text = payload.get("error") or "Registration failed"
+                self._last_action_error = str(err_text)
+                return False, response
+
+        return True, response
 
     async def connect_and_authenticate(
         self, max_retries: int = 3, auth_timeout: int = 10
@@ -395,6 +442,14 @@ class PettWebSocketClient:
                             self._jwt_expired = True
                             logger.critical(
                                 "💀 JWT token expired - awaiting new token before reconnecting."
+                            )
+                            return False
+
+                    # If server reports missing user/pet, do not continue retries; let caller handle registration
+                    if hasattr(self, "_last_auth_error") and self._last_auth_error:
+                        if "user not found" in str(self._last_auth_error).lower():
+                            logger.info(
+                                "🛑 Stopping auth retries due to missing user; caller should register"
                             )
                             return False
 
@@ -1386,6 +1441,10 @@ class PettWebSocketClient:
     def clear_last_action_error(self) -> None:
         """Clear the stored last action error."""
         self._last_action_error = None
+
+    def get_last_auth_error(self) -> Optional[str]:
+        """Return the most recent authentication error message, if any."""
+        return self._last_auth_error
 
     def is_authenticated(self) -> bool:
         """Check if client is authenticated."""
