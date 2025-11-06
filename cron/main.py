@@ -50,6 +50,14 @@ DEFAULT_STATE_FILE = Path("./staking_checkpoint_state.json")
 DEFAULT_LIVENESS_PERIOD = DERIVED_LIVENESS_PERIOD
 SUBMISSION_COOLDOWN_SECONDS = 600
 
+# EIP-1559 fee tuning for checkpoint txs (micro-gwei defaults like action_recorder)
+DEFAULT_PRIORITY_FEE_PER_GAS = Web3.to_wei(5, "mwei")  # 0.005 gwei
+MIN_PRIORITY_FEE_PER_GAS = Web3.to_wei(1, "mwei")  # 0.001 gwei
+MAX_PRIORITY_FEE_PER_GAS = Web3.to_wei(50, "mwei")  # 0.05 gwei
+MIN_FEE_BUFFER_PER_GAS = Web3.to_wei(5, "mwei")  # 0.005 gwei
+MAX_FEE_BUFFER_PER_GAS = Web3.to_wei(50, "mwei")  # 0.05 gwei
+PRIORITY_FEE_OVERRIDE_ENV = "CHECKPOINT_PRIORITY_FEE_WEI"
+
 # Minimal ABI for staking proxy
 STAKING_PROXY_ABI: list[Dict[str, Any]] = [
     {
@@ -369,11 +377,22 @@ class StakingCheckpointClient:
             gas_estimate = self._staking_contract.functions.checkpoint().estimate_gas(
                 cast(TxParams, tx_params)
             )
-            buffered = int(gas_estimate * 1.2)
-            return max(buffered, 200_000)
+        except ContractLogicError as exc:
+            self._logger.debug("Gas estimation reverted for checkpoint: %s", exc)
+            return None
+        except ValueError as exc:
+            self._logger.debug(
+                "Gas estimation failed for checkpoint (ValueError): %s", exc
+            )
+            return None
         except Exception as exc:
             self._logger.debug("Gas estimation failed for checkpoint: %s", exc)
             return None
+
+        # Apply a conservative buffer similar to ActionRecorder: 1.2x or +20k headroom
+        buffered = max(int(gas_estimate * 1.2), int(gas_estimate) + 20_000)
+        # Keep a modest floor to avoid underestimation without over-allocating
+        return max(buffered, 100_000)
 
     def _apply_fee_parameters(self, tx_params: Dict[str, Any]) -> None:
         if self._w3 is None:
@@ -385,12 +404,70 @@ class StakingCheckpointClient:
             tx_params["gasPrice"] = self._w3.eth.gas_price
             return
         base_fee = latest_block.get("baseFeePerGas")
-        if base_fee is not None:
-            priority_fee = Web3.to_wei(2, "gwei")
-            tx_params["maxPriorityFeePerGas"] = priority_fee
-            tx_params["maxFeePerGas"] = base_fee + priority_fee * 2
-        else:
+        if base_fee is None:
             tx_params["gasPrice"] = self._w3.eth.gas_price
+            return
+
+        base_fee_int = int(base_fee)
+        priority_fee = int(self._suggest_priority_fee())
+
+        # Choose a small buffer (like action_recorder) to avoid overpaying
+        if priority_fee <= 0:
+            buffer = int(MIN_FEE_BUFFER_PER_GAS)
+        else:
+            buffer = max(
+                int(MIN_FEE_BUFFER_PER_GAS),
+                min(priority_fee, int(MAX_FEE_BUFFER_PER_GAS)),
+            )
+
+        max_fee = base_fee_int + priority_fee + buffer
+
+        tx_params["maxPriorityFeePerGas"] = priority_fee
+        tx_params["maxFeePerGas"] = max_fee
+
+    def _suggest_priority_fee(self) -> int:
+        if self._w3 is None:
+            return int(DEFAULT_PRIORITY_FEE_PER_GAS)
+
+        priority_fee: Optional[int] = None
+
+        override_raw = os.environ.get(PRIORITY_FEE_OVERRIDE_ENV)
+        if override_raw:
+            try:
+                priority_fee = max(0, int(override_raw))
+                self._logger.debug(
+                    "Using priority fee override (%s=%s)",
+                    PRIORITY_FEE_OVERRIDE_ENV,
+                    priority_fee,
+                )
+            except ValueError:
+                self._logger.warning(
+                    "Invalid %s value '%s'; ignoring",
+                    PRIORITY_FEE_OVERRIDE_ENV,
+                    override_raw,
+                )
+
+        if priority_fee is None:
+            try:
+                suggested = getattr(self._w3.eth, "max_priority_fee", None)
+                if callable(suggested):
+                    suggested = suggested()
+                if suggested is not None:
+                    priority_fee = int(suggested)
+            except Exception as exc:
+                self._logger.debug(
+                    "Failed to obtain RPC priority fee suggestion: %s", exc
+                )
+
+        if priority_fee is None or priority_fee <= 0:
+            priority_fee = int(DEFAULT_PRIORITY_FEE_PER_GAS)
+
+        if 0 < priority_fee < int(MIN_PRIORITY_FEE_PER_GAS):
+            priority_fee = int(MIN_PRIORITY_FEE_PER_GAS)
+        elif priority_fee > int(MAX_PRIORITY_FEE_PER_GAS):
+            priority_fee = int(MAX_PRIORITY_FEE_PER_GAS)
+
+        return priority_fee
 
     def _resolve_nonce(self) -> int:
         if self._w3 is None or self._account_address is None:
