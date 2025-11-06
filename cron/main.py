@@ -17,7 +17,27 @@ from web3.types import TxParams, ChecksumAddress
 
 logger = logging.getLogger("cron_checkpoint")
 if not logger.handlers:
-    logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
+    log_level = os.environ.get("LOG_LEVEL", "INFO")
+    try:
+        numeric_level = int(str(log_level).strip())
+    except ValueError:
+        numeric_level = getattr(logging, str(log_level).strip().upper(), logging.INFO)
+
+    logging.basicConfig(level=numeric_level)
+
+    log_file_path = Path(__file__).resolve().parent / "log.txt"
+    root_logger = logging.getLogger()
+    if not any(
+        isinstance(handler, logging.FileHandler)
+        and getattr(handler, "baseFilename", None) == str(log_file_path)
+        for handler in root_logger.handlers
+    ):
+        file_handler = logging.FileHandler(log_file_path)
+        file_handler.setLevel(numeric_level)
+        file_handler.setFormatter(
+            logging.Formatter("%(asctime)s %(name)s %(levelname)s: %(message)s")
+        )
+        root_logger.addHandler(file_handler)
 
 
 def _env_bool(name: str, default: bool) -> bool:
