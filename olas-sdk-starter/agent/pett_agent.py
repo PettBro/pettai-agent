@@ -7,7 +7,8 @@ import os
 import asyncio
 import logging
 import random
-from typing import Optional, TypedDict, Dict, Any, Union, List
+from pathlib import Path
+from typing import Optional, TypedDict, Dict, Any, Union, List, Callable, Awaitable, Tuple
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 
@@ -17,6 +18,7 @@ from .pett_tools import PettTools
 from .telegram_bot import PetTelegramBot
 from .olas_interface import OlasInterface
 from .decision_engine import PetDecisionEngine
+from .daily_action_tracker import DailyActionTracker
 
 # Load environment variables
 load_dotenv()
@@ -27,6 +29,7 @@ class PettAgent:
 
     LOW_THRESHOLD = 70.0
     LOW_ENERGY_THRESHOLD = 30.0
+    REQUIRED_ACTIONS_PER_EPOCH = 8
 
     def __init__(
         self,
@@ -70,6 +73,10 @@ class PettAgent:
         # Control mid-interval staking KPI logging
         self._mid_interval_logged: bool = True
         self._staking_kpi_log_suppressed: bool = False
+        tracker_path = Path("logs") / "daily_action_state.json"
+        self._daily_action_tracker = DailyActionTracker(
+            tracker_path, required_actions=self.REQUIRED_ACTIONS_PER_EPOCH
+        )
 
     # TypedDicts for pet data shape
     class PetTokensDict(TypedDict, total=False):
@@ -1069,7 +1076,9 @@ class PettAgent:
             # The API path for potion use is via buy/use or direct consumable use when owned.
             # We try direct consumable use by blueprint id.
             try:
-                success = await client.use_consumable("SMALL_POTION")
+                success = await self._execute_action_with_tracking(
+                    "CONSUMABLES_USE", lambda: client.use_consumable("SMALL_POTION")
+                )
                 if success:
                     self.logger.info("✅ SMALL_POTION use confirmed")
                     await asyncio.sleep(0.5)
@@ -1082,7 +1091,9 @@ class PettAgent:
                 if bought:
                     await asyncio.sleep(0.5)
                     self.logger.info("🔁 Using SMALL_POTION after purchase")
-                    success = await client.use_consumable("SMALL_POTION")
+                    success = await self._execute_action_with_tracking(
+                        "CONSUMABLES_USE", lambda: client.use_consumable("SMALL_POTION")
+                    )
                     if success:
                         self.logger.info("✅ SMALL_POTION use confirmed after purchase")
                         await asyncio.sleep(0.5)
@@ -1093,7 +1104,9 @@ class PettAgent:
             # Fallback to SALAD (improves health and hunger)
             self.logger.info("🥗 Falling back to SALAD to recover health")
             try:
-                success = await client.use_consumable("SALAD")
+                success = await self._execute_action_with_tracking(
+                    "CONSUMABLES_USE", lambda: client.use_consumable("SALAD")
+                )
                 if success:
                     self.logger.info("✅ SALAD consumption confirmed")
                     await asyncio.sleep(0.5)
@@ -1104,7 +1117,9 @@ class PettAgent:
                 if bought:
                     await asyncio.sleep(0.5)
                     self.logger.info("🔁 Using SALAD after purchase")
-                    success = await client.use_consumable("SALAD")
+                    success = await self._execute_action_with_tracking(
+                        "CONSUMABLES_USE", lambda: client.use_consumable("SALAD")
+                    )
                     if success:
                         self.logger.info(
                             "✅ SALAD consumption confirmed after purchase"
@@ -1243,6 +1258,129 @@ class PettAgent:
         except Exception as e:
             self.logger.debug(f"Pet update handler encountered exception: {e}")
 
+    async def _execute_action_with_tracking(
+        self,
+        action_name: str,
+        action_callable: Callable[[], Awaitable[bool]],
+        *,
+        treat_already_clean_as_success: bool = False,
+    ) -> bool:
+        """Run an action coroutine and record it toward the daily requirement."""
+        normalized_name = (action_name or "").upper() or "UNKNOWN"
+        try:
+            result = await action_callable()
+            success = bool(result)
+        except Exception as exc:
+            self.logger.error("❌ Action %s raised: %s", normalized_name, exc)
+            return False
+
+        if (
+            not success
+            and treat_already_clean_as_success
+            and self._last_action_was_already_clean()
+        ):
+            success = True
+
+        if success:
+            self._daily_action_tracker.record_action(normalized_name)
+            completed = self._daily_action_tracker.actions_completed()
+            remaining = self._daily_action_tracker.actions_remaining()
+            self.logger.info(
+                "📋 Action %s recorded (%d/%d today, %d remaining)",
+                normalized_name,
+                completed,
+                self.REQUIRED_ACTIONS_PER_EPOCH,
+                remaining,
+            )
+        return success
+
+    def _last_action_was_already_clean(self) -> bool:
+        """Return True when the last server error was an 'already clean' message."""
+        try:
+            if not self.websocket_client:
+                return False
+            err_text = self.websocket_client.get_last_action_error()
+            if not err_text:
+                return False
+            return "already clean" in err_text.lower()
+        except Exception:
+            return False
+
+    def _needs_structured_actions(self) -> bool:
+        """True until the agent logs the minimum required transactions for the epoch."""
+        return not self._daily_action_tracker.has_met_required_actions()
+
+    def _build_structured_candidates(
+        self,
+        client: PettWebSocketClient,
+        stats: Dict[str, Any],
+    ) -> List[Tuple[float, str, Callable[[], Awaitable[bool]], bool]]:
+        """Create a priority-ordered list of care actions based on stat deficits."""
+        hunger = self._to_float(stats.get("hunger", 0))
+        hygiene = self._to_float(stats.get("hygiene", 0))
+        happiness = self._to_float(stats.get("happiness", 0))
+
+        candidates: List[
+            Tuple[float, str, Callable[[], Awaitable[bool]], bool]
+        ] = []
+
+        def add_candidate(
+            priority: float,
+            action_name: str,
+            func: Callable[[], Awaitable[bool]],
+            allow_clean: bool = False,
+        ) -> None:
+            candidates.append((priority, action_name, func, allow_clean))
+
+        hunger_deficit = max(0.0, 100.0 - hunger)
+        if self.decision_engine and hunger_deficit > 2.0:
+            stats_snapshot = dict(stats)
+
+            async def feed_candidate() -> bool:
+                if not self.decision_engine:
+                    return False
+                return await self.decision_engine.feed_best_owned_food(stats_snapshot)
+
+            add_candidate(hunger_deficit + 20.0, "CONSUMABLES_USE", feed_candidate, False)
+
+        hygiene_deficit = max(0.0, 100.0 - hygiene)
+        if hygiene_deficit > 2.0:
+            add_candidate(hygiene_deficit + 10.0, "SHOWER", client.shower_pet, True)
+
+        happiness_deficit = max(0.0, 100.0 - happiness)
+        if happiness_deficit > 1.0:
+            add_candidate(happiness_deficit + 5.0, "THROWBALL", client.throw_ball, False)
+
+        if happiness_deficit > 6.0:
+            add_candidate(happiness_deficit, "RUB", client.rub_pet, False)
+
+        if not candidates:
+            add_candidate(1.0, "THROWBALL", client.throw_ball, False)
+
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        return candidates
+
+    async def _perform_structured_action(
+        self,
+        client: PettWebSocketClient,
+        stats: Dict[str, Any],
+    ) -> bool:
+        """Execute the highest priority action from the structured plan."""
+        for (
+            _priority,
+            action_name,
+            action_callable,
+            allow_clean,
+        ) in self._build_structured_candidates(client, stats):
+            success = await self._execute_action_with_tracking(
+                action_name,
+                action_callable,
+                treat_already_clean_as_success=allow_clean,
+            )
+            if success:
+                return True
+        return False
+
     async def _random_action(self, client: PettWebSocketClient) -> None:
         actions = [
             (client.rub_pet, "rub"),
@@ -1253,7 +1391,25 @@ class PettAgent:
         ]
         action_func, action_name = random.choice(actions)
         self.logger.info(f"🎲 Performing random action: {action_name}")
-        await action_func()
+        normalized_name = action_name.upper()
+        action_success = await self._execute_action_with_tracking(
+            normalized_name,
+            action_func,
+            treat_already_clean_as_success=normalized_name in {"RUB", "SHOWER"},
+        )
+
+        if not action_success and normalized_name in {"RUB", "SHOWER"}:
+            self.logger.info(
+                "🧽 Random %s failed; falling back to throw_ball", action_name
+            )
+            fallback_success = await self._execute_action_with_tracking(
+                "THROWBALL", client.throw_ball
+            )
+            if not fallback_success:
+                self.logger.warning(
+                    "⚠️ Fallback throw_ball after %s failure did not succeed",
+                    action_name,
+                )
 
         # If action failed due to low energy, put pet to sleep instead
         try:
@@ -1271,7 +1427,7 @@ class PettAgent:
                 self.logger.info(
                     "⚡️ Energy too low for random action; putting pet to sleep instead"
                 )
-                await client.sleep_pet()
+                await self._execute_action_with_tracking("SLEEP", client.sleep_pet)
             else:
                 self.logger.info(
                     "⚡️ Energy too low and pet already sleeping; not toggling sleep"
@@ -1299,7 +1455,7 @@ class PettAgent:
         # Top-priority: low energy -> sleep
         if energy < self.LOW_ENERGY_THRESHOLD and not sleeping:
             self.logger.info("😴 Low energy detected; initiating sleep")
-            await client.sleep_pet()
+            await self._execute_action_with_tracking("SLEEP", client.sleep_pet)
             return
 
         if energy > 100 - self.LOW_ENERGY_THRESHOLD and sleeping:
@@ -1322,6 +1478,22 @@ class PettAgent:
                 self.logger.warning("⚠️ Health recovery failed")
             return
 
+        if self._needs_structured_actions():
+            completed = self._daily_action_tracker.actions_completed()
+            remaining = self._daily_action_tracker.actions_remaining()
+            self.logger.info(
+                "📋 Structured plan active (%d/%d complete, %d remaining)",
+                completed,
+                self.REQUIRED_ACTIONS_PER_EPOCH,
+                remaining,
+            )
+            structured_done = await self._perform_structured_action(client, stats)
+            if structured_done:
+                return
+            self.logger.warning(
+                "⚠️ Structured plan could not execute an action; falling back to adaptive logic"
+            )
+
         if random.random() < 0.15:
             self.logger.info(
                 "🎲 Random variance: performing random_action instead of shower"
@@ -1333,15 +1505,22 @@ class PettAgent:
         if hygiene < self.LOW_THRESHOLD:
             # Small randomness to occasionally do a different engaging action
             self.logger.info("🚿 Low hygiene detected; showering pet")
-            await client.shower_pet()
+            await self._execute_action_with_tracking("SHOWER", client.shower_pet)
             return
 
         # Priority 2: low hunger -> use AI decision engine to pick best food
         if hunger < self.LOW_THRESHOLD:
             self.logger.info("🍔 Low hunger detected; using AI to select best food")
             if self.decision_engine:
-                success = await self.decision_engine.feed_best_owned_food(stats)
-                if not success:
+                async def feed_action() -> bool:
+                    if not self.decision_engine:
+                        return False
+                    return await self.decision_engine.feed_best_owned_food(stats)
+
+                feed_success = await self._execute_action_with_tracking(
+                    "CONSUMABLES_USE", feed_action
+                )
+                if not feed_success:
                     self.logger.warning(
                         "⚠️ AI food selection failed; skipping fallback use"
                     )
@@ -1355,7 +1534,7 @@ class PettAgent:
         if happiness < self.LOW_THRESHOLD:
             self.logger.info("🎾 Low happiness detected; throwing ball 3 times")
             for _ in range(3):
-                await client.throw_ball()
+                await self._execute_action_with_tracking("THROWBALL", client.throw_ball)
                 await asyncio.sleep(0.5)
             return
 

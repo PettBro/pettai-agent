@@ -1,14 +1,49 @@
-import React, { useEffect, useState } from 'react';
-import { useAuth } from '../providers/AuthProvider';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '../components/ui/Button';
+import { useAuth } from '../providers/AuthProvider';
+import PetStats from '../components/pet/PetStats';
+// ChatHistory disabled for now
+import Pet from '../components/pet/Pet';
+import backgroundMain from '../assets/images/background-3.jpg';
+import backgroundOverlay from '../assets/images/background-0.jpg';
 import './Dashboard.scss';
+
+// Removed fallback sprite usage; we render layered pet state instead
+
+const Icon = {
+	Logout: ({ className = '' }) => (
+		<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M8 3c-1.11 0-2 .89-2 2v16h12V5c0-1.11-.89-2-2-2zm0 2h8v14H8zm5 6v2h2v-2z" /></svg>
+	),
+};
+
+const LAYOUT_CONSTANTS = {
+	BOTTOM_UI_PADDING: 24,
+	BOTTOM_UI_POSITION_DELAY: 400,
+};
+
+const LAST_PET_MESSAGES_STORAGE_KEY = 'pett:lastPetMessages';
 
 const Dashboard = () => {
 	const { authenticated, logout } = useAuth();
 	const navigate = useNavigate();
+	const handleLogout = useCallback(async () => {
+		try {
+			await logout();
+		} catch (error) {
+			console.error('[Dashboard] Logout failed:', error);
+		} finally {
+			navigate('/login');
+		}
+	}, [logout, navigate]);
+
 	const [healthData, setHealthData] = useState(null);
 	const [error, setError] = useState(null);
+	const [isAnimating, setIsAnimating] = useState(true);
+	const [inputMessage, setInputMessage] = useState('');
+	// chat history disabled
+
+	const bottomUIRef = useRef(null);
+	const bottomUIPositionRef = useRef(0);
 
 	useEffect(() => {
 		if (!authenticated) {
@@ -17,15 +52,22 @@ const Dashboard = () => {
 	}, [authenticated, navigate]);
 
 	useEffect(() => {
+		const timer = setTimeout(() => setIsAnimating(false), 600);
+		return () => clearTimeout(timer);
+	}, []);
+
+	useEffect(() => {
 		let intervalId;
 		const fetchHealth = async () => {
 			try {
 				const res = await fetch('/api/health');
+				if (!res.ok) throw new Error(`Health endpoint returned ${res.status}`);
 				const data = await res.json();
 				setHealthData(data);
 				setError(null);
-			} catch (e) {
-				setError('Failed to load health data');
+			} catch (err) {
+				console.error('[Dashboard] Failed to fetch health data', err);
+				setError('Unable to reach your agent right now.');
 			}
 		};
 
@@ -34,265 +76,457 @@ const Dashboard = () => {
 		return () => clearInterval(intervalId);
 	}, []);
 
-	const formatTime = (isoString) => {
-		if (!isoString) return 'N/A';
-		return new Date(isoString).toLocaleTimeString();
+	useEffect(() => {
+		const updateBottomUIPosition = () => {
+			if (bottomUIRef.current) {
+				const rect = bottomUIRef.current.getBoundingClientRect();
+				bottomUIPositionRef.current = rect.height + LAYOUT_CONSTANTS.BOTTOM_UI_PADDING;
+			}
+		};
+
+		const timer = setTimeout(updateBottomUIPosition, LAYOUT_CONSTANTS.BOTTOM_UI_POSITION_DELAY);
+		window.addEventListener('resize', updateBottomUIPosition);
+
+		return () => {
+			clearTimeout(timer);
+			window.removeEventListener('resize', updateBottomUIPosition);
+		};
+	}, []);
+
+	const conversation = useMemo(() => {
+		if (!healthData?.recent) return [];
+		const items = [];
+
+		// Convert timestamps to seconds (Unix timestamp)
+		const toSeconds = ts => {
+			if (!ts) return Date.now() / 1000;
+			if (typeof ts === 'number') {
+				// If it's already in seconds (< 10^11), return as is
+				// Otherwise convert milliseconds to seconds
+				return ts > 1e11 ? ts / 1000 : ts;
+			}
+			const t = Date.parse(ts);
+			return Number.isNaN(t) ? Date.now() / 1000 : t / 1000;
+		};
+
+		// Friendly phrases for recent actions
+		const actionToPhrase = entry => {
+			const t = String(entry?.type || '').toUpperCase();
+			switch (t) {
+				case 'SHOWER':
+					return 'I just took a bath';
+				case 'SLEEP':
+					return 'I went to sleep and rested';
+				case 'THROWBALL':
+					return 'I played with the ball';
+				case 'RUB':
+					return 'I got some pets and rubs';
+				case 'CONSUMABLES_USE':
+					return 'I used a consumable to feel better';
+				case 'CONSUMABLES_BUY':
+					return 'I bought a consumable for later';
+				case 'HOTEL_CHECK_IN':
+					return 'I checked into the hotel';
+				case 'HOTEL_CHECK_OUT':
+					return 'I checked out of the hotel';
+				case 'HOTEL_BUY':
+					return 'I upgraded my hotel tier';
+				case 'ACCESSORY_USE':
+					return 'I used an accessory';
+				case 'ACCESSORY_BUY':
+					return 'I bought a new accessory';
+				default:
+					return t ? `I performed an action: ${t}` : 'I did something';
+			}
+		};
+
+		if (Array.isArray(healthData.recent.openai_prompts)) {
+			healthData.recent.openai_prompts.forEach((prompt, index) => {
+				if (!prompt?.prompt) return;
+				const role = prompt.kind?.includes('user') ? 'user' : 'pet';
+				items.push({
+					id: `prompt-${index}`,
+					sender: role,
+					message: prompt.prompt,
+					timestamp: toSeconds(prompt.timestamp),
+				});
+			});
+		}
+
+		// Map recent actions into friendly pet chat messages
+		if (Array.isArray(healthData.recent.actions)) {
+			healthData.recent.actions.forEach((act, index) => {
+				items.push({
+					id: `action-${index}`,
+					sender: 'pet',
+					message: actionToPhrase(act),
+					timestamp: toSeconds(act.timestamp),
+				});
+			});
+		}
+
+		if (Array.isArray(healthData.recent.sent_messages)) {
+			healthData.recent.sent_messages.forEach((msg, index) => {
+				const summary = msg?.type
+					? `${msg.type}${msg.success === false ? ' (failed)' : ''}`
+					: msg?.success === false
+						? 'Message failed'
+						: 'Message sent';
+				items.push({
+					id: `sent-${index}`,
+					sender: 'pet',
+					message: summary,
+					timestamp: toSeconds(msg.timestamp),
+				});
+			});
+		}
+
+		return items.sort((a, b) => a.timestamp - b.timestamp);
+	}, [healthData?.recent]);
+
+	const recentActions = useMemo(() => {
+		if (!Array.isArray(healthData?.recent?.actions)) return [];
+		return [...healthData.recent.actions]
+			.filter(Boolean)
+			.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
+			.slice(0, 10);
+	}, [healthData?.recent?.actions]);
+
+	const lastPetMessage = [...conversation].reverse().find(msg => msg.sender === 'pet');
+
+	// Local user chat state (appended on top of health-derived conversation)
+	const [userChat, setUserChat] = useState([]);
+
+	useEffect(() => {
+		if (typeof window === 'undefined' || !lastPetMessage?.message) return;
+
+		const rawTimestamp = lastPetMessage.timestamp;
+		let executedAtMs = Date.now();
+		if (typeof rawTimestamp === 'number') {
+			executedAtMs = rawTimestamp > 1e11 ? rawTimestamp : rawTimestamp * 1000;
+		} else if (rawTimestamp) {
+			const parsed = Date.parse(rawTimestamp);
+			executedAtMs = Number.isNaN(parsed) ? executedAtMs : parsed;
+		}
+
+		const entry = {
+			id: lastPetMessage.id || `pet-${executedAtMs}`,
+			message: lastPetMessage.message,
+			executedAt: new Date(executedAtMs).toISOString(),
+		};
+
+		try {
+			const raw = window.localStorage.getItem(LAST_PET_MESSAGES_STORAGE_KEY);
+			let existing = [];
+			if (raw) {
+				const parsed = JSON.parse(raw);
+				if (Array.isArray(parsed)) {
+					existing = parsed;
+				}
+			}
+			const withoutCurrent = existing.filter(item => item && item.id !== entry.id);
+			const updated = [...withoutCurrent, entry].slice(-50);
+			window.localStorage.setItem(LAST_PET_MESSAGES_STORAGE_KEY, JSON.stringify(updated));
+		} catch (storageError) {
+			console.error('[Dashboard] Failed to persist last pet message', storageError);
+		}
+	}, [lastPetMessage?.id, lastPetMessage?.message, lastPetMessage?.timestamp]);
+	const remainingMessages = 10;
+	const canSendMessage = inputMessage.trim().length > 0;
+
+	const allMessages = useMemo(() => {
+		return [...conversation, ...userChat].sort((a, b) => a.timestamp - b.timestamp);
+	}, [conversation, userChat]);
+
+	// preview messages disabled
+
+	const handleSend = async () => {
+		const text = inputMessage.trim();
+		if (!text) return;
+		const now = Date.now() / 1000; // Convert to seconds
+		const userMsg = { id: `u-${now}`, sender: 'user', message: text, timestamp: now };
+		const loadingId = `l-${now}`;
+		const loadingMsg = { id: loadingId, sender: 'pet', message: '…', timestamp: now + 1, loading: true };
+		setUserChat(prev => [...prev, userMsg, loadingMsg]);
+		setInputMessage('');
+
+		try {
+			const res = await fetch('/api/chat', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ message: text }),
+			});
+			const data = await res.json().catch(() => ({}));
+			const reply = data?.response || 'sorry i cant talk rn';
+			setUserChat(prev => prev.map(m => (m.id === loadingId ? { ...m, message: reply, loading: false } : m)));
+		} catch (_e) {
+			setUserChat(prev => prev.map(m => (m.id === loadingId ? { ...m, message: 'sorry i cant talk rn', loading: false, error: true } : m)));
+		}
 	};
 
-	const formatDate = (isoString) => {
-		if (!isoString) return 'N/A';
-		return new Date(isoString).toLocaleString();
-	};
+	const statsSummary = healthData?.pet?.stats ?? {};
+
+	// Normalize pet data for the Pet component: ignore accessories, keep only base-emotion fields
+	const petRaw = healthData?.pet ?? null;
+	const rawStats = (petRaw && (petRaw.PetStats || petRaw.stats)) || {};
+	const petForView = petRaw
+		? {
+			PetStats: {
+				happiness: Number(rawStats.happiness ?? 100),
+				health: Number(rawStats.health ?? 100),
+				hunger: Number(rawStats.hunger ?? 100),
+				hygiene: Number(rawStats.hygiene ?? 100),
+				energy: Number(rawStats.energy ?? 100),
+			},
+			sleeping: Boolean(petRaw?.sleeping),
+			dead: Boolean(petRaw?.dead),
+		}
+		: null;
+
 
 	return (
-		<div className="min-h-screen bg-global-grey-10 p-6">
-			{/* Header */}
-			<header className="mb-8 flex justify-between items-center">
-				<h1 className="text-3xl font-bold text-semantic-fg-base">🐾 Pett Agent Dashboard</h1>
-				<Button.Danger size="sm" fullWidth={false} onClick={logout}>
-					Logout
-				</Button.Danger>
-			</header>
+		<div
+			className="fixed inset-0 z-50 flex flex-col items-center overflow-hidden"
+			style={{
+				backgroundImage: `url(${backgroundMain})`,
+				backgroundRepeat: 'no-repeat',
+				backgroundPosition: 'center 10%',
+				backgroundSize: 'auto',
+				backgroundColor: '#9ab8f6',
+			}}
+		>
 
-			{error && (
-				<div className="mb-4 p-4 bg-global-red-10 text-semantic-fg-error rounded-lg">
-					{error}
+			<div
+				className={`fixed inset-0 background-fade ${isAnimating ? 'background-initial' : ''}`}
+				style={{
+					backgroundImage: `url(${backgroundOverlay})`,
+					backgroundSize: 'cover',
+					backgroundPosition: 'center',
+					zIndex: 1,
+				}}
+			/>
+
+			<button
+				type="button"
+				onClick={handleLogout}
+				className="absolute top-4 left-4 z-50 text-white hover:text-gray-100 transition-colors bg-red-600/90 hover:bg-red-700 rounded-full p-2 fade-in-delayed shadow-lg"
+				style={{ zIndex: 100 }}
+				aria-label="Log out"
+				title="Log out"
+			>
+				<Icon.Logout className="size-6" />
+			</button>
+
+
+			<div
+				className="flex-1 flex flex-col items-center relative px-4 pb-32 w-full"
+				style={{
+					minHeight: '100vh',
+					overflow: 'visible',
+					paddingTop: '12px',
+					zIndex: 10,
+				}}
+			>
+				<div className={`stats-fade-in ${isAnimating ? 'stats-initial' : ''}`}>
+					<PetStats stats={statsSummary} />
 				</div>
-			)}
 
-			{!healthData ? (
-				<div className="text-center py-12">
-					<div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-global-brand-60 border-t-transparent"></div>
-					<p className="mt-4 text-semantic-fg-muted">Loading dashboard...</p>
+				<div className="chat-shell flex flex-col items-center">
+					<div
+						className={`relative mb-4 ${isAnimating ? 'pet-scale-initial' : 'pet-scale-final'}`}
+						style={{
+							minHeight: '280px',
+							width: '100%',
+							maxWidth: '400px',
+							transform: isAnimating ? 'scale(1) translateY(0)' : `scale(1.3) translateY(${bottomUIPositionRef.current}px)`,
+							transition: 'transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)',
+							opacity: 1,
+						}}
+					>
+						<div className="flex flex-col items-center justify-center" style={{ height: '230px', width: '230px', margin: '0 auto' }}>
+							<Pet pet={petForView} size="big" />
+						</div>
+					</div>
+
+
+					{/* lastPetMessage && (
+						<div
+							className={`bubble-container bubble-fade-in ${isAnimating ? 'bubble-initial' : ''}`}
+							style={{
+								left: '50%',
+								transform: 'translateX(-50%)',
+								top: '280px',
+								position: 'absolute',
+								zIndex: 10,
+								width: 'calc(100% - 40px)',
+								maxWidth: '360px',
+							}}
+						>
+							<ChatPreviewMessage message={lastPetMessage} />
+						</div>
+					) */}
 				</div>
-			) : (
-				<div>
-					{/* Pet Stats - Top Card */}
-					{healthData.pet?.stats && (
-						<div className="bg-white rounded-lg shadow p-6 mb-6">
-							<h2 className="text-xl font-bold mb-4 text-semantic-fg-base">Pet Stats</h2>
-							<div className="grid grid-cols-3  lg:grid-cols-6 gap-4">
-								<div className="flex items-center gap-2"><span>🍔</span><span className="text-semantic-fg-muted">Hunger</span><span className="font-semibold">{healthData.pet.stats.hunger}</span></div>
-								<div className="flex items-center gap-2"><span>❤️</span><span className="text-semantic-fg-muted">Health</span><span className="font-semibold">{healthData.pet.stats.health}</span></div>
-								<div className="flex items-center gap-2"><span>⚡</span><span className="text-semantic-fg-muted">Energy</span><span className="font-semibold">{healthData.pet.stats.energy}</span></div>
-								<div className="flex items-center gap-2"><span>😊</span><span className="text-semantic-fg-muted">Happiness</span><span className="font-semibold">{healthData.pet.stats.happiness}</span></div>
-								<div className="flex items-center gap-2"><span>🧼</span><span className="text-semantic-fg-muted">Hygiene</span><span className="font-semibold">{healthData.pet.stats.hygiene}</span></div>
-								<div className="flex items-center gap-2"><span>🎯</span><span className="text-semantic-fg-muted">XP</span><span className="font-semibold">{healthData.pet.stats.xp} (Lvl {healthData.pet.stats.level ?? 1})</span></div>
-							</div>
-						</div>
-					)}
+			</div>
 
-					<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-						{/* System Status Card */}
-						<div className="bg-white rounded-lg shadow p-6">
-							<h2 className="text-xl font-bold mb-4 text-semantic-fg-base">System Status</h2>
-							<div className="space-y-3">
-								<div className="flex justify-between">
-									<span className="text-semantic-fg-muted">Status:</span>
-									<span className={`font-semibold ${healthData.status === 'running' ? 'text-semantic-fg-success' : 'text-semantic-fg-error'}`}>
-										{healthData.status}
-									</span>
-								</div>
-								<div className="flex justify-between">
-									<span className="text-semantic-fg-muted">Last Transition:</span>
-									<span className="font-semibold">{healthData.seconds_since_last_transition?.toFixed(2)}s ago</span>
-								</div>
-								<div className="flex justify-between">
-									<span className="text-semantic-fg-muted">Transitioning Fast:</span>
-									<span className="font-semibold">{healthData.is_transitioning_fast ? '⚡ Yes' : 'No'}</span>
-								</div>
-								<div className="flex justify-between">
-									<span className="text-semantic-fg-muted">Withdrawal Mode:</span>
-									<span className="font-semibold">{healthData.withdrawal_mode ? 'Yes' : 'No'}</span>
-								</div>
-								<div className="flex justify-between">
-									<span className="text-semantic-fg-muted">Last Updated:</span>
-									<span className="font-semibold text-sm">{formatTime(healthData.timestamp)}</span>
-								</div>
-							</div>
+			<div
+				ref={bottomUIRef}
+				className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 via-black/40 to-transparent backdrop-blur-sm p-6 slide-up ${isAnimating ? 'slide-up-initial' : ''}`}
+				style={{
+					zIndex: 50,
+					background:
+						'linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.4) 30%, rgba(0,0,0,0.2) 60%, transparent 100%)',
+					backdropFilter: 'blur(8px)',
+					WebkitBackdropFilter: 'blur(8px)',
+				}}
+			>
+				<div className="chat-shell space-y-4">
+					<div className="flex flex-col gap-4">
+						<div className="flex items-center gap-2 text-xs font-semibold text-emerald-500">
+							<span className="inline-flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
+							Agent is running
 						</div>
 
-						{/* WebSocket Status Card */}
-						<div className="bg-white rounded-lg shadow p-6">
-							<h2 className="text-xl font-bold mb-4 text-semantic-fg-base">WebSocket Connection</h2>
-							<div className="space-y-3">
-								<div className="flex justify-between">
-									<span className="text-semantic-fg-muted">URL:</span>
-									<span className="font-semibold text-sm truncate ml-2">{healthData.websocket?.url}</span>
-								</div>
-								<div className="flex justify-between">
-									<span className="text-semantic-fg-muted">Connected:</span>
-									<span className={`font-semibold ${healthData.websocket?.connected ? 'text-semantic-fg-success' : 'text-semantic-fg-error'}`}>
-										{healthData.websocket?.connected ? '🟢 Yes' : '🔴 No'}
-									</span>
-								</div>
-								<div className="flex justify-between">
-									<span className="text-semantic-fg-muted">Authenticated:</span>
-									<span className={`font-semibold ${healthData.websocket?.authenticated ? 'text-semantic-fg-success' : 'text-semantic-fg-error'}`}>
-										{healthData.websocket?.authenticated ? '✅ Yes' : '❌ No'}
-									</span>
-								</div>
-								<div className="flex justify-between">
-									<span className="text-semantic-fg-muted">Last Activity:</span>
-									<span className="font-semibold">{healthData.websocket?.last_activity_seconds_ago?.toFixed(2)}s ago</span>
-								</div>
-							</div>
-						</div>
-
-						{/* Pet Information Card */}
-						<div className="bg-white rounded-lg shadow p-6">
-							<h2 className="text-xl font-bold mb-4 text-semantic-fg-base">Pet Information</h2>
-							{healthData.pet ? (
-								<div className="space-y-3">
-									<div className="flex justify-between">
-										<span className="text-semantic-fg-muted">Name:</span>
-										<span className="font-bold text-global-brand-60">{healthData.pet.name}</span>
-									</div>
-									<div className="flex justify-between">
-										<span className="text-semantic-fg-muted">Status:</span>
-										<span className={`font-semibold ${healthData.pet.status === 'Active' ? 'text-semantic-fg-success' : 'text-semantic-fg-muted'}`}>
-											{healthData.pet.status}
-										</span>
-									</div>
-									<div className="flex justify-between">
-										<span className="text-semantic-fg-muted">Balance:</span>
-										<span className="font-bold text-global-green-60">{healthData.pet.balance} $AIP</span>
-									</div>
-									<div className="flex justify-between">
-										<span className="text-semantic-fg-muted">Hotel Tier:</span>
-										<span className="font-semibold">{healthData.pet.hotel_tier}</span>
-									</div>
-									<div className="flex justify-between">
-										<span className="text-semantic-fg-muted">Sleeping:</span>
-										<span className="font-semibold">{healthData.pet.sleeping ? '😴 Yes' : 'No'}</span>
-									</div>
-									<div className="flex justify-between">
-										<span className="text-semantic-fg-muted">Dead:</span>
-										<span className="font-semibold">{healthData.pet.dead ? '💀 Yes' : '✅ No'}</span>
-									</div>
-									<div className="text-xs text-semantic-fg-subtle mt-2">
-										ID: {healthData.pet.id}
-									</div>
-								</div>
-							) : (
-								<div className="flex flex-col items-center justify-center py-8">
-									<div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-global-brand-60 border-t-transparent mb-3"></div>
-									<p className="text-semantic-fg-muted">Loading pet information...</p>
-								</div>
-							)}
-						</div>
-
-						{/* Action Scheduling Card */}
-						{healthData.action_scheduling && (
-							<div className="bg-white rounded-lg shadow p-6">
-								<h2 className="text-xl font-bold mb-4 text-semantic-fg-base">Action Scheduling</h2>
-								<div className="space-y-3">
-									<div className="flex justify-between">
-										<span className="text-semantic-fg-muted">Action Interval:</span>
-										<span className="font-semibold">{healthData.action_scheduling.action_interval_minutes} min</span>
-									</div>
-									<div className="flex justify-between">
-										<span className="text-semantic-fg-muted">Next Action:</span>
-										<span className="font-semibold text-sm">{formatTime(healthData.action_scheduling.next_action_at)}</span>
-									</div>
-									<div className="flex justify-between">
-										<span className="text-semantic-fg-muted">Minutes Until:</span>
-										<span className="font-semibold">{healthData.action_scheduling.minutes_until_next_action} min</span>
-									</div>
-									<div className="flex justify-between">
-										<span className="text-semantic-fg-muted">Scheduled:</span>
-										<span className={`font-semibold ${healthData.action_scheduling.next_action_scheduled ? 'text-semantic-fg-success' : 'text-semantic-fg-error'}`}>
-											{healthData.action_scheduling.next_action_scheduled ? '✅ Yes' : '❌ No'}
-										</span>
-									</div>
-								</div>
-							</div>
-						)}
-
-						{/* Recent Actions Card */}
-						<div className="bg-white rounded-lg shadow p-6 lg:col-span-2">
-							<h2 className="text-xl font-bold mb-4 text-semantic-fg-base">Recent Actions</h2>
-							<div className="overflow-x-auto">
-								{healthData.recent?.actions?.length > 0 ? (
-									<table className="w-full">
-										<thead>
-											<tr className="border-b border-semantic-border-subtle">
-												<th className="text-left py-2 px-3 text-semantic-fg-muted">Time</th>
-												<th className="text-left py-2 px-3 text-semantic-fg-muted">Type</th>
-												<th className="text-left py-2 px-3 text-semantic-fg-muted">Status</th>
-												<th className="text-left py-2 px-3 text-semantic-fg-muted">Pet Stats</th>
-											</tr>
-										</thead>
-										<tbody>
-											{healthData.recent.actions.reverse().slice(0, 10).map((action, idx) => (
-												<tr key={idx} className="border-b border-semantic-border-subtle hover:bg-global-grey-10">
-													<td className="py-2 px-3 text-sm">{formatTime(action.timestamp)}</td>
-													<td className="py-2 px-3 font-semibold text-global-brand-60">{action.type}</td>
-													<td className="py-2 px-3">{action.success ? '✅' : '❌'}</td>
-													<td className="py-2 px-3 text-xs text-semantic-fg-subtle">
-														{action.pet_stats && Object.values(action.pet_stats).some(v => v !== null) ? (
-															<div className="flex gap-2">
-																{action.pet_stats.hunger !== null && <span>🍔 {action.pet_stats.hunger}</span>}
-																{action.pet_stats.health !== null && <span>❤️ {action.pet_stats.health}</span>}
-																{action.pet_stats.energy !== null && <span>⚡ {action.pet_stats.energy}</span>}
-																{action.pet_stats.happiness !== null && <span>😊 {action.pet_stats.happiness}</span>}
-																{action.pet_stats.hygiene !== null && <span>🧼 {action.pet_stats.hygiene}</span>}
-															</div>
-														) : (
-															<span className="text-semantic-fg-disabled">-</span>
-														)}
-													</td>
-												</tr>
-											))}
-										</tbody>
-									</table>
-								) : (
-									<p className="text-semantic-fg-muted">No recent actions</p>
+						{/* <div className="flex gap-2 items-stretch">
+							<div className="flex-1 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden">
+								<textarea
+									className="w-full px-5 py-4 text-gray-800 outline-none bg-transparent resize-none"
+									placeholder="Type your message..."
+									value={inputMessage}
+									onChange={e => setInputMessage(e.target.value)}
+									disabled={false}
+									rows={2}
+								/>
+								{remainingMessages < 5 && (
+									<div className="px-5 pb-2 text-xs text-gray-500">{remainingMessages} messages remaining</div>
 								)}
 							</div>
-						</div>
 
-						{/* Recent Messages Card */}
-						{healthData.recent?.sent_messages?.length > 0 && (
-							<div className="bg-white rounded-lg shadow p-6 lg:col-span-2">
-								<h2 className="text-xl font-bold mb-4 text-semantic-fg-base">Recent Messages</h2>
-								<div className="space-y-2 max-h-64 overflow-y-auto">
-									{healthData.recent.sent_messages.reverse().slice(0, 10).map((msg, idx) => (
-										<div key={idx} className="p-3 bg-global-grey-10 rounded border border-semantic-border-subtle">
-											<div className="flex justify-between items-center">
-												<span className="font-semibold text-global-brand-60">{msg.type}</span>
-												<span className="text-sm text-semantic-fg-subtle">{formatTime(msg.timestamp)}</span>
-											</div>
-											{msg.success && <span className="text-xs text-semantic-fg-success">✅ Success</span>}
-										</div>
-									))}
-								</div>
-							</div>
-						)}
-
-						{/* OpenAI Prompts Card */}
-						{healthData.recent?.openai_prompts?.length > 0 && (
-							<div className="bg-white rounded-lg shadow p-6 lg:col-span-2">
-								<h2 className="text-xl font-bold mb-4 text-semantic-fg-base">AI Decision History</h2>
-								<div className="space-y-3">
-									{healthData.recent.openai_prompts.slice(0, 5).map((prompt, idx) => (
-										<div key={idx} className="p-4 bg-global-blue-10 rounded border border-global-blue-20">
-											<div className="flex justify-between items-start mb-2">
-												<span className="font-semibold text-global-brand-60 capitalize">{prompt.kind.replace('_', ' ')}</span>
-												<span className="text-sm text-semantic-fg-subtle">{formatTime(prompt.timestamp)}</span>
-											</div>
-											<p className="text-sm text-semantic-fg-muted whitespace-pre-wrap line-clamp-3">{prompt.prompt}</p>
-										</div>
-									))}
-								</div>
-							</div>
-						)}
+							<button
+								type="button"
+								disabled={!canSendMessage}
+								className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-2xl px-4 py-2 shadow-lg transition-all flex items-center justify-center"
+								aria-label="Send message"
+								onClick={handleSend}
+							>
+								<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+								</svg>
+							</button>
+						</div> */}
 					</div>
 				</div>
-			)}
+			</div>
+
+			<style>{`
+        .chat-shell {
+          width: 100%;
+          max-width: 420px;
+          margin: 0 auto;
+        }
+        .background-fade {
+          transition: opacity 0.6s ease-out;
+        }
+        .background-initial {
+          opacity: 0;
+        }
+        .pet-scale-initial {
+          transform: scale(1) translateY(0);
+          opacity: 1 !important;
+        }
+        .pet-scale-final {
+          transform: scale(1.3);
+          opacity: 1 !important;
+          transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .bubble-container {
+          display: flex;
+          justify-content: center;
+        }
+        .bubble-fade-in {
+          animation: bubble-fade-in 0.6s ease-out 0.5s both;
+        }
+        .bubble-initial {
+          opacity: 0;
+          transform: translateY(-20px) scale(0.95);
+        }
+        .stats-fade-in {
+          animation: stats-fade-in 0.5s ease-out 0.2s both;
+        }
+        .stats-initial {
+          opacity: 0;
+          transform: translateY(-6px) scale(0.98);
+        }
+        @keyframes stats-fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(-6px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        @keyframes bubble-fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(-20px) scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        .slide-up {
+          transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.8s ease-out;
+          mask: linear-gradient(to top, black 0%, black 80%, transparent 100%);
+          -webkit-mask: linear-gradient(to top, black 0%, black 80%, transparent 100%);
+        }
+        .slide-up-initial {
+          opacity: 0;
+          transform: translateY(100%);
+        }
+        .fade-in-delayed {
+          animation: fade-in-delayed 0.4s ease-out 0.6s both;
+        }
+        @keyframes fade-in-delayed {
+          from {
+            opacity: 0;
+            transform: scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        .animate-history-expand {
+          animation: history-expand 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes history-expand {
+          from {
+            opacity: 0;
+            transform: translateY(-10px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        @keyframes slide-up-history {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-slide-up {
+          animation: slide-up-history 0.3s ease-out;
+        }
+      `}</style>
 		</div>
 	);
 };
 
 export default Dashboard;
-

@@ -1120,6 +1120,7 @@ class OlasInterface:
             self.app.router.add_post("/api/login", self._login_api_handler)
             self.app.router.add_post("/api/register", self._register_api_handler)
             self.app.router.add_post("/api/logout", self._logout_api_handler)
+            self.app.router.add_post("/api/chat", self._chat_api_handler)
             self.app.router.add_post("/", self._agent_api_handler)
             self.app.router.add_get("/exit", self._exit_handler)
 
@@ -1207,3 +1208,131 @@ class OlasInterface:
         # 3. Prepare for shutdown
 
         return True
+
+    async def _chat_api_handler(self, request: web.Request) -> web.Response:
+        """Simple chat proxy using OpenAI for frontend chat."""
+        if request.method != "POST":
+            return web.json_response({"error": "Method not allowed"}, status=405)
+        try:
+            data = await request.json()
+            user_message = (data.get("message") or "").strip()
+            context_text = (data.get("context") or "").strip()
+            if not user_message:
+                return web.json_response({"error": "message is required"}, status=400)
+
+            # Resolve OpenAI API key from env (supports prefixed variant)
+            api_key = self.get_env_var("OPENAI_API_KEY")
+            if not api_key:
+                return web.json_response(
+                    {"error": "OpenAI API key not configured"}, status=500
+                )
+
+            # Build lightweight context from recent actions and current stats
+            recent_actions = []
+            try:
+                recent_actions = list(self.sent_messages_history)[-10:]
+            except Exception:
+                recent_actions = []
+
+            def _action_to_phrase(entry: Dict[str, Any]) -> str:
+                t = str(entry.get("type", "")).upper()
+                if t == "SHOWER":
+                    return "I just took a bath."
+                if t == "SLEEP":
+                    return "I went to sleep and rested."
+                if t == "THROWBALL":
+                    return "I played with the ball."
+                if t == "RUB":
+                    return "I got some pets and rubs."
+                if t == "CONSUMABLES_USE":
+                    return "I used a consumable to feel better."
+                if t == "CONSUMABLES_BUY":
+                    return "I bought a consumable for later."
+                if t == "HOTEL_CHECK_IN":
+                    return "I checked into the hotel."
+                if t == "HOTEL_CHECK_OUT":
+                    return "I checked out of the hotel."
+                if t == "HOTEL_BUY":
+                    return "I upgraded my hotel tier."
+                if t == "ACCESSORY_USE":
+                    return "I used an accessory."
+                if t == "ACCESSORY_BUY":
+                    return "I bought a new accessory."
+                return f"I performed an action: {t or 'unknown'}."
+
+            action_phrases = "\n".join(
+                f"- { _action_to_phrase(a) }"
+                for a in recent_actions
+                if isinstance(a, dict)
+            )
+
+            # Current stats snapshot
+            stats_snapshot = {
+                "hunger": self.pet_hunger,
+                "health": self.pet_health,
+                "energy": self.pet_energy,
+                "happiness": self.pet_happiness,
+                "hygiene": self.pet_hygiene,
+                "xp": self.pet_xp,
+                "level": self.pet_level,
+            }
+
+            system_prompt = (
+                "You are Pett, a playful, caring virtual pet. Speak in first person, be warm and concise. "
+                "Use recent actions and current stats to ground your replies when relevant. "
+                "Avoid long explanations; keep messages under 2 short sentences unless the user asks for detail."
+            )
+
+            # Compose OpenAI chat request
+            body = {
+                "model": "gpt-4o",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {
+                        "role": "system",
+                        "content": f"Pet name: {self.pet_name}\nRecent actions:\n{action_phrases or '- (none)'}\nCurrent stats: {stats_snapshot}\nExtra context: {context_text}",
+                    },
+                    {"role": "user", "content": user_message},
+                ],
+                "temperature": 0.7,
+            }
+
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            }
+
+            # Use aiohttp client to call OpenAI
+            timeout = aiohttp.ClientTimeout(total=20)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    json=body,
+                    headers=headers,
+                ) as resp:
+                    if resp.status != 200:
+                        text = await resp.text()
+                        self.logger.error(f"OpenAI error {resp.status}: {text}")
+                        return web.json_response(
+                            {"error": "OpenAI request failed"}, status=500
+                        )
+                    payload = await resp.json()
+                    content = (
+                        (
+                            ((payload or {}).get("choices") or [{}])[0].get("message")
+                            or {}
+                        ).get("content")
+                        or ""
+                    ).strip()
+
+            # Record prompt for UI parity
+            try:
+                self.record_openai_prompt("chat_user", user_message)
+                self.record_openai_prompt("chat_pet", content)
+            except Exception:
+                pass
+
+            return web.json_response({"response": content})
+        except Exception as e:
+            self.logger.error(f"❌ Chat handler error: {e}")
+            return web.json_response({"error": str(e)}, status=500)
