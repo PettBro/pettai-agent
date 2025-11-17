@@ -86,6 +86,8 @@ class PettAgent:
         # Control mid-interval staking KPI logging
         self._mid_interval_logged: bool = True
         self._staking_kpi_log_suppressed: bool = False
+        self._auth_refresh_lock: asyncio.Lock = asyncio.Lock()
+        self._last_health_refresh: Optional[datetime] = None
         tracker_path = Path("logs") / "daily_action_state.json"
         self._daily_action_tracker = DailyActionTracker(
             tracker_path, required_actions=self.REQUIRED_ACTIONS_PER_EPOCH
@@ -980,6 +982,52 @@ class PettAgent:
         except Exception as e:
             self.logger.error(f"❌ Logout failed: {e}")
             return False
+
+    async def run_auth_health_check(self, timeout: int = 8) -> Dict[str, Any]:
+        """Trigger a lightweight AUTH call to sync websocket + pet data for UI polling."""
+        result: Dict[str, Any] = {
+            "success": False,
+            "websocket_connected": bool(self.websocket_client and self.websocket_client.is_connected()),
+            "websocket_authenticated": bool(self.websocket_client and self.websocket_client.is_authenticated()),
+        }
+
+        client = self.websocket_client
+        if not client:
+            result["reason"] = "websocket_unavailable"
+            return result
+
+        token = (self.privy_token or "").strip()
+        if not token:
+            result["reason"] = "privy_token_missing"
+            return result
+
+        async with self._auth_refresh_lock:
+            auth_success = await client.auth_ping(token, timeout=timeout)
+            result["success"] = bool(auth_success)
+            result["websocket_connected"] = client.is_connected()
+            result["websocket_authenticated"] = client.is_authenticated()
+
+            if auth_success:
+                try:
+                    pet_data = client.get_pet_data()
+                    if pet_data:
+                        self.olas.update_pet_data(pet_data)
+                        result["pet"] = pet_data
+                except Exception as exc:
+                    self.logger.debug(
+                        "Health refresh: failed to capture latest pet snapshot: %s", exc
+                    )
+                self._last_health_refresh = datetime.now()
+                result["refreshed_at"] = self._last_health_refresh.isoformat()
+                self.olas.update_websocket_status(
+                    connected=client.is_connected(),
+                    authenticated=client.is_authenticated(),
+                )
+                self.olas.update_health_status("running", is_transitioning=False)
+            else:
+                result["reason"] = client.get_last_auth_error() or "auth_failed"
+
+        return result
 
     async def _pet_action_loop(self):
         """Main pet action loop - your existing logic."""

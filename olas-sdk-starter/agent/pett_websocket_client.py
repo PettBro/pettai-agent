@@ -70,6 +70,7 @@ class PettWebSocketClient:
         self._last_auth_error: Optional[str] = None
         self._listener_task: Optional[asyncio.Task] = None
         self._jwt_expired: bool = False
+        self._auth_ping_lock: asyncio.Lock = asyncio.Lock()
         # Outgoing message telemetry recorder: (message, success, error)
         self._telemetry_recorder: Optional[
             Callable[[Dict[str, Any], bool, Optional[str]], None]
@@ -470,6 +471,31 @@ class PettWebSocketClient:
                 return False
 
         return False
+
+    async def auth_ping(self, token: Optional[str] = None, timeout: int = 10) -> bool:
+        """Send a lightweight AUTH to refresh pet data without restarting the client."""
+        auth_token = (token or self.privy_token or "").strip()
+        if not auth_token:
+            logger.warning("auth_ping skipped: no Privy token available")
+            return False
+
+        async with self._auth_ping_lock:
+            if not self.is_connected():
+                logger.info("auth_ping: WebSocket disconnected, attempting reconnect")
+                if not await self.connect():
+                    logger.error("auth_ping failed: unable to connect WebSocket")
+                    return False
+
+            # Ensure listener is running to capture auth_result messages
+            if not self._listener_task or self._listener_task.done():
+                logger.debug("auth_ping: starting listener task for auth response")
+                self._listener_task = asyncio.create_task(self.listen_for_messages())
+
+            try:
+                return await self.authenticate_privy(auth_token, timeout=timeout)
+            except Exception as exc:
+                logger.error("auth_ping error: %s", exc)
+                return False
 
     async def _send_message(self, message: Dict[str, Any]) -> bool:
         """Send a message to the WebSocket server."""

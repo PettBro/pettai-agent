@@ -46,6 +46,8 @@ class OlasInterface:
         self.withdrawal_mode: bool = withdrawal_mode
         self.logger: logging.Logger = logger or logging.getLogger("olas_interface")
         self.agent: Optional["PettAgent"] = None
+        self._health_refresh_lock: asyncio.Lock = asyncio.Lock()
+        self._last_refresh_result: Optional[Dict[str, Any]] = None
 
         # Health check state
         self.last_transition_time: datetime = datetime.now()
@@ -96,6 +98,7 @@ class OlasInterface:
         self.pet_xp_min: float = 0.0
         self.pet_xp_max: float = 100.0
         self.pet_level: int = 1
+        self.pet_updated_at: Optional[datetime] = None
 
         # Telemetry buffers (in-memory)
         self.sent_messages_history: Deque[Dict[str, Any]] = deque(maxlen=100)
@@ -235,6 +238,7 @@ class OlasInterface:
     def update_pet_data(self, pet_data: Optional[Dict[str, Any]]) -> None:
         """Update pet data with detailed information."""
         self.pet_data = pet_data
+        self.pet_updated_at = datetime.now()
         if pet_data and pet_data.get("name"):
             self.pet_name = pet_data.get("name", "Unknown")
             self.pet_id = pet_data.get("id", "Unknown")
@@ -615,6 +619,16 @@ class OlasInterface:
             except Exception:
                 action_timing = {}
 
+        refresh_flag = (
+            request.rel_url.query.get("refresh", "").strip().lower()
+            in {"1", "true", "yes"}
+        )
+        refresh_result: Optional[Dict[str, Any]] = None
+        if refresh_flag:
+            refresh_result = await self._trigger_health_refresh()
+        elif self._last_refresh_result:
+            refresh_result = self._last_refresh_result
+
         # Compute environment variable status against expected Olas variables
         expected_env_vars: List[str] = [
             "OPENAI_API_KEY",
@@ -693,6 +707,7 @@ class OlasInterface:
                 else "unknown"
             ),
             "withdrawal_mode": False,
+            "health_refresh": refresh_result,
             "websocket": {
                 "url": self.websocket_url,
                 "connected": self.websocket_connected,
@@ -720,6 +735,9 @@ class OlasInterface:
                     "level": self.pet_level,
                 },
             },
+            "pet_last_updated_at": (
+                self.pet_updated_at.isoformat() if self.pet_updated_at else None
+            ),
             "action_scheduling": action_timing,
             "timestamp": datetime.now().isoformat(),
             "recent": {
@@ -1245,6 +1263,24 @@ class OlasInterface:
         # 3. Prepare for shutdown
 
         return True
+
+    async def _trigger_health_refresh(self) -> Dict[str, Any]:
+        """Invoke the agent-level AUTH ping to refresh websocket + pet snapshot."""
+        if not self.agent:
+            failure = {"success": False, "error": "agent_unavailable"}
+            self._last_refresh_result = failure
+            return failure
+
+        refresh_result: Dict[str, Any]
+        async with self._health_refresh_lock:
+            try:
+                refresh_result = await self.agent.run_auth_health_check()
+            except Exception as exc:
+                self.logger.error("Health refresh failed: %s", exc)
+                refresh_result = {"success": False, "error": str(exc)}
+
+            self._last_refresh_result = refresh_result
+            return refresh_result
 
     async def _chat_api_handler(self, request: web.Request) -> web.Response:
         """Simple chat proxy using OpenAI for frontend chat."""

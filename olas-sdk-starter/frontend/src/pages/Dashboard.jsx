@@ -23,6 +23,13 @@ const LAYOUT_CONSTANTS = {
 	BOTTOM_UI_POSITION_DELAY: 400,
 };
 
+const formatTimestampDisplay = isoString => {
+	if (!isoString) return null;
+	const date = new Date(isoString);
+	if (Number.isNaN(date.getTime())) return null;
+	return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+};
+
 const LAST_PET_MESSAGES_STORAGE_KEY = 'pett:lastPetMessages';
 
 const Dashboard = () => {
@@ -75,22 +82,34 @@ const Dashboard = () => {
 
 	useEffect(() => {
 		let intervalId;
+		let abortController;
+
 		const fetchHealth = async () => {
+			if (abortController) {
+				abortController.abort();
+			}
+			abortController = new AbortController();
 			try {
-				const res = await fetch('/api/health');
+				const res = await fetch('/api/health?refresh=1', { signal: abortController.signal });
 				if (!res.ok) throw new Error(`Health endpoint returned ${res.status}`);
 				const data = await res.json();
 				setHealthData(data);
 				setError(null);
 			} catch (err) {
+				if (err.name === 'AbortError') return;
 				console.error('[Dashboard] Failed to fetch health data', err);
-				setError('Unable to reach your agent right now.');
+				setError('Agent UI lost sync with the backend. Retrying…');
 			}
 		};
 
 		fetchHealth();
 		intervalId = setInterval(fetchHealth, 5000);
-		return () => clearInterval(intervalId);
+		return () => {
+			clearInterval(intervalId);
+			if (abortController) {
+				abortController.abort();
+			}
+		};
 	}, []);
 
 	useEffect(() => {
@@ -281,6 +300,47 @@ const Dashboard = () => {
 
 	const statsSummary = healthData?.pet?.stats ?? {};
 
+	const statusSummary = useMemo(() => {
+		const rawStatus = String(healthData?.status || 'unknown').replace(/_/g, ' ').trim();
+		const normalizedStatus = rawStatus.length ? rawStatus.toUpperCase() : 'UNKNOWN';
+		const isHealthy = Boolean(healthData?.is_healthy);
+		let tone = 'ok';
+		if (error || ['ERROR', 'STOPPED'].includes(normalizedStatus)) {
+			tone = 'error';
+		} else if (
+			!isHealthy ||
+			['INITIALIZING', 'RECONNECTING', 'SHUTTING DOWN', 'STARTING'].includes(normalizedStatus)
+		) {
+			tone = 'warn';
+		}
+
+		const toneStyles = {
+			ok: {
+				pillClass: 'text-green-200 bg-green-400/15 ring-green-400/30',
+				dotClass: 'bg-green-400',
+			},
+			warn: {
+				pillClass: 'text-yellow-50 bg-yellow-400/15 ring-yellow-400/20',
+				dotClass: 'bg-yellow-300',
+			},
+			error: {
+				pillClass: 'text-red-50 bg-red-500/15 ring-red-500/30',
+				dotClass: 'bg-red-400',
+			},
+		};
+
+		const { pillClass, dotClass } = toneStyles[tone] ?? toneStyles.ok;
+		const updatedAt = healthData?.pet_last_updated_at || healthData?.timestamp || null;
+
+		return {
+			label: normalizedStatus,
+			pillClass,
+			dotClass,
+			updatedAt,
+			formattedUpdatedAt: formatTimestampDisplay(updatedAt),
+		};
+	}, [healthData?.status, healthData?.is_healthy, healthData?.pet_last_updated_at, healthData?.timestamp, error]);
+
 	// Balance display from pet data (formatted string), with fallbacks
 	const { petAipBalanceDisplay, petAipBalanceValue } = useMemo(() => {
 		const raw = healthData?.pet?.balance ?? healthData?.pet_balance;
@@ -402,10 +462,23 @@ const Dashboard = () => {
 			>
 				<div className="chat-shell flex flex-col items-center gap-4">
 					<div className="w-full flex flex-wrap items-center justify-between gap-3">
-						<span className="inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-base font-bold text-green-200 bg-green-400/15 ring-1 ring-green-400/30">
-							<span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse " />
-							RUNNING
-						</span>
+						<div className="flex flex-col gap-1">
+							<span className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-base font-bold ring-1 ${statusSummary.pillClass}`}>
+								<span className={`inline-block w-1.5 h-1.5 rounded-full animate-pulse ${statusSummary.dotClass}`} />
+								{statusSummary.label}
+							</span>
+							{statusSummary.formattedUpdatedAt && (
+								<span className="text-xs uppercase tracking-wide text-white/60">
+									Updated {statusSummary.formattedUpdatedAt}
+								</span>
+							)}
+							{error && (
+								<span className="inline-flex items-center gap-2 text-xs font-semibold text-red-100 bg-red-500/20 rounded-full px-3 py-1 border border-red-400/30">
+									<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="currentColor" d="M11 7h2v6h-2zm0 8h2v2h-2z"/><path fill="currentColor" d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10s10-4.477 10-10S17.523 2 12 2m0 18a8.01 8.01 0 0 1-8-8a8.01 8.01 0 0 1 8-8a8.01 8.01 0 0 1 8 8a8.01 8.01 0 0 1-8 8"></path></svg>
+									{error}
+								</span>
+							)}
+						</div>
 
 						<div className="header__asset flex items-center gap-2 pl-1 pr-1.5 py-1 border rounded-full bg-white border-semantic-accent-muted relative">
 							<img src={headerAssetAip} className="size-6" alt="AIP" />
