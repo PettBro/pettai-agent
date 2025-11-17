@@ -1,0 +1,11 @@
+.level {
+	&__progress {
+		background-color: rgba(113, 80, 244, 0.13);
+
+		&--bar {
+			background: linear-gradient(90deg, #7150F4 0%, #8E75F4 100%);
+		}
+	}
+}
+
+

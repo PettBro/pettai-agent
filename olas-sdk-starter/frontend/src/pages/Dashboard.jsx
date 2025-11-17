@@ -2,11 +2,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
 import PetStats from '../components/pet/PetStats';
+import XpLevel from '../components/pet/XpLevel';
 // ChatHistory disabled for now
 import Pet from '../components/pet/Pet';
 import backgroundMain from '../assets/images/background-3.jpg';
 import backgroundOverlay from '../assets/images/background-0.jpg';
 import './Dashboard.scss';
+import headerAssetAip from '../assets/images/header-asset-aip.svg';
 
 // Removed fallback sprite usage; we render layered pet state instead
 
@@ -36,14 +38,29 @@ const Dashboard = () => {
 		}
 	}, [logout, navigate]);
 
+	const handleViewHistory = useCallback(() => {
+		navigate('/action-history');
+	}, [navigate]);
+
 	const [healthData, setHealthData] = useState(null);
 	const [error, setError] = useState(null);
 	const [isAnimating, setIsAnimating] = useState(true);
 	const [inputMessage, setInputMessage] = useState('');
+	const [animations, setAnimations] = useState([]);
+	const [previousAipBalance, setPreviousAipBalance] = useState(null);
+	const animationTimeoutsRef = useRef([]);
+	const fastFloatDown = false;
 	// chat history disabled
 
 	const bottomUIRef = useRef(null);
 	const bottomUIPositionRef = useRef(0);
+
+	useEffect(() => {
+		return () => {
+			animationTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
+			animationTimeoutsRef.current = [];
+		};
+	}, []);
 
 	useEffect(() => {
 		if (!authenticated) {
@@ -231,15 +248,13 @@ const Dashboard = () => {
 			console.error('[Dashboard] Failed to persist last pet message', storageError);
 		}
 	}, [lastPetMessage?.id, lastPetMessage?.message, lastPetMessage?.timestamp]);
-	const remainingMessages = 10;
+	/* const remainingMessages = 10;
 	const canSendMessage = inputMessage.trim().length > 0;
 
 	const allMessages = useMemo(() => {
 		return [...conversation, ...userChat].sort((a, b) => a.timestamp - b.timestamp);
 	}, [conversation, userChat]);
-
-	// preview messages disabled
-
+ */
 	const handleSend = async () => {
 		const text = inputMessage.trim();
 		if (!text) return;
@@ -265,6 +280,53 @@ const Dashboard = () => {
 	};
 
 	const statsSummary = healthData?.pet?.stats ?? {};
+
+	// Balance display from pet data (formatted string), with fallbacks
+	const { petAipBalanceDisplay, petAipBalanceValue } = useMemo(() => {
+		const raw = healthData?.pet?.balance ?? healthData?.pet_balance;
+		if (raw === undefined || raw === null) {
+			return { petAipBalanceDisplay: '0.0000', petAipBalanceValue: null };
+		}
+
+		const numericValue = Number(raw);
+		if (!Number.isFinite(numericValue)) {
+			return { petAipBalanceDisplay: String(raw), petAipBalanceValue: null };
+		}
+
+		return {
+			petAipBalanceDisplay: numericValue.toFixed(4),
+			petAipBalanceValue: numericValue,
+		};
+	}, [healthData?.pet?.balance, healthData?.pet_balance]);
+
+	useEffect(() => {
+		if (petAipBalanceValue === null) return;
+
+		if (previousAipBalance === null) {
+			setPreviousAipBalance(petAipBalanceValue);
+			return;
+		}
+
+		if (petAipBalanceValue === previousAipBalance) return;
+
+		const change = petAipBalanceValue - previousAipBalance;
+		if (change !== 0) {
+			const newAnimation = {
+				id: `aip-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+				change,
+			};
+			setAnimations(prev => [...prev, newAnimation]);
+
+			const timeoutId = setTimeout(() => {
+				setAnimations(prev => prev.filter(animation => animation.id !== newAnimation.id));
+				animationTimeoutsRef.current = animationTimeoutsRef.current.filter(id => id !== timeoutId);
+			}, fastFloatDown ? 300 : 3500);
+
+			animationTimeoutsRef.current.push(timeoutId);
+		}
+
+		setPreviousAipBalance(petAipBalanceValue);
+	}, [fastFloatDown, petAipBalanceValue, previousAipBalance]);
 
 	// Normalize pet data for the Pet component: ignore accessories, keep only base-emotion fields
 	const petRaw = healthData?.pet ?? null;
@@ -297,7 +359,7 @@ const Dashboard = () => {
 		>
 
 			<div
-				className={`fixed inset-0 background-fade ${isAnimating ? 'background-initial' : ''}`}
+				className="fixed inset-0"
 				style={{
 					backgroundImage: `url(${backgroundOverlay})`,
 					backgroundSize: 'cover',
@@ -314,24 +376,68 @@ const Dashboard = () => {
 				aria-label="Log out"
 				title="Log out"
 			>
-				<Icon.Logout className="size-6" />
+				<span className="text-sm font-bold">Log Out</span>
 			</button>
 
+			<button
+				type="button"
+				onClick={handleViewHistory}
+				className="absolute top-4 right-4 z-50 text-white hover:text-gray-100 transition-colors bg-purple-800/90 hover:bg-purple-900 rounded-full p-2 fade-in-delayed shadow-lg"
+				style={{ zIndex: 100 }}
+				aria-label="View action history"
+				title="View action history"
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+					<path fill="currentColor" d="M13.5 8H12v5l4.28 2.54l.72-1.21l-3.5-2.08zM13 3a9 9 0 0 0-9 9H1l3.96 4.03L9 12H6a7 7 0 0 1 7-7a7 7 0 0 1 7 7a7 7 0 0 1-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.9 8.9 0 0 0 13 21a9 9 0 0 0 9-9a9 9 0 0 0-9-9" />
+				</svg>
+			</button>
 
 			<div
-				className="flex-1 flex flex-col items-center relative px-4 pb-32 w-full"
+				className="flex-1 flex flex-col items-center relative px-4 py-6 w-full"
 				style={{
 					minHeight: '100vh',
 					overflow: 'visible',
-					paddingTop: '12px',
 					zIndex: 10,
 				}}
 			>
-				<div className={`stats-fade-in ${isAnimating ? 'stats-initial' : ''}`}>
-					<PetStats stats={statsSummary} />
-				</div>
+				<div className="chat-shell flex flex-col items-center gap-4">
+					<div className="w-full flex flex-wrap items-center justify-between gap-3">
+						<span className="inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-base font-bold text-green-200 bg-green-400/15 ring-1 ring-green-400/30">
+							<span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse " />
+							RUNNING
+						</span>
 
-				<div className="chat-shell flex flex-col items-center">
+						<div className="header__asset flex items-center gap-2 pl-1 pr-1.5 py-1 border rounded-full bg-white border-semantic-accent-muted relative">
+							<img src={headerAssetAip} className="size-6" alt="AIP" />
+							<div className="header__asset--amount text-base font-bold text-semantic-accent-bold">
+								{petAipBalanceDisplay} $AIP
+							</div>
+
+							{/* Floating balance change animations */}
+							{animations.map(animation => (
+								<div
+									key={animation.id}
+									className={`absolute top-full left-[70%] transform -translate-x-1/2 pointer-events-none animate-float-down text-base font-black whitespace-nowrap text-global-red-50 ${animation.change > 0 ? 'text-global-green-60' : ''} ${fastFloatDown ? 'animate-float-down-fast' : ''}`}
+								>
+									{animation.change > 0 ? '+' : ''}
+									{animation.change.toFixed(2)} $AIP
+								</div>
+							))}
+						</div>
+					</div>
+
+					{/* Pet Status title and stats moved below pet */}
+					<div className={`stats-fade-in ${isAnimating ? 'stats-initial' : ''}`} style={{ marginTop: '28px' }}>
+						<div className="text-center text-white text-2xl font-bold mb-2">Pet Status</div>
+						<PetStats stats={statsSummary} />
+						<XpLevel
+							level={Number(rawStats.level ?? NaN)}
+							xp={Number(rawStats.xp ?? NaN)}
+							xpMin={Number(rawStats.xpMin ?? NaN)}
+							xpMax={Number(rawStats.xpMax ?? NaN)}
+						/>
+					</div>
+
 					<div
 						className={`relative mb-4 ${isAnimating ? 'pet-scale-initial' : 'pet-scale-final'}`}
 						style={{
@@ -344,7 +450,7 @@ const Dashboard = () => {
 						}}
 					>
 						<div className="flex flex-col items-center justify-center" style={{ height: '230px', width: '230px', margin: '0 auto' }}>
-							<Pet pet={petForView} size="big" />
+							<Pet name={healthData?.pet?.name} pet={petForView} size="big" />
 						</div>
 					</div>
 
@@ -381,11 +487,6 @@ const Dashboard = () => {
 			>
 				<div className="chat-shell space-y-4">
 					<div className="flex flex-col gap-4">
-						<div className="flex items-center gap-2 text-xs font-semibold text-emerald-500">
-							<span className="inline-flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
-							Agent is running
-						</div>
-
 						{/* <div className="flex gap-2 items-stretch">
 							<div className="flex-1 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden">
 								<textarea

@@ -85,6 +85,17 @@ const PetStat = ({ type, value }) => {
 
 	const statClass = `${statConfig.bg} ${statConfig.text}`;
 
+	// Human-friendly label above the stat circle
+	const labelText = (
+		{
+			hunger: 'Fullness',
+			health: 'Health',
+			energy: 'Energy',
+			happiness: 'Mood',
+			hygiene: 'Hygiene',
+		}[type] || type
+	);
+
 	const handleMouseDown = () => {
 		setIsPressed(true);
 	};
@@ -132,6 +143,7 @@ const PetStat = ({ type, value }) => {
 
 	return (
 		<div className="w-12 relative mx-auto">
+			<div className={`text-center text-[14px] font-bold mb-3 select-none ${statConfig.colorClass}`}>{labelText}</div>
 			<div
 				className={`
           size-12 rounded-full flex items-center justify-center mb-2.5 cursor-pointer 
@@ -153,7 +165,7 @@ const PetStat = ({ type, value }) => {
 				{type === 'hygiene' && <Icon.Bath />}
 			</div>
 			<div
-				className={`absolute border px-1.5 flex top-0 left-8 items-center rounded-full -translate-x-1/2 -translate-y-1/2 text-xs text-white border-white h-[22px] ${statConfig.badgeBg}`}
+				className={`absolute border px-1.5 flex top-0 left-8 items-center rounded-full -translate-x-1 translate-y-7 text-xs text-white border-white h-[22px] ${statConfig.badgeBg}`}
 			>
 				{Math.round(value || 0)}
 			</div>

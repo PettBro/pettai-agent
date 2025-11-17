@@ -76,10 +76,10 @@ const LoginPage = () => {
         </div>
       </div>
 
-      <footer className="login-portal__footer">
+      {/* <footer className="login-portal__footer">
         You can sign in at <strong>app.pett.ai</strong> even if you created your agent with Pearl. Once you finish,
         this window will confirm the connection automatically.
-      </footer>
+      </footer> */}
 
       <style>{`
         .login-portal {

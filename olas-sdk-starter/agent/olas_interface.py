@@ -93,6 +93,8 @@ class OlasInterface:
         self.pet_happiness: float = 0.0
         self.pet_hygiene: float = 0.0
         self.pet_xp: float = 0.0
+        self.pet_xp_min: float = 0.0
+        self.pet_xp_max: float = 100.0
         self.pet_level: int = 1
 
         # Telemetry buffers (in-memory)
@@ -122,6 +124,8 @@ class OlasInterface:
             "happiness": self.pet_happiness,
             "hygiene": self.pet_hygiene,
             "xp": self.pet_xp,
+            "xpMin": self.pet_xp_min,
+            "xpMax": self.pet_xp_max,
             "level": self.pet_level,
         }
 
@@ -271,6 +275,10 @@ class OlasInterface:
                 self.pet_happiness = to_float(stats.get("happiness"))
                 self.pet_hygiene = to_float(stats.get("hygiene"))
                 self.pet_xp = to_float(stats.get("xp"))
+                # Optional XP range for progress bar
+                self.pet_xp_min = to_float(stats.get("xpMin"))
+                self.pet_xp_max = to_float(stats.get("xpMax")) or self.pet_xp_max
+                print(self.pet_xp_min, self.pet_xp_max)
                 try:
                     self.pet_level = int(
                         stats.get("level", self.pet_level) or self.pet_level
@@ -293,6 +301,8 @@ class OlasInterface:
             self.pet_happiness = 0.0
             self.pet_hygiene = 0.0
             self.pet_xp = 0.0
+            self.pet_xp_min = 0.0
+            self.pet_xp_max = 100.0
             self.pet_level = 1
 
     def record_client_send(
@@ -705,6 +715,8 @@ class OlasInterface:
                     "happiness": self.pet_happiness,
                     "hygiene": self.pet_hygiene,
                     "xp": self.pet_xp,
+                    "xpMin": self.pet_xp_min,
+                    "xpMax": self.pet_xp_max,
                     "level": self.pet_level,
                 },
             },
@@ -735,6 +747,26 @@ class OlasInterface:
         }
 
         return web.json_response(health_data)
+
+    async def _action_history_handler(self, request: web.Request) -> web.Response:
+        """Serve the current daily action history for the React dashboard."""
+        if request.method != "GET":
+            return web.json_response({"error": "Method not allowed"}, status=405)
+
+        if not self.agent or not hasattr(self.agent, "get_daily_action_history"):
+            return web.json_response(
+                {"error": "Action history unavailable"}, status=503
+            )
+
+        try:
+            history = self.agent.get_daily_action_history()
+        except Exception as exc:
+            self.logger.error(f"Failed to load action history: {exc}")
+            return web.json_response(
+                {"error": "Failed to load action history"}, status=500
+            )
+
+        return web.json_response(history)
 
     async def _agent_ui_handler(self, request: web.Request) -> web.Response:
         """Deprecated: HTML dashboard is replaced by React UI."""
@@ -1117,6 +1149,7 @@ class OlasInterface:
             )  # JSON health
             self.app.router.add_get("/api/status", self._health_check_handler)
             self.app.router.add_get("/healthcheck", self._health_check_handler)
+            self.app.router.add_get("/api/action-history", self._action_history_handler)
             self.app.router.add_post("/api/login", self._login_api_handler)
             self.app.router.add_post("/api/register", self._register_api_handler)
             self.app.router.add_post("/api/logout", self._logout_api_handler)
@@ -1138,6 +1171,10 @@ class OlasInterface:
                 self.app.router.add_get("/login/{tail:.*}", self._serve_react_app)
                 self.app.router.add_get("/dashboard", self._serve_react_app)
                 self.app.router.add_get("/dashboard/{tail:.*}", self._serve_react_app)
+                self.app.router.add_get("/action-history", self._serve_react_app)
+                self.app.router.add_get(
+                    "/action-history/{tail:.*}", self._serve_react_app
+                )
 
                 # Root serves React
                 self.app.router.add_get("/", self._serve_react_app)

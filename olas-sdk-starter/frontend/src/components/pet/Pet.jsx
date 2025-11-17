@@ -82,7 +82,7 @@ const SIZE_TO_PX = {
   small: 60,
 };
 
-export default function Pet({ pet, size = 'big', message, isClickable = false, onClick }) {
+export default function Pet({ name, pet, size = 'big', message, isClickable = false, onClick }) {
   const sizePx = SIZE_TO_PX[size] || SIZE_TO_PX.big;
   const scale = 1;
   const containerHeight = sizePx * scale;
@@ -98,10 +98,14 @@ export default function Pet({ pet, size = 'big', message, isClickable = false, o
 
   const showFallback = layers.length === 0 || errorCount >= layers.length;
 
+  const displayName = name || (pet && pet.name) || '';
+  const resolvedMessage = message ?? (displayName ? `Hi, I'm ${displayName}!` : null);
+
   return (
     <div className="shrink-0">
+
       <div
-        className={`pet__image flex justify-center relative overflow-hidden ${isClickable ? 'cursor-pointer' : ''}`}
+        className={`pet__image flex justify-center relative ${isClickable ? 'cursor-pointer' : ''}`}
         style={{
           height: `${containerHeight}px`,
           minHeight: `${containerHeight}px`,
@@ -147,9 +151,9 @@ export default function Pet({ pet, size = 'big', message, isClickable = false, o
           )}
         </div>
 
-        {message && (
+        {resolvedMessage && (
           <div
-            className="pet__chat text-xs font-bold py-1.5 px-3 rounded-full absolute -translate-x-1/2 -translate-y-1/2 left-1/2 bg-white text-purple-700"
+            className="pet__chat text-xs font-bold py-1.5 px-3 rounded-full absolute -translate-x-1/2 -translate-y-1/2 left-1/2 bg-white text-semantic-accent-bold z-100 overflow-visible"
             style={{
               boxShadow: '-1.148px 2.295px 9.869px 0px rgba(0, 0, 0, 0.23)',
               top: size === 'big' ? '120px' : '75px',
@@ -157,7 +161,7 @@ export default function Pet({ pet, size = 'big', message, isClickable = false, o
               zIndex: 20,
             }}
           >
-            <div>{message}</div>
+            <div>{resolvedMessage}</div>
             <div className="pet__chat--svg absolute right-[25px] z-[-1]" style={{ top: 'calc(100% - 4px)' }}>
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="10" viewBox="0 0 12 10" fill="none">
                 <path d="M7.92769 8.73426C7.04434 10.2643 4.83597 10.2643 3.95263 8.73426L0.971335 3.57051C0.0879897 2.04051 1.19217 0.128007 2.95886 0.128007L8.92145 0.128007C10.6881 0.128008 11.7923 2.04051 10.909 3.57051L7.92769 8.73426Z" fill="white" />
@@ -169,5 +173,7 @@ export default function Pet({ pet, size = 'big', message, isClickable = false, o
     </div>
   );
 }
+
+
 
 

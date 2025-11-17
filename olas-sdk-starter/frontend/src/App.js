@@ -11,6 +11,7 @@ import { AuthProvider, useAuth } from './providers/AuthProvider';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import AllSet from './pages/AllSet';
+import ActionHistory from './pages/ActionHistory';
 import './assets/styles/core.scss';
 import './assets/styles/toast.scss';
 import './assets/styles/tutorial.scss';
@@ -57,6 +58,7 @@ const RouterWithAuth = () => {
       <Route path="/" element={<LoginPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/action-history" element={<ActionHistory />} />
       <Route path="/all-set" element={<AllSet />} />
     </Routes>
   );
