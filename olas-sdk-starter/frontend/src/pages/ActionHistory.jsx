@@ -433,7 +433,7 @@ const ActionHistory = () => {
 					<div className="text-center text-white/90">
 						<h1 className="text-3xl font-bold tracking-tight">AI Action History</h1>
 						<p className="mt-2 text-white/70 text-sm font-medium">
-							{history.epoch ? `Today’s actions (${history.epoch})` : 'Daily action log'}
+							{history.epoch ? `Last Run's Actions (${history.epoch})` : 'Daily action log'}
 						</p>
 						{Number.isFinite(history.completed) && Number.isFinite(history.required_actions) ? (
 							<p className="mt-1 text-white/60 text-xs uppercase tracking-widest">

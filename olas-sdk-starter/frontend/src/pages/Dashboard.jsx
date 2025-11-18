@@ -23,6 +23,8 @@ const LAYOUT_CONSTANTS = {
 	BOTTOM_UI_POSITION_DELAY: 400,
 };
 
+const PETT_GAME_APP_URL = 'https://app.pett.ai';
+
 const formatTimestampDisplay = isoString => {
 	if (!isoString) return null;
 	const date = new Date(isoString);
@@ -404,6 +406,12 @@ const Dashboard = () => {
 			dead: Boolean(petRaw?.dead),
 		}
 		: null;
+	const isPetDead = Boolean(petRaw?.dead);
+
+	const handleRevivePetClick = useCallback(() => {
+		if (typeof window === 'undefined') return;
+		window.open(PETT_GAME_APP_URL, '_blank', 'noopener,noreferrer');
+	}, []);
 
 
 	return (
@@ -474,7 +482,7 @@ const Dashboard = () => {
 							)}
 							{error && (
 								<span className="inline-flex items-center gap-2 text-xs font-semibold text-red-100 bg-red-500/20 rounded-full px-3 py-1 border border-red-400/30">
-									<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="currentColor" d="M11 7h2v6h-2zm0 8h2v2h-2z"/><path fill="currentColor" d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10s10-4.477 10-10S17.523 2 12 2m0 18a8.01 8.01 0 0 1-8-8a8.01 8.01 0 0 1 8-8a8.01 8.01 0 0 1 8 8a8.01 8.01 0 0 1-8 8"></path></svg>
+									<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="currentColor" d="M11 7h2v6h-2zm0 8h2v2h-2z" /><path fill="currentColor" d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10s10-4.477 10-10S17.523 2 12 2m0 18a8.01 8.01 0 0 1-8-8a8.01 8.01 0 0 1 8-8a8.01 8.01 0 0 1 8 8a8.01 8.01 0 0 1-8 8"></path></svg>
 									{error}
 								</span>
 							)}
@@ -699,6 +707,37 @@ const Dashboard = () => {
           animation: slide-up-history 0.3s ease-out;
         }
       `}</style>
+			{isPetDead && (
+				<div className="fixed inset-0 z-[120] flex items-center justify-center px-4 py-8">
+					<div className="absolute inset-0 bg-black/70 backdrop-blur-[6px]" />
+					<div
+						role="dialog"
+						aria-modal="true"
+						className="relative z-10 w-full max-w-md rounded-3xl bg-white/95 p-6 text-center shadow-2xl space-y-5 border border-red-100"
+					>
+						<div className="space-y-2">
+							<p className="text-sm font-semibold uppercase tracking-[0.3em] text-red-500">alert</p>
+							<h2 className="text-3xl font-black text-gray-900 tracking-tight">Pet is dead</h2>
+							<p className="text-sm text-gray-600">
+								Your companion can't continue inside this agent. Choose what you want to do next.
+							</p>
+						</div>
+						<div className="space-y-3">
+							<button
+								type="button"
+								onClick={handleRevivePetClick}
+								className="w-full rounded-2xl bg-purple-700/90 hover:bg-purple-800 text-white px-4 py-4 transition-all shadow-lg shadow-purple-800/30 border border-white/20"
+							>
+								<div className="text-lg font-bold uppercase tracking-wide">Revive pet</div>
+								<div className="text-xs font-semibold text-white/80">through the game app <a href="https://app.pett.ai" target="_blank" rel="noopener noreferrer">app.pett.ai</a></div>
+							</button>
+						</div>
+						<p className="text-xs text-gray-500">
+							Reviving happens inside the Pett game app.
+						</p>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 };

@@ -987,8 +987,12 @@ class PettAgent:
         """Trigger a lightweight AUTH call to sync websocket + pet data for UI polling."""
         result: Dict[str, Any] = {
             "success": False,
-            "websocket_connected": bool(self.websocket_client and self.websocket_client.is_connected()),
-            "websocket_authenticated": bool(self.websocket_client and self.websocket_client.is_authenticated()),
+            "websocket_connected": bool(
+                self.websocket_client and self.websocket_client.is_connected()
+            ),
+            "websocket_authenticated": bool(
+                self.websocket_client and self.websocket_client.is_authenticated()
+            ),
         }
 
         client = self.websocket_client
@@ -1348,6 +1352,35 @@ class PettAgent:
                 "🧾 On-chain SLEEP record skipped: verification unavailable without toggling state"
             )
 
+    async def _record_resting_sleep_action(self, client: PettWebSocketClient) -> bool:
+        """Emit a verified SLEEP action while keeping the pet asleep overall."""
+        self.logger.info(
+            "🧾 Passive SLEEP requires verification; briefly toggling rest to submit on-chain record"
+        )
+        temporarily_awake = False
+        try:
+            wake_success = await client.sleep_pet(record_on_chain=False)
+        except Exception as exc:
+            self.logger.warning(
+                "⚠️ Failed to pulse wake before passive SLEEP verification: %s", exc
+            )
+            return False
+        if not wake_success:
+            self.logger.warning(
+                "⚠️ Unable to wake pet before passive SLEEP verification; skipping on-chain record"
+            )
+            return False
+
+        temporarily_awake = True
+        await asyncio.sleep(0.5)
+        success = await self._execute_action_with_tracking("SLEEP", client.sleep_pet)
+        if not success and temporarily_awake:
+            try:
+                await client.sleep_pet(record_on_chain=False)
+            except Exception:
+                pass
+        return success
+
     async def _execute_action_with_tracking(
         self,
         action_name: str,
@@ -1597,7 +1630,9 @@ class PettAgent:
                     energy,
                     wake_threshold,
                 )
-                await client.sleep_pet(record_on_chain=False)
+                await client.sleep_pet(
+                    record_on_chain=False
+                )  # dont record since we will perform other actions
                 await asyncio.sleep(0.5)
                 sleeping = False
             else:
@@ -1607,7 +1642,9 @@ class PettAgent:
                     wake_threshold,
                 )
                 if not kpi_met:
-                    self._record_passive_sleep_action()
+                    recorded = await self._record_resting_sleep_action(client)
+                    if not recorded:
+                        self._record_passive_sleep_action()
                 return
 
         # Priority 0: low health -> attempt recovery
