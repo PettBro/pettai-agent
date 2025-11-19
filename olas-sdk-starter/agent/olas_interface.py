@@ -282,7 +282,6 @@ class OlasInterface:
                 # Optional XP range for progress bar
                 self.pet_xp_min = to_float(stats.get("xpMin"))
                 self.pet_xp_max = to_float(stats.get("xpMax")) or self.pet_xp_max
-                print(self.pet_xp_min, self.pet_xp_max)
                 try:
                     self.pet_level = int(
                         stats.get("level", self.pet_level) or self.pet_level
@@ -619,10 +618,11 @@ class OlasInterface:
             except Exception:
                 action_timing = {}
 
-        refresh_flag = (
-            request.rel_url.query.get("refresh", "").strip().lower()
-            in {"1", "true", "yes"}
-        )
+        refresh_flag = request.rel_url.query.get("refresh", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+        }
         refresh_result: Optional[Dict[str, Any]] = None
         if refresh_flag:
             refresh_result = await self._trigger_health_refresh()

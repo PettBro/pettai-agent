@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import threading
 import time
 from dataclasses import dataclass, field
@@ -31,6 +32,14 @@ DEFAULT_SAFE_ADDRESS = "0xdf5bae4216Dc278313712291c91D2DeAF2Cc9c1c"
 DEFAULT_STATE_FILE = Path("data/staking_checkpoint_state.json")
 DEFAULT_LIVENESS_PERIOD = 86_400  # 24 hours
 SUBMISSION_COOLDOWN_SECONDS = 600  # 10 minutes to avoid duplicate submissions
+
+# Gas strategy constants aligned with Safe.execTransaction tuning
+DEFAULT_PRIORITY_FEE_PER_GAS = Web3.to_wei(5, "mwei")  # 0.005 gwei
+MIN_PRIORITY_FEE_PER_GAS = Web3.to_wei(1, "mwei")  # 0.001 gwei floor
+MAX_PRIORITY_FEE_PER_GAS = Web3.to_wei(50, "mwei")  # 0.05 gwei cap
+MIN_FEE_BUFFER_PER_GAS = Web3.to_wei(5, "mwei")  # 0.005 gwei headroom
+MAX_FEE_BUFFER_PER_GAS = Web3.to_wei(50, "mwei")  # 0.05 gwei cap
+PRIORITY_FEE_OVERRIDE_ENV = "CHECKPOINT_PRIORITY_FEE_WEI"
 
 # Minimal ABI fragment for the staking proxy contract.
 STAKING_PROXY_ABI: list[Dict[str, Any]] = [
@@ -702,12 +711,77 @@ class StakingCheckpointClient:
             return
 
         base_fee = latest_block.get("baseFeePerGas")
-        if base_fee is not None:
-            priority_fee = Web3.to_wei(2, "gwei")
-            tx_params["maxPriorityFeePerGas"] = priority_fee
-            tx_params["maxFeePerGas"] = base_fee + priority_fee * 2
-        else:
+        if base_fee is None:
             tx_params["gasPrice"] = self._w3.eth.gas_price
+            return
+
+        base_fee_int = int(base_fee)
+        priority_fee = int(self._suggest_priority_fee())
+        min_buffer = int(MIN_FEE_BUFFER_PER_GAS)
+        max_buffer = int(MAX_FEE_BUFFER_PER_GAS)
+
+        if priority_fee <= 0:
+            buffer = min_buffer
+        else:
+            buffer = max(min_buffer, min(priority_fee, max_buffer))
+
+        max_fee = base_fee_int + priority_fee + buffer
+
+        tx_params["maxPriorityFeePerGas"] = priority_fee
+        tx_params["maxFeePerGas"] = max_fee
+
+        self._logger.debug(
+            "Checkpoint fee params: base=%s priority=%s buffer=%s max=%s",
+            base_fee_int,
+            priority_fee,
+            buffer,
+            max_fee,
+        )
+
+    def _suggest_priority_fee(self) -> int:
+        """Return a conservative priority fee similar to Safe.execTransaction."""
+        if self._w3 is None:
+            return int(DEFAULT_PRIORITY_FEE_PER_GAS)
+
+        priority_fee: Optional[int] = None
+
+        override_raw = os.environ.get(PRIORITY_FEE_OVERRIDE_ENV)
+        if override_raw:
+            try:
+                priority_fee = max(0, int(override_raw))
+                self._logger.debug(
+                    "Using checkpoint priority fee override (%s=%s)",
+                    PRIORITY_FEE_OVERRIDE_ENV,
+                    priority_fee,
+                )
+            except ValueError:
+                self._logger.warning(
+                    "Invalid %s value '%s'; ignoring",
+                    PRIORITY_FEE_OVERRIDE_ENV,
+                    override_raw,
+                )
+
+        if priority_fee is None:
+            try:
+                suggested = getattr(self._w3.eth, "max_priority_fee", None)
+                if callable(suggested):
+                    suggested = suggested()
+                if suggested is not None:
+                    priority_fee = int(suggested)
+            except Exception as exc:
+                self._logger.debug(
+                    "Failed to obtain RPC priority fee suggestion: %s", exc
+                )
+
+        if priority_fee is None or priority_fee <= 0:
+            priority_fee = int(DEFAULT_PRIORITY_FEE_PER_GAS)
+
+        if 0 < priority_fee < int(MIN_PRIORITY_FEE_PER_GAS):
+            priority_fee = int(MIN_PRIORITY_FEE_PER_GAS)
+        elif priority_fee > int(MAX_PRIORITY_FEE_PER_GAS):
+            priority_fee = int(MAX_PRIORITY_FEE_PER_GAS)
+
+        return priority_fee
 
     def _resolve_nonce(self) -> int:
         """Return the next transaction nonce, caching between submissions."""

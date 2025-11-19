@@ -7,6 +7,7 @@ import os
 import asyncio
 import logging
 import random
+import time
 from pathlib import Path
 from typing import (
     Optional,
@@ -29,6 +30,7 @@ from .telegram_bot import PetTelegramBot
 from .olas_interface import OlasInterface
 from .decision_engine import PetDecisionEngine
 from .daily_action_tracker import DailyActionTracker
+from .staking_checkpoint import DEFAULT_LIVENESS_PERIOD
 
 # Load environment variables
 load_dotenv()
@@ -87,7 +89,11 @@ class PettAgent:
         self._mid_interval_logged: bool = True
         self._staking_kpi_log_suppressed: bool = False
         self._auth_refresh_lock: asyncio.Lock = asyncio.Lock()
+        self._epoch_checkpoint_lock: asyncio.Lock = asyncio.Lock()
         self._last_health_refresh: Optional[datetime] = None
+        self._last_known_epoch_end_ts: Optional[int] = None
+        self._last_checkpointed_epoch_end_ts: Optional[int] = None
+        self._epoch_length_seconds: Optional[int] = None
         tracker_path = Path("logs") / "daily_action_state.json"
         self._daily_action_tracker = DailyActionTracker(
             tracker_path, required_actions=self.REQUIRED_ACTIONS_PER_EPOCH
@@ -715,7 +721,7 @@ class PettAgent:
             )
             return False
 
-        self.logger.info("✅ WebSocket re-authenticated with updated Privy token")
+        # self.logger.info("✅ WebSocket re-authenticated with updated Privy token")
         self.olas.update_websocket_status(connected=True, authenticated=True)
         self.olas.update_health_status("running", is_transitioning=False)
 
@@ -1277,6 +1283,93 @@ class PettAgent:
             # Do not let telemetry failures block the loop
             pass
 
+    async def _maybe_checkpoint_epoch_end(self, trigger: str) -> None:
+        """Call checkpoint from the agent wallet once the epoch end timestamp is hit."""
+        client = self.olas.get_staking_checkpoint_client()
+        if not client or not client.is_enabled:
+            return
+
+        async with self._epoch_checkpoint_lock:
+            try:
+                metrics = await client.get_epoch_kpis(force_refresh=True)
+            except Exception as exc:
+                self.logger.debug(
+                    "Failed to refresh staking KPIs for %s checkpoint trigger: %s",
+                    trigger,
+                    exc,
+                )
+                return
+
+            if metrics is None:
+                return
+
+            epoch_end_ts_raw = metrics.epoch_end_timestamp
+            if epoch_end_ts_raw is None:
+                return
+            epoch_end_ts = int(epoch_end_ts_raw)
+
+            epoch_length = metrics.liveness_period or self._epoch_length_seconds
+            if not epoch_length or epoch_length <= 0:
+                epoch_length = DEFAULT_LIVENESS_PERIOD
+            self._epoch_length_seconds = epoch_length
+
+            last_known_end = self._last_known_epoch_end_ts
+            if last_known_end is not None and epoch_length:
+                delta = abs(epoch_end_ts - last_known_end)
+                if delta > epoch_length:
+                    self.logger.debug(
+                        "Epoch boundary jumped by %ss (> expected %s): %s -> %s",
+                        delta,
+                        epoch_length,
+                        last_known_end,
+                        epoch_end_ts,
+                    )
+            self._last_known_epoch_end_ts = epoch_end_ts
+
+            now_ts = int(time.time())
+            if now_ts < epoch_end_ts:
+                remaining = epoch_end_ts - now_ts
+                self.logger.debug(
+                    "Skipping staking checkpoint (%s): epoch end %s in %ss",
+                    trigger,
+                    epoch_end_ts,
+                    remaining,
+                )
+                return
+
+            last_checkpointed = self._last_checkpointed_epoch_end_ts
+            if last_checkpointed is not None and epoch_end_ts <= last_checkpointed:
+                self.logger.debug(
+                    "Skipping staking checkpoint (%s): epoch end %s already handled (last %s)",
+                    trigger,
+                    epoch_end_ts,
+                    last_checkpointed,
+                )
+                return
+
+            try:
+                tx_hash = await client.call_checkpoint_if_needed(force=False)
+            except Exception as exc:
+                self.logger.warning(
+                    "Staking checkpoint trigger '%s' failed: %s", trigger, exc
+                )
+                return
+
+            if tx_hash:
+                self.logger.info(
+                    "⛽️ Epoch end (%s) reached via %s; checkpoint tx submitted: %s",
+                    epoch_end_ts,
+                    trigger,
+                    tx_hash,
+                )
+                self._last_checkpointed_epoch_end_ts = epoch_end_ts
+            else:
+                self.logger.debug(
+                    "Epoch end (%s) reached via %s but checkpoint skipped (conditions unmet)",
+                    epoch_end_ts,
+                    trigger,
+                )
+
     async def _maybe_call_staking_checkpoint(self, force: bool = False) -> None:
         """Attempt to call the staking checkpoint when the liveness window expires."""
         client = self.olas.get_staking_checkpoint_client()
@@ -1390,12 +1483,12 @@ class PettAgent:
     ) -> bool:
         """Run an action coroutine and record it toward the daily requirement."""
         normalized_name = (action_name or "").upper() or "UNKNOWN"
+        success = False
         try:
             result = await action_callable()
             success = bool(result)
         except Exception as exc:
             self.logger.error("❌ Action %s raised: %s", normalized_name, exc)
-            return False
 
         if (
             not success
@@ -1414,6 +1507,13 @@ class PettAgent:
                 completed,
                 self.REQUIRED_ACTIONS_PER_EPOCH,
                 remaining,
+            )
+
+        try:
+            await self._maybe_checkpoint_epoch_end(f"action:{normalized_name}")
+        except Exception as exc:
+            self.logger.debug(
+                "Checkpoint trigger after %s action failed: %s", normalized_name, exc
             )
         return success
 
@@ -1728,6 +1828,11 @@ class PettAgent:
 
         self.running = True
         self.logger.info("🎯 Pett Agent is now running...")
+
+        try:
+            await self._maybe_checkpoint_epoch_end("startup")
+        except Exception as exc:
+            self.logger.debug("Startup checkpoint trigger failed: %s", exc)
 
         try:
             # Start background tasks

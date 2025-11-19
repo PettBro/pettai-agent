@@ -133,6 +133,11 @@ ZERO_ADDRESS = "0x" + "0" * 40
 DEFAULT_SAFE_TX_GAS = 60_000
 DEFAULT_BASE_GAS = 10_000
 SAFE_EXECUTION_HEADROOM = 10_000
+TX_BASE_INTRINSIC_GAS = 21_000
+CALLDATA_ZERO_BYTE_COST = 4
+CALLDATA_NONZERO_BYTE_COST = 16
+SAFE_INTRINSIC_GAS_BUFFER = 10_000
+SAFE_INTRINSIC_FALLBACK_GAS = 70_000
 
 # EIP-1559 fee defaults (values expressed in wei)
 DEFAULT_PRIORITY_FEE_PER_GAS = Web3.to_wei(5, "mwei")  # 0.005 gwei
@@ -197,6 +202,7 @@ class ActionRecorder:
         self._private_key: Optional[str] = None
         self._nonce_lock = threading.Lock()
         self._nonce_cache: Optional[int] = None
+        self._safe_nonce_cache: Dict[str, int] = {}
         self._unknown_actions: Set[str] = set()
         self._enabled: bool = False
 
@@ -726,51 +732,8 @@ class ActionRecorder:
                     gas_token = ZERO_ADDRESS
                     refund_receiver = ZERO_ADDRESS
 
-                    safe_exec_min = self._compute_safe_exec_min_gas(safe_tx_gas)
-                    outer_requirement = (
-                        safe_exec_min + base_gas + SAFE_EXECUTION_HEADROOM
-                    )
-                    configured_gas = (
-                        max(base_gas + safe_tx_gas + GAS_ADJUSTMENT, outer_requirement)
-                        if (base_gas != 0 or safe_tx_gas != 0)
-                        else MIN_GAS
-                    )
-
-                    actual_nonce = w3.eth.get_transaction_count(
-                        account.address, "pending"
-                    )
-                    if actual_nonce > nonce:
-                        self._logger.debug(
-                            "Local nonce cache (%s) behind chain nonce (%s); updating",
-                            nonce,
-                            actual_nonce,
-                        )
-                        nonce = actual_nonce
-                        self._nonce_cache = nonce
-                    elif actual_nonce < nonce:
-                        self._logger.debug(
-                            "Chain reports lower nonce (%s) than local (%s); keeping bumped nonce",
-                            actual_nonce,
-                            nonce,
-                        )
-
-                    tx_params: Dict[str, Any] = {
-                        "from": account.address,
-                        "nonce": nonce,
-                        "value": 0,
-                        "chainId": w3.eth.chain_id,
-                    }
-                    if configured_gas != MIN_GAS:
-                        tx_params["gas"] = configured_gas
-
-                    self._apply_fee_parameters(tx_params)
-
-                    # Fetch Safe nonce
-                    try:
-                        safe_nonce = int(safe.functions.nonce().call())
-                    except Exception as exc:
-                        self._logger.warning(f"Failed to fetch Safe nonce: {exc}")
-                        return
+                    # Fetch Safe nonce with fallback
+                    safe_nonce = self._get_safe_nonce_with_fallback(safe)
                     try:
                         self._logger.info(f"Safe nonce: {safe_nonce}")
                     except Exception:
@@ -799,6 +762,7 @@ class ActionRecorder:
                         self._logger.warning(f"Failed to compute Safe tx hash: {exc}")
                         return
 
+                    signatures: bytes = b""
                     # Sign for eth_sign flow (v -> v+4)
                     try:
                         from eth_account.messages import encode_defunct
@@ -878,6 +842,75 @@ class ActionRecorder:
                     except Exception as exc:
                         self._logger.warning(f"Failed to sign Safe transaction: {exc}")
                         return
+                    if not signatures:
+                        self._logger.error(
+                            "Failed to assemble Safe signature payload; aborting execTransaction"
+                        )
+                        return
+
+                    safe_exec_min = self._compute_safe_exec_min_gas(safe_tx_gas)
+                    exec_intrinsic_gas = self._estimate_exec_intrinsic_gas(
+                        safe,
+                        to_addr,
+                        value,
+                        inner_data_bytes,
+                        operation,
+                        safe_tx_gas,
+                        base_gas,
+                        safe_gas_price,
+                        gas_token,
+                        refund_receiver,
+                        signatures,
+                    )
+                    outer_requirement = (
+                        safe_exec_min + base_gas + SAFE_EXECUTION_HEADROOM
+                    )
+                    if base_gas != 0 or safe_tx_gas != 0:
+                        configured_gas = max(
+                            base_gas + safe_tx_gas + GAS_ADJUSTMENT, outer_requirement
+                        )
+                        configured_gas += exec_intrinsic_gas
+                    else:
+                        configured_gas = max(exec_intrinsic_gas, MIN_GAS)
+                    try:
+                        self._logger.debug(
+                            "Safe gas config: safeTxGas=%s baseGas=%s intrinsic=%s limit=%s",
+                            safe_tx_gas,
+                            base_gas,
+                            exec_intrinsic_gas,
+                            configured_gas,
+                        )
+                    except Exception:
+                        pass
+
+                    actual_nonce = w3.eth.get_transaction_count(
+                        account.address, "pending"
+                    )
+                    if actual_nonce > nonce:
+                        self._logger.debug(
+                            "Local nonce cache (%s) behind chain nonce (%s); updating",
+                            nonce,
+                            actual_nonce,
+                        )
+                        nonce = actual_nonce
+                        self._nonce_cache = nonce
+                    elif actual_nonce < nonce:
+                        self._logger.debug(
+                            "Chain reports lower nonce (%s) than local (%s); keeping bumped nonce",
+                            actual_nonce,
+                            nonce,
+                        )
+
+                    tx_params: Dict[str, Any] = {
+                        "from": account.address,
+                        "nonce": nonce,
+                        "value": 0,
+                        "chainId": w3.eth.chain_id,
+                    }
+                    if configured_gas != MIN_GAS:
+                        tx_params["gas"] = configured_gas
+
+                    self._apply_fee_parameters(tx_params)
 
                     # Preflight simulation of execTransaction to catch GS026 before sending
                     try:
@@ -930,31 +963,32 @@ class ActionRecorder:
                         cast(TxParams, tx_params)
                     )
 
-                    if configured_gas != MIN_GAS:
+                    estimate_params = dict(transaction_dict)
+                    estimate_params.pop("gas", None)
+                    gas_limit = self._estimate_gas_safe_exec(
+                        safe,
+                        to_addr,
+                        value,
+                        inner_data_bytes,
+                        operation,
+                        safe_tx_gas,
+                        base_gas,
+                        safe_gas_price,
+                        gas_token,
+                        refund_receiver,
+                        signatures,
+                        estimate_params,
+                    )
+
+                    if gas_limit is not None:
+                        if configured_gas != MIN_GAS:
+                            gas_limit = max(gas_limit, configured_gas)
+                        transaction_dict["gas"] = gas_limit
+                    elif configured_gas != MIN_GAS:
                         transaction_dict["gas"] = configured_gas
                     else:
-                        inner_data_bytes = self._to_bytes(inner_data_hex)
-                        estimate_params = dict(transaction_dict)
-                        estimate_params.pop("gas", None)
-                        gas_limit = self._estimate_gas_safe_exec(
-                            safe,
-                            to_addr,
-                            value,
-                            inner_data_bytes,
-                            operation,
-                            safe_tx_gas,
-                            base_gas,
-                            safe_gas_price,
-                            gas_token,
-                            refund_receiver,
-                            signatures,
-                            estimate_params,
-                        )
-                        if gas_limit:
-                            transaction_dict["gas"] = gas_limit
-                        else:
-                            # Increased fallback gas to handle complex Safe transactions
-                            transaction_dict["gas"] = 800_000
+                        # Increased fallback gas to handle complex Safe transactions
+                        transaction_dict["gas"] = 800_000
 
                     signed = w3.eth.account.sign_transaction(
                         transaction_dict, private_key=private_key
@@ -1084,6 +1118,38 @@ class ActionRecorder:
             )
         return self._nonce_cache
 
+    def _get_safe_nonce_with_fallback(self, safe: Contract) -> int:
+        """Fetch the Safe nonce, falling back to stored values when RPC fails."""
+        cache_key = "__default__"
+        safe_address = None
+        try:
+            safe_address = cast(str, getattr(safe, "address", None))
+        except Exception:
+            safe_address = None
+        if safe_address:
+            try:
+                cache_key = Web3.to_checksum_address(safe_address)
+            except Exception:
+                cache_key = safe_address.lower()
+
+        last_saved = self._safe_nonce_cache.get(cache_key)
+        try:
+            safe_nonce = int(safe.functions.nonce().call())
+        except Exception as exc:
+            self._logger.warning(f"Failed to fetch Safe nonce: {exc}")
+            fallback_nonce = 1 if last_saved is None else max(last_saved + 1, 1)
+            safe_nonce = fallback_nonce
+            try:
+                self._logger.info(
+                    "Using fallback Safe nonce %s (last saved %s)",
+                    safe_nonce,
+                    last_saved,
+                )
+            except Exception:
+                pass
+        self._safe_nonce_cache[cache_key] = safe_nonce
+        return safe_nonce
+
     def _estimate_gas_safe_exec(
         self,
         safe: Contract,
@@ -1159,6 +1225,90 @@ class ActionRecorder:
         scaled = (safe_tx_gas * 64 + 62) // 63  # ceil(safe_tx_gas * 64 / 63)
         requirement = max(scaled, safe_tx_gas + 2_500) + 500
         return requirement
+
+    def _estimate_exec_intrinsic_gas(
+        self,
+        safe: Contract,
+        to_addr: str,
+        value: int,
+        inner_data: bytes,
+        operation: int,
+        safe_tx_gas: int,
+        base_gas: int,
+        safe_gas_price: int,
+        gas_token: str,
+        refund_receiver: str,
+        signatures: bytes,
+    ) -> int:
+        """Estimate intrinsic gas consumed before Safe.execTransaction code runs."""
+        try:
+            call_data_bytes = self._build_safe_exec_calldata(
+                safe,
+                to_addr,
+                value,
+                inner_data,
+                operation,
+                safe_tx_gas,
+                base_gas,
+                safe_gas_price,
+                gas_token,
+                refund_receiver,
+                signatures,
+            )
+            zero_bytes = call_data_bytes.count(0)
+            non_zero_bytes = len(call_data_bytes) - zero_bytes
+            intrinsic = (
+                TX_BASE_INTRINSIC_GAS
+                + zero_bytes * CALLDATA_ZERO_BYTE_COST
+                + non_zero_bytes * CALLDATA_NONZERO_BYTE_COST
+            )
+            return intrinsic + SAFE_INTRINSIC_GAS_BUFFER
+        except Exception as exc:
+            self._logger.debug(
+                "Failed to estimate Safe.execTransaction intrinsic gas: %s", exc
+            )
+            return SAFE_INTRINSIC_FALLBACK_GAS
+
+    def _build_safe_exec_calldata(
+        self,
+        safe: Contract,
+        to_addr: str,
+        value: int,
+        inner_data: bytes,
+        operation: int,
+        safe_tx_gas: int,
+        base_gas: int,
+        safe_gas_price: int,
+        gas_token: str,
+        refund_receiver: str,
+        signatures: bytes,
+    ) -> bytes:
+        """Return raw calldata for Safe.execTransaction, handling ABI quirks."""
+        fn = safe.functions.execTransaction(
+            to_addr,
+            value,
+            inner_data,
+            operation,
+            safe_tx_gas,
+            base_gas,
+            safe_gas_price,
+            gas_token,
+            refund_receiver,
+            signatures,
+        )
+        try:
+            encoded = fn._encode_transaction_data()
+            if encoded:
+                return self._to_bytes(encoded)
+        except Exception:
+            pass
+
+        builder_from = getattr(self._account, "address", ZERO_ADDRESS)
+        fallback_tx = fn.build_transaction({"from": builder_from})
+        encoded = fallback_tx.get("data")
+        if not encoded:
+            raise ValueError("Failed to build Safe.execTransaction calldata")
+        return self._to_bytes(encoded)
 
     def _suggest_priority_fee(self) -> int:
         """Return a conservative priority fee value in wei."""

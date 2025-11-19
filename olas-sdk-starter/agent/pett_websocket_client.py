@@ -215,7 +215,7 @@ class PettWebSocketClient:
         self.privy_token = token
         self._jwt_expired = False
         self._last_auth_error = None
-        logger.info("Privy token updated on WebSocket client")
+        # logger.info("Privy token updated on WebSocket client")
 
     def clear_saved_auth_token(self) -> None:
         """Clear saved auth token and previous authentication state."""
@@ -278,12 +278,12 @@ class PettWebSocketClient:
                 logger.error("Failed to send authentication message")
                 return False
 
-            logger.info("🔐 Authentication message sent, waiting for response...")
+            # logger.debug("🔐 Authentication message sent, waiting for response...")
 
             # Wait for the auth result with timeout
             try:
                 auth_result = await asyncio.wait_for(auth_future, timeout=timeout)
-                logger.info(f"🔐 Authentication result: {auth_result}")
+                # logger.info(f"🔐 Authentication result: {auth_result}")
                 return auth_result
             except asyncio.TimeoutError:
                 logger.error(f"❌ Authentication timed out after {timeout} seconds")
@@ -515,7 +515,9 @@ class PettWebSocketClient:
             message_json = json.dumps(message)
             await self.websocket.send(message_json)
             logger.info(f"📤 Sent message type: {message['type']}")
-            logger.info(f"📤 Message content: {message_json}")
+            if message.get("type") != "AUTH":
+                logger.info(f"📤 Message content: {message_json}")
+
             if self._telemetry_recorder:
                 try:
                     self._telemetry_recorder(message, True, None)
@@ -703,6 +705,7 @@ class PettWebSocketClient:
             if pet_data:
                 # Use the pet data directly
                 self.pet_data = pet_data
+                """
                 logger.info("✅ Authentication successful!")
                 logger.info(f"👤 User: {user_data.get('id', 'Unknown')}")
                 logger.info(f"🔑 Privy ID: {user_data.get('privyID', 'Unknown')}")
@@ -734,6 +737,8 @@ class PettWebSocketClient:
                             f"   🎯 XP: {pet_stats.get('xp', 0)}/"
                             f"{pet_stats.get('xpMax', 0)} (Level {pet_stats.get('level', 1)})"
                         )
+                        
+                """
 
             else:
                 self.pet_data = {}

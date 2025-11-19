@@ -215,7 +215,7 @@ class PettTools:
             return "❌ WebSocket client not available or connected."
 
         try:
-            logger.info("[PetTools] Getting pet status and statistics")
+            # logger.info("[PetTools] Getting pet status and statistics")
             if self.client is None:
                 return "❌ WebSocket client is None."
 
@@ -223,7 +223,7 @@ class PettTools:
             client = self.client
             pet_data = client.get_pet_data()
             if pet_data:
-                logger.info("[TOOL] Successfully retrieved pet status data")
+                # logger.info("[TOOL] Successfully retrieved pet status data")
                 return (
                     f"🐾 Pet Status:\n{self._escape_for_telegram(json.dumps(pet_data))}"
                 )
