@@ -1,13 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Button from '../components/ui/Button';
 import { usePrivyModalHeight } from '../hooks/usePrivyModalHeight';
 import { useAuth } from '../providers/AuthProvider';
 import backgroundMain from '../assets/images/background-3.jpg';
 import backgroundOverlay from '../assets/images/background-0.jpg';
-import floatingOne from '../assets/images/floating-1.png';
-import floatingTwo from '../assets/images/floating-2.png';
-import floatingThree from '../assets/images/floating-3.png';
 import './LoginPage.scss';
 
 const LoginPage = () => {

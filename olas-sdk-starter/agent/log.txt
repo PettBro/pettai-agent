@@ -277,3 +277,481 @@
 2025-11-11 14:59:10,128 pett_agent INFO: 🔌 WebSocket disconnected
 2025-11-11 14:59:10,129 pett_agent INFO: 🛑 Web server stopped
 2025-11-11 14:59:10,129 pett_agent INFO: ✅ Pett Agent shutdown complete
+2025-11-21 14:14:41,612 pett_agent INFO: 🚀 Starting Pett Agent with Olas SDK compliance
+2025-11-21 14:14:41,612 pett_agent INFO: Ethereum private key: Found
+2025-11-21 14:14:41,612 pett_agent INFO: Withdrawal mode: False
+2025-11-21 14:14:41,612 pett_agent INFO: 📋 Loaded 0 environment variables
+2025-11-21 14:14:41,986 pett_agent INFO: Using Safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F on chainId 8453
+2025-11-21 14:14:42,709 pett_agent INFO: Safe owners (n=1): ['0xE43d9713a0999B965750fC94934D64CA7d5D2e15']
+2025-11-21 14:14:42,710 pett_agent INFO: Safe threshold: 1
+2025-11-21 14:14:42,710 pett_agent ERROR: Agent EOA is NOT an owner of the AI Agent Safe; execTransaction will revert (GS026)
+2025-11-21 14:14:42,710 pett_agent INFO: ActionRecorder initialised for agent address 0xDd03...2803
+2025-11-21 14:14:42,710 pett_agent INFO: Skipping staking checkpoint initialisation: staking contract address not configured
+2025-11-21 14:14:42,710 pett_agent INFO: 🔧 Olas SDK Interface initialized
+2025-11-21 14:14:42,711 pett_agent INFO: 🐾 Pett Agent initialized
+2025-11-21 14:14:42,713 pett_agent INFO: 🚀 Initializing Pett Agent components...
+2025-11-21 14:14:42,714 pett_agent INFO: 🎨 Building React frontend...
+2025-11-21 14:14:42,715 pett_agent INFO: ✅ React build already exists, skipping build
+2025-11-21 14:14:42,715 pett_agent INFO: ✅ React build available for serving
+2025-11-21 14:14:42,716 pett_agent INFO: 🌐 Web server started on http://0.0.0.0:8716 (access via http://localhost:8716)
+2025-11-21 14:14:42,716 pett_agent INFO: 🎨 React App available at http://localhost:8716/ (Dashboard at /dashboard)
+2025-11-21 14:14:42,716 pett_agent INFO: 🏥 Health API: http://localhost:8716/api/health
+2025-11-21 14:14:42,716 pett_agent INFO: ℹ️  No PRIVY_TOKEN in environment
+2025-11-21 14:14:42,717 pett_agent INFO: ✨ Waiting for user to login via React app at http://localhost:8716/
+2025-11-21 14:14:42,717 pett_agent INFO: 🧾 On-chain action recorder ENABLED: contract=0x907afC85F3922CbdEB7b9Ed806742b4eF998DF31 rpc=https://base.llamarpc.com agent=0xDd03...2803
+2025-11-21 14:14:42,717 pett_agent INFO: ℹ️ No TELEGRAM_BOT_TOKEN found - Telegram disabled
+2025-11-21 14:14:42,717 pett_agent INFO: ✅ Pett Agent initialization complete
+2025-11-21 14:14:42,717 pett_agent INFO: 🎯 Pett Agent is now running...
+2025-11-21 14:14:48,737 pett_agent INFO: 🛑 Shutting down Pett Agent...
+2025-11-21 14:14:48,738 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-21 14:14:48,738 pett_agent INFO: 🔌 WebSocket disconnected
+2025-11-21 14:14:48,739 pett_agent INFO: 🛑 Web server stopped
+2025-11-21 14:14:48,739 pett_agent INFO: ✅ Pett Agent shutdown complete
+2025-11-21 14:15:13,517 pett_agent INFO: 🚀 Starting Pett Agent with Olas SDK compliance
+2025-11-21 14:15:13,517 pett_agent INFO: Ethereum private key: Found
+2025-11-21 14:15:13,517 pett_agent INFO: Withdrawal mode: False
+2025-11-21 14:15:13,517 pett_agent INFO: 📋 Loaded 0 environment variables
+2025-11-21 14:15:13,833 pett_agent INFO: Using Safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F on chainId 8453
+2025-11-21 14:15:14,689 pett_agent INFO: Safe owners (n=1): ['0xE43d9713a0999B965750fC94934D64CA7d5D2e15']
+2025-11-21 14:15:14,689 pett_agent INFO: Safe threshold: 1
+2025-11-21 14:15:14,690 pett_agent ERROR: Agent EOA is NOT an owner of the AI Agent Safe; execTransaction will revert (GS026)
+2025-11-21 14:15:14,690 pett_agent INFO: ActionRecorder initialised for agent address 0xDd03...2803
+2025-11-21 14:15:14,690 pett_agent INFO: Skipping staking checkpoint initialisation: staking contract address not configured
+2025-11-21 14:15:14,690 pett_agent INFO: 🔧 Olas SDK Interface initialized
+2025-11-21 14:15:14,691 pett_agent INFO: 🐾 Pett Agent initialized
+2025-11-21 14:15:14,692 pett_agent INFO: 🚀 Initializing Pett Agent components...
+2025-11-21 14:15:14,693 pett_agent INFO: 🎨 Building React frontend...
+2025-11-21 14:15:14,694 pett_agent INFO: ✅ node_modules already exists, skipping install
+2025-11-21 14:15:14,694 pett_agent INFO: 📦 Building React app...
+2025-11-21 14:15:32,697 pett_agent INFO: ✅ React app built successfully
+2025-11-21 14:15:32,697 pett_agent INFO: ✅ React build available for serving
+2025-11-21 14:15:32,699 pett_agent INFO: 🌐 Web server started on http://0.0.0.0:8716 (access via http://localhost:8716)
+2025-11-21 14:15:32,699 pett_agent INFO: 🎨 React App available at http://localhost:8716/ (Dashboard at /dashboard)
+2025-11-21 14:15:32,699 pett_agent INFO: 🏥 Health API: http://localhost:8716/api/health
+2025-11-21 14:15:32,699 pett_agent INFO: ℹ️  No PRIVY_TOKEN in environment
+2025-11-21 14:15:32,699 pett_agent INFO: ✨ Waiting for user to login via React app at http://localhost:8716/
+2025-11-21 14:15:32,699 pett_agent INFO: 🧾 On-chain action recorder ENABLED: contract=0x907afC85F3922CbdEB7b9Ed806742b4eF998DF31 rpc=https://base.llamarpc.com agent=0xDd03...2803
+2025-11-21 14:15:32,699 pett_agent INFO: ℹ️ No TELEGRAM_BOT_TOKEN found - Telegram disabled
+2025-11-21 14:15:32,699 pett_agent INFO: ✅ Pett Agent initialization complete
+2025-11-21 14:15:32,699 pett_agent INFO: 🎯 Pett Agent is now running...
+2025-11-21 14:15:50,781 pett_agent INFO: 🔐 Received login request from React frontend
+2025-11-21 14:15:50,781 pett_agent INFO: 🔐 Updating Privy token and refreshing WebSocket connection
+2025-11-21 14:15:50,781 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-21 14:15:50,781 agent.pett_websocket_client INFO: 🆕 Using environment auth token for connection
+2025-11-21 14:15:50,781 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-21 14:15:50,781 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-21 14:15:50,955 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-21 14:15:50,955 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-21 14:15:50,955 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-21 14:15:50,955 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-21 14:15:50,955 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-21 14:15:50,956 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-21 14:15:51,031 agent.pett_websocket_client INFO: ✅ Connection and authentication successful!
+2025-11-21 14:15:51,631 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-21 14:15:52,704 pett_agent INFO: 😴 Low energy detected; initiating sleep
+2025-11-21 14:15:52,705 agent.pett_websocket_client INFO: 📤 Sent message type: SLEEP
+2025-11-21 14:15:52,705 agent.pett_websocket_client INFO: 📤 Message content: {"type": "SLEEP", "data": {}, "nonce": "89365", "verify": true}
+2025-11-21 14:15:53,022 agent.pett_websocket_client INFO: Pet Status updated (merged partial update)
+2025-11-21 14:15:53,023 agent.pett_websocket_client INFO: Updated pet data: {'id': '1a080381-2b2a-4791-8cc1-2edaf5cf7c20', 'name': 'robopet708295', 'userID': '65383483-b450-4184-af2c-9fe7a9445166', 'sleeping': True, 'dead': False, 'god': False, 'active': True, 'currentHotelTier': 0, 'deathAt': '2025-11-25T18:43:39.333Z', 'PetTokens': {'petID': '1a080381-2b2a-4791-8cc1-2edaf5cf7c20', 'tokens': '9410889174999999999000', 'ethTokens': '0', 'solanaTokens': '0', 'useSolana': False, 'depositedTokens': '0'}, 'PetStats': {'petID': '1a080381-2b2a-4791-8cc1-2edaf5cf7c20', 'hunger': '89.77', 'health': '68.13', 'hygiene': '64.4', 'energy': '16.23', 'happiness': '85.12', 'xp': '728.34', 'level': 2, 'xpMax': 900, 'xpMin': 1}}
+2025-11-21 14:15:53,023 agent.pett_websocket_client INFO: 📊 Received data message
+2025-11-21 14:15:53,023 agent.pett_websocket_client INFO: Data message: {'type': 'data', 'data': {'verification': {'hash': '0x0a3cdd842be6c0cbf7b083a70664b243cc97176d9d43b9e9f6529bd0c2057f6e', 'signature': {'v': 27, 'r': '0x204234c6b3b99c3b65565fb4e3d871f642a8df8df435dde64c18568d3ba3e7b6', 's': '0x195b833d05e0bae9f019249c1dda2256b356a34c1e2fb904d7c4ab3eba03ef8e'}, 'message': {'action': 5, 'actionName': 'SLEEP', 'timestamp': '1763734552', 'nonce': '0xc5f9d45c81c583c8dbf980f10fcaceb5a948e02135152886aa420e22ccbaece0'}, 'issuedAt': '2025-11-21T14:15:52.000Z', 'reason': 'socket-request'}}, 'nonce': '89365', 'timestamp': 1763734553051}
+2025-11-21 14:15:53,023 agent.pett_websocket_client INFO: ✅ SLEEP action confirmed by server
+2025-11-21 14:15:53,024 agent.pett_websocket_client INFO: 📗 Submitting verified SLEEP action on-chain
+2025-11-21 14:15:53,026 pett_agent INFO: 📋 Action SLEEP recorded (1/8 today, 7 remaining)
+2025-11-21 14:15:53,026 pett_agent INFO: On-chain recordAction queued: action=SLEEP id=5 agent=0xDd03...2803
+2025-11-21 14:15:53,620 pett_agent INFO: Inner recordAction signer: 0x6a08382311AA9971a79a21d4FE2D613aE0FebFa9; equals_mainSigner=True; expected=0x6a08382311AA9971a79a21d4FE2D613aE0FebFa9
+2025-11-21 14:15:53,839 pett_agent INFO: 🔓 Received logout request from React frontend
+2025-11-21 14:15:53,840 pett_agent INFO: 🔓 Logging out: clearing Privy token and disconnecting
+2025-11-21 14:15:53,840 agent.pett_websocket_client WARNING: ⚠️ Attempted to set an empty Privy token - authentication will be disabled
+2025-11-21 14:15:53,840 agent.pett_websocket_client INFO: Saved auth token cleared
+2025-11-21 14:15:53,887 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-21 14:15:53,887 pett_agent INFO: ✅ Logout complete; awaiting React login
+2025-11-21 14:15:53,999 pett_agent INFO: Estimated safeTxGas from recordAction: 173311
+2025-11-21 14:15:54,371 pett_agent INFO: Safe nonce: 144
+2025-11-21 14:15:54,835 pett_agent INFO: Safe tx hash to sign: 38ef181024c2aa707742d31bceeffa47b57175486337f6a91eee652c082d8474
+2025-11-21 14:15:54,860 pett_agent INFO: Recovered signer: 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803 vs account: 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803
+2025-11-21 14:15:55,590 pett_agent INFO: Recovered signer: 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803; is_owner=False; threshold=1 safe=0x066B82E413b30eCcbe65622aF31a65fde95Be88F
+2025-11-21 14:15:55,590 pett_agent ERROR: Recovered signer 0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803 is not an owner of the Safe; aborting execTransaction
+2025-11-21 14:44:29,192 pett_agent INFO: 🛑 Shutting down Pett Agent...
+2025-11-21 14:44:29,196 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-21 14:44:29,201 pett_agent INFO: 🔌 WebSocket disconnected
+2025-11-21 14:44:29,209 pett_agent INFO: 🛑 Web server stopped
+2025-11-21 14:44:29,210 pett_agent INFO: ✅ Pett Agent shutdown complete
+2025-11-24 14:15:11,212 pett_agent INFO: 🚀 Starting Pett Agent with Olas SDK compliance
+2025-11-24 14:15:11,213 pett_agent INFO: Ethereum private key: Found
+2025-11-24 14:15:11,213 pett_agent INFO: Withdrawal mode: False
+2025-11-24 14:15:11,213 pett_agent INFO: 📋 Loaded 0 environment variables
+2025-11-24 14:15:11,515 pett_agent INFO: Using Safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F on chainId 8453
+2025-11-24 14:15:12,240 pett_agent INFO: Safe owners (n=1): ['0xE43d9713a0999B965750fC94934D64CA7d5D2e15']
+2025-11-24 14:15:12,241 pett_agent INFO: Safe threshold: 1
+2025-11-24 14:15:12,241 pett_agent ERROR: Agent EOA is NOT an owner of the AI Agent Safe; execTransaction will revert (GS026)
+2025-11-24 14:15:12,241 pett_agent INFO: ActionRecorder initialised for agent address 0xDd03...2803
+2025-11-24 14:15:12,242 pett_agent INFO: Skipping staking checkpoint initialisation: staking contract address not configured
+2025-11-24 14:15:12,242 pett_agent INFO: 🔧 Olas SDK Interface initialized
+2025-11-24 14:15:12,242 pett_agent INFO: 🐾 Pett Agent initialized
+2025-11-24 14:15:12,244 pett_agent INFO: 🚀 Initializing Pett Agent components...
+2025-11-24 14:15:12,245 pett_agent INFO: 🎨 Building React frontend...
+2025-11-24 14:15:12,246 pett_agent INFO: ✅ node_modules already exists, skipping install
+2025-11-24 14:15:12,246 pett_agent INFO: 📦 Building React app...
+2025-11-24 14:15:31,162 pett_agent INFO: ✅ React app built successfully
+2025-11-24 14:15:31,163 pett_agent INFO: ✅ React build available for serving
+2025-11-24 14:15:31,165 pett_agent INFO: 🌐 Web server started on http://0.0.0.0:8716 (access via http://localhost:8716)
+2025-11-24 14:15:31,165 pett_agent INFO: 🎨 React App available at http://localhost:8716/ (Dashboard at /dashboard)
+2025-11-24 14:15:31,165 pett_agent INFO: 🏥 Health API: http://localhost:8716/api/health
+2025-11-24 14:15:31,165 pett_agent INFO: ℹ️  No PRIVY_TOKEN in environment
+2025-11-24 14:15:31,165 pett_agent INFO: ✨ Waiting for user to login via React app at http://localhost:8716/
+2025-11-24 14:15:31,165 pett_agent INFO: 🧾 On-chain action recorder ENABLED: contract=0x907afC85F3922CbdEB7b9Ed806742b4eF998DF31 rpc=https://base.llamarpc.com agent=0xDd03...2803
+2025-11-24 14:15:31,165 pett_agent INFO: ℹ️ No TELEGRAM_BOT_TOKEN found - Telegram disabled
+2025-11-24 14:15:31,166 pett_agent INFO: ✅ Pett Agent initialization complete
+2025-11-24 14:15:31,166 pett_agent INFO: 🎯 Pett Agent is now running...
+2025-11-24 14:18:10,637 pett_agent INFO: 🔐 Received login request from React frontend
+2025-11-24 14:18:10,639 pett_agent INFO: 🔐 Updating Privy token and refreshing WebSocket connection
+2025-11-24 14:18:10,640 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-24 14:18:10,640 agent.pett_websocket_client INFO: 🆕 Using environment auth token for connection
+2025-11-24 14:18:10,640 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-24 14:18:10,640 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-24 14:18:10,990 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-24 14:18:10,990 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-24 14:18:10,990 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-24 14:18:10,990 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-24 14:18:10,991 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:18:10,992 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-24 14:18:11,061 agent.pett_websocket_client INFO: ✅ Connection and authentication successful!
+2025-11-24 14:18:11,597 pett_agent INFO: 😴 Low energy detected; initiating sleep
+2025-11-24 14:18:11,597 agent.pett_websocket_client INFO: 📤 Sent message type: SLEEP
+2025-11-24 14:18:11,597 agent.pett_websocket_client INFO: 📤 Message content: {"type": "SLEEP", "data": {}, "nonce": "79907", "verify": true}
+2025-11-24 14:18:11,617 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:18:11,652 agent.pett_websocket_client ERROR: Server error: Invalid pet state: Pet is dead and cannot perform this action
+2025-11-24 14:18:16,623 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:18:21,623 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:18:26,623 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:18:31,623 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:18:36,623 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:18:41,624 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:18:46,623 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:18:51,623 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:18:56,622 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:19:01,622 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:19:06,624 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:19:11,625 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:19:29,630 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:20:04,876 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:20:06,617 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:20:10,248 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:20:11,278 pett_agent INFO: 🔐 Received login request from React frontend
+2025-11-24 14:20:11,279 pett_agent INFO: 🔐 Updating Privy token and refreshing WebSocket connection
+2025-11-24 14:20:11,320 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-24 14:20:11,321 agent.pett_websocket_client INFO: 🔄 Using saved auth token for reconnection
+2025-11-24 14:20:11,321 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-24 14:20:11,321 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-24 14:20:11,424 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-24 14:20:11,424 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-24 14:20:11,424 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-24 14:20:11,424 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-24 14:20:11,424 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:20:11,424 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-24 14:20:11,495 agent.pett_websocket_client INFO: ✅ Connection and authentication successful!
+2025-11-24 14:20:11,510 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:20:16,501 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:20:21,623 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:20:26,623 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:20:31,531 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:20:36,502 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:20:41,501 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:20:46,503 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:20:51,503 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:20:56,631 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:21:01,504 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:21:06,503 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:21:11,624 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:21:16,624 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:21:21,505 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:21:26,503 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:21:31,627 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:21:36,623 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:21:41,626 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:21:46,623 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:21:51,629 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:21:56,626 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:22:01,626 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:22:06,624 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:22:11,630 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:22:16,625 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:22:21,624 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:22:26,624 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:22:31,626 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:22:36,630 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:22:41,507 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:22:46,517 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:22:51,626 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:22:56,624 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:23:01,624 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:23:06,625 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:23:11,627 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:23:16,624 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:23:21,630 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:23:26,624 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:23:31,625 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:23:36,625 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:23:41,624 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:23:46,625 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:24:29,680 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:25:02,222 pett_agent INFO: 🛑 Shutting down Pett Agent...
+2025-11-24 14:25:02,260 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-24 14:25:02,260 pett_agent INFO: 🔌 WebSocket disconnected
+2025-11-24 14:25:02,263 pett_agent INFO: 🛑 Web server stopped
+2025-11-24 14:25:02,264 pett_agent INFO: ✅ Pett Agent shutdown complete
+2025-11-24 14:25:05,215 pett_agent INFO: 🚀 Starting Pett Agent with Olas SDK compliance
+2025-11-24 14:25:05,216 pett_agent INFO: Ethereum private key: Found
+2025-11-24 14:25:05,216 pett_agent INFO: Withdrawal mode: False
+2025-11-24 14:25:05,216 pett_agent INFO: 📋 Loaded 0 environment variables
+2025-11-24 14:25:05,706 pett_agent INFO: Using Safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F on chainId 8453
+2025-11-24 14:25:07,197 pett_agent INFO: Safe owners (n=1): ['0xE43d9713a0999B965750fC94934D64CA7d5D2e15']
+2025-11-24 14:25:07,198 pett_agent INFO: Safe threshold: 1
+2025-11-24 14:25:07,198 pett_agent ERROR: Agent EOA is NOT an owner of the AI Agent Safe; execTransaction will revert (GS026)
+2025-11-24 14:25:07,198 pett_agent INFO: ActionRecorder initialised for agent address 0xDd03...2803
+2025-11-24 14:25:07,198 pett_agent INFO: Skipping staking checkpoint initialisation: staking contract address not configured
+2025-11-24 14:25:07,199 pett_agent INFO: 🔧 Olas SDK Interface initialized
+2025-11-24 14:25:07,199 pett_agent INFO: 🐾 Pett Agent initialized
+2025-11-24 14:25:07,200 pett_agent INFO: 🚀 Initializing Pett Agent components...
+2025-11-24 14:25:07,200 pett_agent INFO: 🎨 Building React frontend...
+2025-11-24 14:25:07,200 pett_agent INFO: 📦 Installing npm dependencies...
+2025-11-24 14:25:07,212 pett_agent INFO: Using yarn for installation
+2025-11-24 14:25:26,338 pett_agent INFO: ✅ Dependencies installed successfully
+2025-11-24 14:25:26,338 pett_agent INFO: 📦 Building React app...
+2025-11-24 14:26:04,511 pett_agent INFO: ✅ React app built successfully
+2025-11-24 14:26:04,512 pett_agent INFO: ✅ React build available for serving
+2025-11-24 14:26:04,513 pett_agent INFO: 🌐 Web server started on http://0.0.0.0:8716 (access via http://localhost:8716)
+2025-11-24 14:26:04,513 pett_agent INFO: 🎨 React App available at http://localhost:8716/ (Dashboard at /dashboard)
+2025-11-24 14:26:04,513 pett_agent INFO: 🏥 Health API: http://localhost:8716/api/health
+2025-11-24 14:26:04,513 pett_agent INFO: ℹ️  No PRIVY_TOKEN in environment
+2025-11-24 14:26:04,513 pett_agent INFO: ✨ Waiting for user to login via React app at http://localhost:8716/
+2025-11-24 14:26:04,514 pett_agent INFO: 🧾 On-chain action recorder ENABLED: contract=0x907afC85F3922CbdEB7b9Ed806742b4eF998DF31 rpc=https://base.llamarpc.com agent=0xDd03...2803
+2025-11-24 14:26:04,514 pett_agent INFO: ℹ️ No TELEGRAM_BOT_TOKEN found - Telegram disabled
+2025-11-24 14:26:04,514 pett_agent INFO: ✅ Pett Agent initialization complete
+2025-11-24 14:26:04,514 pett_agent INFO: 🎯 Pett Agent is now running...
+2025-11-24 14:48:23,904 pett_agent INFO: 🔐 Received login request from React frontend
+2025-11-24 14:48:23,905 pett_agent INFO: 🔐 Updating Privy token and refreshing WebSocket connection
+2025-11-24 14:48:23,905 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-24 14:48:23,905 agent.pett_websocket_client INFO: 🆕 Using environment auth token for connection
+2025-11-24 14:48:23,905 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-24 14:48:23,905 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-24 14:48:24,147 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-24 14:48:24,148 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-24 14:48:24,148 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-24 14:48:24,148 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-24 14:48:24,148 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:48:24,148 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-24 14:48:24,219 agent.pett_websocket_client INFO: ✅ Connection and authentication successful!
+2025-11-24 14:48:24,732 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:48:24,808 pett_agent INFO: 😴 Low energy detected; initiating sleep
+2025-11-24 14:48:24,808 agent.pett_websocket_client INFO: 📤 Sent message type: SLEEP
+2025-11-24 14:48:24,808 agent.pett_websocket_client INFO: 📤 Message content: {"type": "SLEEP", "data": {}, "nonce": "80264", "verify": true}
+2025-11-24 14:48:24,862 agent.pett_websocket_client ERROR: Server error: Invalid pet state: Pet is dead and cannot perform this action
+2025-11-24 14:48:29,725 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:48:35,628 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:48:40,608 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:48:45,608 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:48:50,609 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:48:55,608 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:49:00,608 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:49:05,612 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:49:10,608 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:49:15,608 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:49:20,609 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:49:25,611 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:49:30,611 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:49:46,971 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:49:50,624 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:49:54,909 pett_agent INFO: 🛑 Shutting down Pett Agent...
+2025-11-24 14:49:54,950 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-24 14:49:54,950 pett_agent INFO: 🔌 WebSocket disconnected
+2025-11-24 14:49:54,951 pett_agent INFO: 🛑 Web server stopped
+2025-11-24 14:49:54,952 pett_agent INFO: ✅ Pett Agent shutdown complete
+2025-11-24 14:49:56,574 pett_agent INFO: 🚀 Starting Pett Agent with Olas SDK compliance
+2025-11-24 14:49:56,575 pett_agent INFO: Ethereum private key: Found
+2025-11-24 14:49:56,575 pett_agent INFO: Withdrawal mode: False
+2025-11-24 14:49:56,575 pett_agent INFO: 📋 Loaded 0 environment variables
+2025-11-24 14:49:56,973 pett_agent INFO: Using Safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F on chainId 8453
+2025-11-24 14:49:57,687 pett_agent INFO: Safe owners (n=1): ['0xE43d9713a0999B965750fC94934D64CA7d5D2e15']
+2025-11-24 14:49:57,688 pett_agent INFO: Safe threshold: 1
+2025-11-24 14:49:57,688 pett_agent ERROR: Agent EOA is NOT an owner of the AI Agent Safe; execTransaction will revert (GS026)
+2025-11-24 14:49:57,689 pett_agent INFO: ActionRecorder initialised for agent address 0xDd03...2803
+2025-11-24 14:49:57,689 pett_agent INFO: Skipping staking checkpoint initialisation: staking contract address not configured
+2025-11-24 14:49:57,689 pett_agent INFO: 🔧 Olas SDK Interface initialized
+2025-11-24 14:49:57,689 pett_agent INFO: 🐾 Pett Agent initialized
+2025-11-24 14:49:57,690 pett_agent INFO: 🚀 Initializing Pett Agent components...
+2025-11-24 14:49:57,690 pett_agent INFO: 🎨 Building React frontend...
+2025-11-24 14:49:57,691 pett_agent INFO: ✅ node_modules already exists, skipping install
+2025-11-24 14:49:57,691 pett_agent INFO: 📦 Building React app...
+2025-11-24 14:50:18,977 pett_agent INFO: ✅ React app built successfully
+2025-11-24 14:50:18,977 pett_agent INFO: ✅ React build available for serving
+2025-11-24 14:50:18,979 pett_agent INFO: 🌐 Web server started on http://0.0.0.0:8716 (access via http://localhost:8716)
+2025-11-24 14:50:18,979 pett_agent INFO: 🎨 React App available at http://localhost:8716/ (Dashboard at /dashboard)
+2025-11-24 14:50:18,979 pett_agent INFO: 🏥 Health API: http://localhost:8716/api/health
+2025-11-24 14:50:18,979 pett_agent INFO: ℹ️  No PRIVY_TOKEN in environment
+2025-11-24 14:50:18,979 pett_agent INFO: ✨ Waiting for user to login via React app at http://localhost:8716/
+2025-11-24 14:50:18,979 pett_agent INFO: 🧾 On-chain action recorder ENABLED: contract=0x907afC85F3922CbdEB7b9Ed806742b4eF998DF31 rpc=https://base.llamarpc.com agent=0xDd03...2803
+2025-11-24 14:50:18,980 pett_agent INFO: ℹ️ No TELEGRAM_BOT_TOKEN found - Telegram disabled
+2025-11-24 14:50:18,980 pett_agent INFO: ✅ Pett Agent initialization complete
+2025-11-24 14:50:18,980 pett_agent INFO: 🎯 Pett Agent is now running...
+2025-11-24 14:50:46,542 pett_agent INFO: 🔐 Received login request from React frontend
+2025-11-24 14:50:46,542 pett_agent INFO: 🔐 Updating Privy token and refreshing WebSocket connection
+2025-11-24 14:50:46,543 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-24 14:50:46,543 agent.pett_websocket_client INFO: 🆕 Using environment auth token for connection
+2025-11-24 14:50:46,543 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-24 14:50:46,543 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-24 14:50:46,664 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-24 14:50:46,664 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-24 14:50:46,664 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-24 14:50:46,664 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-24 14:50:46,665 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 14:50:46,665 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-24 14:50:46,792 agent.pett_websocket_client INFO: ✅ Connection and authentication successful!
+2025-11-24 14:50:48,998 pett_agent INFO: 😴 Low energy detected; initiating sleep
+2025-11-24 14:50:48,999 agent.pett_websocket_client INFO: 📤 Sent message type: SLEEP
+2025-11-24 14:50:48,999 agent.pett_websocket_client INFO: 📤 Message content: {"type": "SLEEP", "data": {}, "nonce": "62516", "verify": true}
+2025-11-24 14:50:49,059 agent.pett_websocket_client ERROR: Server error: Invalid pet state: Pet is dead and cannot perform this action
+2025-11-24 14:51:02,655 pett_agent INFO: 🛑 Shutting down Pett Agent...
+2025-11-24 14:51:02,692 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-24 14:51:02,692 pett_agent INFO: 🔌 WebSocket disconnected
+2025-11-24 14:51:02,693 pett_agent INFO: 🛑 Web server stopped
+2025-11-24 14:51:02,693 pett_agent INFO: ✅ Pett Agent shutdown complete
+2025-11-24 14:51:04,127 pett_agent INFO: 🚀 Starting Pett Agent with Olas SDK compliance
+2025-11-24 14:51:04,127 pett_agent INFO: Ethereum private key: Found
+2025-11-24 14:51:04,127 pett_agent INFO: Withdrawal mode: False
+2025-11-24 14:51:04,127 pett_agent INFO: 📋 Loaded 0 environment variables
+2025-11-24 14:51:04,441 pett_agent INFO: Using Safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F on chainId 8453
+2025-11-24 14:51:04,727 pett_agent INFO: 🛑 Agent shutdown requested by user
+2025-11-24 15:14:12,882 pett_agent INFO: 🚀 Starting Pett Agent with Olas SDK compliance
+2025-11-24 15:14:12,883 pett_agent INFO: Ethereum private key: Found
+2025-11-24 15:14:12,883 pett_agent INFO: Withdrawal mode: False
+2025-11-24 15:14:12,883 pett_agent INFO: 📋 Loaded 0 environment variables
+2025-11-24 15:14:13,206 pett_agent INFO: Using Safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F on chainId 8453
+2025-11-24 15:14:13,946 pett_agent INFO: Safe owners (n=1): ['0xE43d9713a0999B965750fC94934D64CA7d5D2e15']
+2025-11-24 15:14:13,946 pett_agent INFO: Safe threshold: 1
+2025-11-24 15:14:13,946 pett_agent ERROR: Agent EOA is NOT an owner of the AI Agent Safe; execTransaction will revert (GS026)
+2025-11-24 15:14:13,947 pett_agent INFO: ActionRecorder initialised for agent address 0xDd03...2803
+2025-11-24 15:14:13,947 pett_agent INFO: Skipping staking checkpoint initialisation: staking contract address not configured
+2025-11-24 15:14:13,947 pett_agent INFO: 🔧 Olas SDK Interface initialized
+2025-11-24 15:14:13,947 pett_agent INFO: 🐾 Pett Agent initialized
+2025-11-24 15:14:13,949 pett_agent INFO: 🚀 Initializing Pett Agent components...
+2025-11-24 15:14:13,950 pett_agent INFO: 🎨 Building React frontend...
+2025-11-24 15:14:13,950 pett_agent INFO: ✅ node_modules already exists, skipping install
+2025-11-24 15:14:13,951 pett_agent INFO: 📦 Building React app...
+2025-11-24 15:14:33,152 pett_agent INFO: ✅ React app built successfully
+2025-11-24 15:14:33,152 pett_agent INFO: ✅ React build available for serving
+2025-11-24 15:14:33,154 pett_agent INFO: 🌐 Web server started on http://0.0.0.0:8716 (access via http://localhost:8716)
+2025-11-24 15:14:33,154 pett_agent INFO: 🎨 React App available at http://localhost:8716/ (Dashboard at /dashboard)
+2025-11-24 15:14:33,154 pett_agent INFO: 🏥 Health API: http://localhost:8716/api/health
+2025-11-24 15:14:33,154 pett_agent INFO: ℹ️  No PRIVY_TOKEN in environment
+2025-11-24 15:14:33,154 pett_agent INFO: ✨ Waiting for user to login via React app at http://localhost:8716/
+2025-11-24 15:14:33,154 pett_agent INFO: 🧾 On-chain action recorder ENABLED: contract=0x907afC85F3922CbdEB7b9Ed806742b4eF998DF31 rpc=https://base.llamarpc.com agent=0xDd03...2803
+2025-11-24 15:14:33,155 pett_agent INFO: ℹ️ No TELEGRAM_BOT_TOKEN found - Telegram disabled
+2025-11-24 15:14:33,155 pett_agent INFO: ✅ Pett Agent initialization complete
+2025-11-24 15:14:33,155 pett_agent INFO: 🎯 Pett Agent is now running...
+2025-11-24 15:21:21,514 pett_agent INFO: 🔐 Received login request from React frontend
+2025-11-24 15:21:21,515 pett_agent INFO: 🔐 Updating Privy token and refreshing WebSocket connection
+2025-11-24 15:21:21,516 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-24 15:21:21,516 agent.pett_websocket_client INFO: 🆕 Using environment auth token for connection
+2025-11-24 15:21:21,516 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-24 15:21:21,516 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-24 15:21:21,704 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-24 15:21:21,704 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-24 15:21:21,704 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-24 15:21:21,704 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-24 15:21:21,706 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:21:21,706 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-24 15:21:21,768 agent.pett_websocket_client INFO: ✅ Connection and authentication successful!
+2025-11-24 15:21:22,277 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:21:23,374 pett_agent INFO: 😴 Low energy detected; initiating sleep
+2025-11-24 15:21:23,375 agent.pett_websocket_client INFO: 📤 Sent message type: SLEEP
+2025-11-24 15:21:23,375 agent.pett_websocket_client INFO: 📤 Message content: {"type": "SLEEP", "data": {}, "nonce": "47885", "verify": true}
+2025-11-24 15:21:23,433 agent.pett_websocket_client ERROR: Server error: Invalid pet state: Pet is dead and cannot perform this action
+2025-11-24 15:21:27,276 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:21:32,278 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:21:37,294 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:21:42,282 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:21:47,281 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:21:52,284 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:21:57,284 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:22:02,283 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:22:07,283 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:22:12,281 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:22:17,286 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:22:22,281 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:22:27,281 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:22:32,293 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:23:30,350 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:24:30,313 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:25:05,876 pett_agent INFO: 🛑 Shutting down Pett Agent...
+2025-11-24 15:25:05,917 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-24 15:25:05,917 pett_agent INFO: 🔌 WebSocket disconnected
+2025-11-24 15:25:05,918 pett_agent INFO: 🛑 Web server stopped
+2025-11-24 15:25:05,918 pett_agent INFO: ✅ Pett Agent shutdown complete
+2025-11-24 15:25:07,371 pett_agent INFO: 🚀 Starting Pett Agent with Olas SDK compliance
+2025-11-24 15:25:07,371 pett_agent INFO: Ethereum private key: Found
+2025-11-24 15:25:07,371 pett_agent INFO: Withdrawal mode: False
+2025-11-24 15:25:07,371 pett_agent INFO: 📋 Loaded 0 environment variables
+2025-11-24 15:25:07,706 pett_agent INFO: Using Safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F on chainId 8453
+2025-11-24 15:25:08,810 pett_agent INFO: Safe owners (n=1): ['0xE43d9713a0999B965750fC94934D64CA7d5D2e15']
+2025-11-24 15:25:08,810 pett_agent INFO: Safe threshold: 1
+2025-11-24 15:25:08,811 pett_agent ERROR: Agent EOA is NOT an owner of the AI Agent Safe; execTransaction will revert (GS026)
+2025-11-24 15:25:08,811 pett_agent INFO: ActionRecorder initialised for agent address 0xDd03...2803
+2025-11-24 15:25:08,811 pett_agent INFO: Skipping staking checkpoint initialisation: staking contract address not configured
+2025-11-24 15:25:08,812 pett_agent INFO: 🔧 Olas SDK Interface initialized
+2025-11-24 15:25:08,812 pett_agent INFO: 🐾 Pett Agent initialized
+2025-11-24 15:25:08,813 pett_agent INFO: 🚀 Initializing Pett Agent components...
+2025-11-24 15:25:08,813 pett_agent INFO: 🎨 Building React frontend...
+2025-11-24 15:25:08,814 pett_agent INFO: ✅ node_modules already exists, skipping install
+2025-11-24 15:25:08,814 pett_agent INFO: 📦 Building React app...
+2025-11-24 15:25:27,271 pett_agent INFO: ✅ React app built successfully
+2025-11-24 15:25:27,271 pett_agent INFO: ✅ React build available for serving
+2025-11-24 15:25:27,273 pett_agent INFO: 🌐 Web server started on http://0.0.0.0:8716 (access via http://localhost:8716)
+2025-11-24 15:25:27,273 pett_agent INFO: 🎨 React App available at http://localhost:8716/ (Dashboard at /dashboard)
+2025-11-24 15:25:27,273 pett_agent INFO: 🏥 Health API: http://localhost:8716/api/health
+2025-11-24 15:25:27,273 pett_agent INFO: ℹ️  No PRIVY_TOKEN in environment
+2025-11-24 15:25:27,273 pett_agent INFO: ✨ Waiting for user to login via React app at http://localhost:8716/
+2025-11-24 15:25:27,273 pett_agent INFO: 🧾 On-chain action recorder ENABLED: contract=0x907afC85F3922CbdEB7b9Ed806742b4eF998DF31 rpc=https://base.llamarpc.com agent=0xDd03...2803
+2025-11-24 15:25:27,274 pett_agent INFO: ℹ️ No TELEGRAM_BOT_TOKEN found - Telegram disabled
+2025-11-24 15:25:27,274 pett_agent INFO: ✅ Pett Agent initialization complete
+2025-11-24 15:25:27,274 pett_agent INFO: 🎯 Pett Agent is now running...
+2025-11-24 15:31:22,595 pett_agent INFO: 🔐 Received login request from React frontend
+2025-11-24 15:31:22,596 pett_agent INFO: 🔐 Updating Privy token and refreshing WebSocket connection
+2025-11-24 15:31:22,596 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-24 15:31:22,596 agent.pett_websocket_client INFO: 🆕 Using environment auth token for connection
+2025-11-24 15:31:22,596 agent.pett_websocket_client INFO: 🔄 Connection attempt 1/3
+2025-11-24 15:31:22,596 agent.pett_websocket_client INFO: 🔌 Connecting to WebSocket: wss://ws.pett.ai
+2025-11-24 15:31:22,714 agent.pett_websocket_client INFO: ✅ WebSocket connection established
+2025-11-24 15:31:22,714 agent.pett_websocket_client INFO: ✅ WebSocket connected, starting message listener...
+2025-11-24 15:31:22,714 agent.pett_websocket_client INFO: 👂 Started WebSocket message listener
+2025-11-24 15:31:22,714 agent.pett_websocket_client INFO: 🔐 Attempting authentication...
+2025-11-24 15:31:22,714 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:31:22,715 agent.pett_websocket_client INFO: 👂 Starting WebSocket message listener...
+2025-11-24 15:31:22,781 agent.pett_websocket_client INFO: ✅ Connection and authentication successful!
+2025-11-24 15:31:23,284 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:31:27,372 pett_agent INFO: 😴 Low energy detected; initiating sleep
+2025-11-24 15:31:27,373 agent.pett_websocket_client INFO: 📤 Sent message type: SLEEP
+2025-11-24 15:31:27,373 agent.pett_websocket_client INFO: 📤 Message content: {"type": "SLEEP", "data": {}, "nonce": "49406", "verify": true}
+2025-11-24 15:31:27,432 agent.pett_websocket_client ERROR: Server error: Invalid pet state: Pet is dead and cannot perform this action
+2025-11-24 15:31:28,279 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:31:30,299 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:31:33,280 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:31:38,284 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:31:43,280 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:31:48,283 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:31:51,153 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:31:52,301 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:31:53,281 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:31:58,280 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:32:03,280 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:32:08,278 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:32:13,279 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:32:18,280 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:32:23,280 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:32:28,364 agent.pett_websocket_client INFO: 📤 Sent message type: AUTH
+2025-11-24 15:32:59,379 pett_agent INFO: 🛑 Shutting down Pett Agent...
+2025-11-24 15:32:59,422 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-24 15:32:59,422 pett_agent INFO: 🔌 WebSocket disconnected
+2025-11-24 15:32:59,424 pett_agent INFO: 🛑 Web server stopped
+2025-11-24 15:32:59,424 pett_agent INFO: ✅ Pett Agent shutdown complete

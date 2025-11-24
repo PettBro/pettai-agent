@@ -713,28 +713,35 @@ const Dashboard = () => {
 					<div
 						role="dialog"
 						aria-modal="true"
-						className="relative z-10 w-full max-w-md rounded-3xl bg-white/95 p-6 text-center shadow-2xl space-y-5 border border-red-100"
+						className="relative z-10 w-full max-w-md rounded-3xl bg-white/95 p-8 text-center shadow-2xl space-y-6 border border-red-100"
 					>
-						<div className="space-y-2">
-							<p className="text-sm font-semibold uppercase tracking-[0.3em] text-red-500">alert</p>
-							<h2 className="text-3xl font-black text-gray-900 tracking-tight">Pet is dead</h2>
-							<p className="text-sm text-gray-600">
-								Your companion can't continue inside this agent. Choose what you want to do next.
-							</p>
+						<div className="space-y-4">
+							<div className="flex items-center justify-center">
+								<div className="rounded-full bg-red-100 p-4">
+									<svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+										<path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+									</svg>
+								</div>
+							</div>
+							<h2 className="text-3xl font-bold uppercase tracking-wide text-red-600">Pet Passed Away</h2>
+							<div className="space-y-3">
+								<p className="text-lg font-medium text-gray-800">
+									We're sorry to inform you that <span className="font-bold text-red-600">{healthData?.pet?.name}</span> has passed away.
+								</p>
+								<p className="text-base text-gray-600 leading-relaxed">
+									You can revive or reset your pet in the main app. Click the button below to open the app and log in using the same method you used here.
+								</p>
+							</div>
 						</div>
-						<div className="space-y-3">
+						<div className="pt-2">
 							<button
 								type="button"
 								onClick={handleRevivePetClick}
-								className="w-full rounded-2xl bg-purple-700/90 hover:bg-purple-800 text-white px-4 py-4 transition-all shadow-lg shadow-purple-800/30 border border-white/20"
+								className="w-full rounded-2xl bg-purple-700/90 hover:bg-purple-800 active:bg-purple-900 text-white px-6 py-4 transition-all shadow-lg shadow-purple-800/30 border border-white/20 font-bold text-lg uppercase tracking-wide"
 							>
-								<div className="text-lg font-bold uppercase tracking-wide">Revive pet</div>
-								<div className="text-xs font-semibold text-white/80">through the game app <a href="https://app.pett.ai" target="_blank" rel="noopener noreferrer">app.pett.ai</a></div>
+								Open Main App to Revive
 							</button>
 						</div>
-						<p className="text-xs text-gray-500">
-							Reviving happens inside the Pett game app.
-						</p>
 					</div>
 				</div>
 			)}

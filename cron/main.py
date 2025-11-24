@@ -151,6 +151,7 @@ class StakingCheckpointClient:
         self._dry_run: bool = bool(config.dry_run)
         self._last_attempted_nonce: Optional[int] = None
         self._next_nonce: Optional[int] = None
+        self._last_skip_reason: Optional[str] = None
 
         self._load_state()
         self._initialise()
@@ -169,6 +170,7 @@ class StakingCheckpointClient:
 
     def _call_checkpoint_if_needed_sync(self, force: bool = False) -> Optional[str]:
         if not self.is_enabled:
+            self._set_skip_reason("client not enabled")
             return None
 
         assert self._staking_contract is not None
@@ -183,6 +185,7 @@ class StakingCheckpointClient:
             if self._recent_submission_in_progress(current_ts):
                 self._logger.debug("Skipping checkpoint: recent submission pending")
                 self._record_state(last_onchain, current_ts, self._last_tx_hash)
+                self._set_skip_reason("recent submission still pending")
                 return None
 
             if liveness is None:
@@ -195,12 +198,18 @@ class StakingCheckpointClient:
                     self._logger.debug(
                         "Checkpoint liveness not reached (remaining %ss)", remaining
                     )
+                    self._set_skip_reason(
+                        f"liveness period not reached (remaining {remaining}s)"
+                    )
 
         self._record_state(last_onchain, current_ts, self._last_tx_hash)
 
         if not should_execute:
+            if self._last_skip_reason is None:
+                self._set_skip_reason("execution conditions not met")
             return None
 
+        self._set_skip_reason(None)
         return self._submit_checkpoint_transaction(current_ts)
 
     def _recent_submission_in_progress(self, current_ts: int) -> bool:
@@ -272,6 +281,7 @@ class StakingCheckpointClient:
                 self._account_address,
             )
         ):
+            self._set_skip_reason("client not fully initialised")
             return None
 
         assert self._staking_contract is not None
@@ -310,24 +320,24 @@ class StakingCheckpointClient:
             )
 
             if self._dry_run:
+                tx_details = {
+                    "to": contract.address,
+                    "from": account_address,
+                    "nonce": tx_params.get("nonce"),
+                    "gas": tx_params.get("gas"),
+                    "chainId": tx_params.get("chainId"),
+                    "maxPriorityFeePerGas": tx_params.get("maxPriorityFeePerGas"),
+                    "maxFeePerGas": tx_params.get("maxFeePerGas"),
+                    "gasPrice": tx_params.get("gasPrice"),
+                }
                 try:
                     self._logger.info(
-                        "[DRY RUN] Would submit checkpoint tx: %s",
-                        {
-                            "to": contract.address,
-                            "from": account_address,
-                            "nonce": tx_params.get("nonce"),
-                            "gas": tx_params.get("gas"),
-                            "chainId": tx_params.get("chainId"),
-                            "maxPriorityFeePerGas": tx_params.get(
-                                "maxPriorityFeePerGas"
-                            ),
-                            "maxFeePerGas": tx_params.get("maxFeePerGas"),
-                            "gasPrice": tx_params.get("gasPrice"),
-                        },
+                        "[DRY RUN] Would submit checkpoint tx: %s", tx_details
                     )
                 except Exception:
                     pass
+                print(f"[DRY RUN] Would submit checkpoint transaction: {tx_details}")
+                self._set_skip_reason("dry run enabled")
                 return None
 
             signed = w3.eth.account.sign_transaction(txn, private_key=private_key)
@@ -344,7 +354,12 @@ class StakingCheckpointClient:
             self._nonce_cache = self._next_nonce
             self._last_submitted_at = current_ts
             self._last_tx_hash = tx_hash.hex()
+            self._logger.info(
+                "Transaction submitted successfully: %s", self._last_tx_hash
+            )
+            print(f"Transaction submitted successfully: {self._last_tx_hash}")
             self._persist_state_file()
+            self._set_skip_reason(None)
             return self._last_tx_hash
         except ValueError as exc:
             self._handle_value_error(exc)
@@ -375,19 +390,25 @@ class StakingCheckpointClient:
                 self._logger.info(
                     "Updated persisted nonce due to 'nonce too low'; will try on next invocation"
                 )
+                self._set_skip_reason("nonce too low; updated cached nonce")
                 return None
             if "already known" in lowered or "known transaction" in lowered:
+                tx_hash_display = self._last_tx_hash or "unknown"
                 self._logger.info(
-                    "Provider indicates known transaction; treating as submitted"
+                    "Provider indicates known transaction; treating as submitted: %s",
+                    tx_hash_display,
                 )
+                print(f"Transaction already known: {tx_hash_display}")
                 return self._last_tx_hash
             raise
         except ContractLogicError as exc:
             self._logger.warning(
                 "Staking contract rejected checkpoint transaction: %s", exc
             )
+            self._set_skip_reason(f"contract rejected transaction: {exc}")
             return None
-        except Exception:
+        except Exception as exc:
+            self._set_skip_reason(str(exc))
             raise
 
     def _estimate_gas(self, tx_params: Dict[str, Any]) -> Optional[int]:
@@ -711,6 +732,12 @@ class StakingCheckpointClient:
         except Exception:
             return None
 
+    def _set_skip_reason(self, reason: Optional[str]) -> None:
+        self._last_skip_reason = reason
+
+    def get_last_skip_reason(self) -> Optional[str]:
+        return self._last_skip_reason
+
 
 def _json_response(body: dict, status: int = 200):
     return (json.dumps(body), status, {"Content-Type": "application/json"})
@@ -738,13 +765,20 @@ def checkpoint_http(request):
         tx_hash = asyncio.run(client.call_checkpoint_if_needed(force=False))
         from_address = client.get_from_address()
 
+        if not tx_hash:
+            reason_msg = client.get_last_skip_reason() or "unknown reason"
+            raise RuntimeError(
+                f"Checkpoint transaction was not submitted: {reason_msg}"
+            )
+
         return _json_response(
             {
-                "status": "submitted" if tx_hash else "skipped",
+                "status": "submitted",
                 "tx_hash": tx_hash,
                 "dry_run": bool(config.dry_run),
                 "force": False,
                 "from_address": from_address,
+                "skip_reason": client.get_last_skip_reason(),
             }
         )
     except Exception as exc:
@@ -753,7 +787,16 @@ def checkpoint_http(request):
             from_address = client.get_from_address()  # type: ignore[name-defined]
         except Exception:
             from_address = None
+        try:
+            skip_reason = client.get_last_skip_reason()  # type: ignore[name-defined]
+        except Exception:
+            skip_reason = None
         return _json_response(
-            {"status": "error", "error": str(exc), "from_address": from_address},
+            {
+                "status": "error",
+                "error": str(exc),
+                "from_address": from_address,
+                "skip_reason": skip_reason,
+            },
             status=500,
         )
