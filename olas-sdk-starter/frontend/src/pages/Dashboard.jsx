@@ -406,6 +406,8 @@ const Dashboard = () => {
 			dead: Boolean(petRaw?.dead),
 		}
 		: null;
+	const petName = healthData?.pet?.name?.trim() || '';
+	const petDisplayName = petName || 'your pet';
 	const isPetDead = Boolean(petRaw?.dead);
 
 	const handleRevivePetClick = useCallback(() => {
@@ -723,24 +725,18 @@ const Dashboard = () => {
 									</svg>
 								</div>
 							</div>
-							<h2 className="text-3xl font-bold uppercase tracking-wide text-red-600">Pet Passed Away</h2>
+							<h2 className="text-3xl font-bold uppercase tracking-wide text-red-600">Important</h2>
 							<div className="space-y-3">
-								<p className="text-lg font-medium text-gray-800">
-									We're sorry to inform you that <span className="font-bold text-red-600">{healthData?.pet?.name}</span> has passed away.
+								<p className="text-lg font-semibold text-gray-900">
+									Unfortunately, your pet{' '}
+									{petName ? <span className="font-black text-red-600">{petName}</span> : null}
+									{!petName && ' '}
+									has passed away!
 								</p>
-								<p className="text-base text-gray-600 leading-relaxed">
-									You can revive or reset your pet in the main app. Click the button below to open the app and log in using the same method you used here.
+								<p className="text-lg font-medium text-gray-800 leading-relaxed">
+									You can still revive or reset {petDisplayName}, through the Pett.ai app. Should you wish to do so, click the button below, log in with the same method used here, and follow the pet reset/revival instructions.
 								</p>
 							</div>
-						</div>
-						<div className="pt-2">
-							<button
-								type="button"
-								onClick={handleRevivePetClick}
-								className="w-full rounded-2xl bg-purple-700/90 hover:bg-purple-800 active:bg-purple-900 text-white px-6 py-4 transition-all shadow-lg shadow-purple-800/30 border border-white/20 font-bold text-lg uppercase tracking-wide"
-							>
-								Open Main App to Revive
-							</button>
 						</div>
 					</div>
 				</div>
