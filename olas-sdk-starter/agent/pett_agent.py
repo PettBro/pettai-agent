@@ -45,6 +45,8 @@ class PettAgent:
     POST_KPI_SLEEP_TRIGGER = 85.0
     POST_KPI_SLEEP_TARGET = 80.0
     REQUIRED_ACTIONS_PER_EPOCH = 8
+    CRITICAL_CORE_STATS: Tuple[str, ...] = ("hunger", "health", "hygiene", "happiness")
+    CRITICAL_STAT_THRESHOLD = 5.0
 
     def __init__(
         self,
@@ -1137,6 +1139,28 @@ class PettAgent:
         except Exception:
             return 0.0
 
+    def _all_core_stats_below_threshold(
+        self, stats: Dict[str, Any], threshold: float
+    ) -> bool:
+        """Check whether all critical stats fall below a threshold."""
+        values: List[float] = []
+        for key in self.CRITICAL_CORE_STATS:
+            if key not in stats:
+                continue
+            raw_value = stats.get(key)
+            if raw_value is None:
+                continue
+            try:
+                numeric_value = float(str(raw_value))
+            except Exception:
+                continue
+            values.append(numeric_value)
+
+        if not values:
+            return False
+
+        return all(value < threshold for value in values)
+
     async def _recover_low_health(self) -> bool:
         """Attempt to recover health using SMALL_POTION or SALAD.
 
@@ -1427,23 +1451,57 @@ class PettAgent:
         except Exception as e:
             self.logger.debug(f"Pet update handler encountered exception: {e}")
 
-    def _record_passive_sleep_action(self) -> None:
+    async def _record_passive_sleep_action(self) -> None:
         """Record a synthetic SLEEP action without toggling the pet's state."""
         self.logger.info("🧾 Recording passive SLEEP action while maintaining rest")
         self._daily_action_tracker.record_action("SLEEP")
-        completed = self._daily_action_tracker.actions_completed()
-        remaining = self._daily_action_tracker.actions_remaining()
-        self.logger.info(
-            "📋 Action SLEEP recorded (%d/%d today, %d remaining)",
-            completed,
-            self.REQUIRED_ACTIONS_PER_EPOCH,
-            remaining,
-        )
+        await self._log_action_progress("SLEEP")
         recorder = self.olas.get_action_recorder()
         if recorder and recorder.is_enabled:
             self.logger.info(
                 "🧾 On-chain SLEEP record skipped: verification unavailable without toggling state"
             )
+
+    async def _get_epoch_action_progress(
+        self, *, force_refresh: bool = False
+    ) -> Tuple[int, int, int, bool]:
+        """Return (completed, required, remaining, using_staking) for the current epoch."""
+        client = self.olas.get_staking_checkpoint_client()
+        if client and client.is_enabled:
+            try:
+                metrics = await client.get_epoch_kpis(force_refresh=force_refresh)
+            except Exception as exc:
+                self.logger.debug(
+                    "Failed to fetch staking KPIs for action progress: %s", exc
+                )
+            else:
+                if metrics is not None:
+                    required = int(metrics.required_txs or self.REQUIRED_ACTIONS_PER_EPOCH)
+                    if required <= 0:
+                        required = self.REQUIRED_ACTIONS_PER_EPOCH
+                    completed = max(int(metrics.txs_in_epoch), 0)
+                    remaining = max(required - completed, 0)
+                    return completed, required, remaining, True
+
+        completed = self._daily_action_tracker.actions_completed()
+        required = self.REQUIRED_ACTIONS_PER_EPOCH
+        remaining = self._daily_action_tracker.actions_remaining()
+        return completed, required, remaining, False
+
+    async def _log_action_progress(self, action_name: str) -> None:
+        """Log action counters aligned with staking epoch progress when available."""
+        completed, required, remaining, using_staking = (
+            await self._get_epoch_action_progress(force_refresh=True)
+        )
+        scope_label = "this epoch" if using_staking else "today"
+        self.logger.info(
+            "📋 Action %s recorded (%d/%d %s, %d remaining)",
+            action_name,
+            completed,
+            required,
+            scope_label,
+            remaining,
+        )
 
     async def _record_resting_sleep_action(self, client: PettWebSocketClient) -> bool:
         """Emit a verified SLEEP action while keeping the pet asleep overall."""
@@ -1499,15 +1557,7 @@ class PettAgent:
 
         if success:
             self._daily_action_tracker.record_action(normalized_name)
-            completed = self._daily_action_tracker.actions_completed()
-            remaining = self._daily_action_tracker.actions_remaining()
-            self.logger.info(
-                "📋 Action %s recorded (%d/%d today, %d remaining)",
-                normalized_name,
-                completed,
-                self.REQUIRED_ACTIONS_PER_EPOCH,
-                remaining,
-            )
+            await self._log_action_progress(normalized_name)
 
         try:
             await self._maybe_checkpoint_epoch_end(f"action:{normalized_name}")
@@ -1683,69 +1733,145 @@ class PettAgent:
         health = self._to_float(stats.get("health", 0))
         actions_remaining = self._daily_action_tracker.actions_remaining()
         kpi_met = actions_remaining == 0
+        critical_threshold = self.CRITICAL_STAT_THRESHOLD
+        stats_critical = self._all_core_stats_below_threshold(stats, critical_threshold)
+        sleep_blocked = stats_critical
+
+        if stats_critical and sleeping:
+            self.logger.info(
+                "⚠️ Critical stats detected while pet sleeping; waking to use consumables"
+            )
+            await client.sleep_pet(record_on_chain=False)
+            await asyncio.sleep(0.5)
+            sleeping = False
+
+        if stats_critical:
+            self.logger.warning(
+                "⚠️ Hunger, health, hygiene, and happiness all below %.1f; prioritizing consumables",
+                critical_threshold,
+            )
+            stats_snapshot = dict(stats)
+
+            feed_success = False
+            if self.decision_engine:
+
+                async def emergency_feed() -> bool:
+                    if not self.decision_engine:
+                        return False
+                    return await self.decision_engine.feed_best_owned_food(stats_snapshot)
+
+                feed_success = await self._execute_action_with_tracking(
+                    "CONSUMABLES_USE", emergency_feed
+                )
+            else:
+                self.logger.warning(
+                    "⚠️ Decision engine unavailable; cannot perform emergency feeding"
+                )
+
+            if feed_success:
+                self.logger.info(
+                    "🍽️ Emergency consumable consumed; deferring other actions this cycle"
+                )
+                return
+
+            self.logger.warning(
+                "⚠️ Emergency feeding failed; attempting targeted health recovery"
+            )
+            recovered = await self._recover_low_health()
+            if recovered:
+                self.logger.info(
+                    "🩹 Emergency health consumable consumed; deferring other actions this cycle"
+                )
+                return
+
+            self.logger.warning(
+                "⚠️ Consumable attempts failed; sleeping remains disabled for this cycle"
+            )
 
         if actions_remaining == 1:
-            self.logger.info(
-                "😴 Forcing sleep as the final required action in this epoch"
-            )
-            if sleeping:
+            if sleep_blocked:
+                self.logger.warning(
+                    "⚠️ Final required action would be sleep but is blocked due to critical stats"
+                )
+            else:
                 self.logger.info(
-                    "🛌 Pet already sleeping; briefly waking to record the final sleep action"
+                    "😴 Forcing sleep as the final required action in this epoch"
+                )
+                if sleeping:
+                    self.logger.info(
+                        "🛌 Pet already sleeping; briefly waking to record the final sleep action"
+                    )
+                    await client.sleep_pet(record_on_chain=False)
+                    await asyncio.sleep(0.5)
+                    sleeping = False
+                await self._execute_action_with_tracking("SLEEP", client.sleep_pet)
+                return
+
+        # Top-priority: low energy -> sleep
+        if not sleep_blocked and energy < self.LOW_ENERGY_THRESHOLD and not sleeping:
+            self.logger.info("😴 Low energy detected; initiating sleep")
+            await self._execute_action_with_tracking("SLEEP", client.sleep_pet)
+            return
+        elif sleep_blocked and energy < self.LOW_ENERGY_THRESHOLD and not sleeping:
+            self.logger.info(
+                "⚡️ Energy low but sleeping is disabled until stats recover"
+            )
+
+        # Bias post-KPI actions toward sleeping so energy can fully recover
+        if kpi_met and energy < self.POST_KPI_SLEEP_TRIGGER:
+            if sleep_blocked:
+                self.logger.info(
+                    "⚠️ Post-KPI sleep skipped because stats are critically low"
+                )
+            else:
+                if sleeping:
+                    self.logger.info(
+                        "😴 KPI threshold met; keeping pet asleep to rebuild energy (%.1f%%)",
+                        energy,
+                    )
+                    return
+                self.logger.info(
+                    "😴 KPI threshold met; scheduling additional sleep to rebuild energy (%.1f%%)",
+                    energy,
+                )
+                await self._execute_action_with_tracking("SLEEP", client.sleep_pet)
+                return
+
+        # Manage transitions while the pet is already sleeping
+        if sleeping:
+            if sleep_blocked:
+                self.logger.info(
+                    "⚠️ Pet is sleeping but stats demand immediate care; waking now"
                 )
                 await client.sleep_pet(record_on_chain=False)
                 await asyncio.sleep(0.5)
                 sleeping = False
-            await self._execute_action_with_tracking("SLEEP", client.sleep_pet)
-            return
-
-        # Top-priority: low energy -> sleep
-        if energy < self.LOW_ENERGY_THRESHOLD and not sleeping:
-            self.logger.info("😴 Low energy detected; initiating sleep")
-            await self._execute_action_with_tracking("SLEEP", client.sleep_pet)
-            return
-
-        # Bias post-KPI actions toward sleeping so energy can fully recover
-        if kpi_met and energy < self.POST_KPI_SLEEP_TRIGGER:
-            if sleeping:
-                self.logger.info(
-                    "😴 KPI threshold met; keeping pet asleep to rebuild energy (%.1f%%)",
-                    energy,
-                )
-                return
-            self.logger.info(
-                "😴 KPI threshold met; scheduling additional sleep to rebuild energy (%.1f%%)",
-                energy,
-            )
-            await self._execute_action_with_tracking("SLEEP", client.sleep_pet)
-            return
-
-        # Manage transitions while the pet is already sleeping
-        if sleeping:
-            wake_threshold = (
-                self.POST_KPI_SLEEP_TARGET if kpi_met else self.WAKE_ENERGY_THRESHOLD
-            )
-            if energy >= wake_threshold:
-                self.logger.info(
-                    "🔥 Energy recovered to %.1f%% (wake threshold %.1f%%); waking pet",
-                    energy,
-                    wake_threshold,
-                )
-                await client.sleep_pet(
-                    record_on_chain=False
-                )  # dont record since we will perform other actions
-                await asyncio.sleep(0.5)
-                sleeping = False
             else:
-                self.logger.info(
-                    "🛌 Pet still resting (energy %.1f%%, wake threshold %.1f%%); deferring other actions",
-                    energy,
-                    wake_threshold,
+                wake_threshold = (
+                    self.POST_KPI_SLEEP_TARGET if kpi_met else self.WAKE_ENERGY_THRESHOLD
                 )
-                if not kpi_met:
-                    recorded = await self._record_resting_sleep_action(client)
-                    if not recorded:
-                        self._record_passive_sleep_action()
-                return
+                if energy >= wake_threshold:
+                    self.logger.info(
+                        "🔥 Energy recovered to %.1f%% (wake threshold %.1f%%); waking pet",
+                        energy,
+                        wake_threshold,
+                    )
+                    await client.sleep_pet(
+                        record_on_chain=False
+                    )  # dont record since we will perform other actions
+                    await asyncio.sleep(0.5)
+                    sleeping = False
+                else:
+                    self.logger.info(
+                        "🛌 Pet still resting (energy %.1f%%, wake threshold %.1f%%); deferring other actions",
+                        energy,
+                        wake_threshold,
+                    )
+                    if not kpi_met:
+                        recorded = await self._record_resting_sleep_action(client)
+                        if not recorded:
+                            await self._record_passive_sleep_action()
+                    return
 
         # Priority 0: low health -> attempt recovery
         if health < self.LOW_THRESHOLD:

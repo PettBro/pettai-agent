@@ -38,6 +38,9 @@ class PetDecisionEngine:
             "(hunger, hygiene, energy, happiness). "
             "When hunger is low, analyze provided mall JSON to determine "
             "which owned consumable increases hunger the most, then use it. "
+            "If every core stat (hunger, health, hygiene, happiness) "
+            "drops below 5, avoid sleeping entirely and immediately use "
+            "consumables that boost hunger and health until they recover. "
             "Respond succinctly with the decided action(s) and parameters, "
             "and then execute using bound tools."
         )
@@ -182,53 +185,6 @@ class PetDecisionEngine:
             return None
 
         return choice
-
-    async def decide_and_act(self, pet_data: Dict[str, Any]) -> None:
-        """High-level decision: may call tools directly based on model output."""
-        # Build a compact context for the agent
-        context = {
-            "pet": pet_data,
-            "stats": pet_data.get("PetStats", {}),
-        }
-
-        user_prompt = (
-            "Decide the next best action for the pet based on these stats. "
-            "If hunger is low, you may request mall data by calling the "
-            "appropriate tool, "
-            "analyze it, then choose and use the best owned food. "
-            "Keep responses short.\n\n"
-            f"CONTEXT:\n{json.dumps(context)})"
-        )
-
-        # Log prompt (trimmed to 200 chars)
-        prompt_preview = (
-            user_prompt[:200] + "..." if len(user_prompt) > 200 else user_prompt
-        )
-        logger.info(f"[DecisionEngine] 🧠 Prompt: {prompt_preview}")
-        if self._prompt_recorder:
-            try:
-                self._prompt_recorder("decide_and_act", user_prompt, context)
-            except Exception:
-                pass
-
-        messages = [
-            {"role": "system", "content": self.system_message},
-            {"role": "user", "content": user_prompt},
-        ]
-
-        config = {"configurable": {"thread_id": "pet_decide_and_act"}}
-        result = await self.agent.ainvoke({"messages": messages}, config=config)  # type: ignore
-
-        # Log the decision/action taken
-        if isinstance(result, dict) and "messages" in result and result["messages"]:
-            last = result["messages"][-1]
-            response = getattr(last, "content", "") or ""
-            response_preview = (
-                response[:200] + "..." if len(response) > 200 else response
-            )
-            logger.info(f"[DecisionEngine] ✅ Decision: {response_preview}")
-        else:
-            logger.info("[DecisionEngine] ✅ Decision completed (no response content)")
 
     async def feed_best_owned_food(
         self, pet_stats: Optional[Dict[str, Any]] = None

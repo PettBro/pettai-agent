@@ -4,15 +4,19 @@ Handles all Olas SDK requirements and provides a clean interface for the Pett Ag
 """
 
 import asyncio
+import json
 import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, TYPE_CHECKING, Deque, List
+from typing import Any, Dict, Optional, TYPE_CHECKING, Deque, List, Tuple
 
 from aiohttp import web
 from collections import deque
 import aiohttp
+from eth_account import Account
+from web3 import Web3
+from web3.middleware import ExtraDataToPOAMiddleware
 
 if TYPE_CHECKING:
     from .pett_agent import PettAgent
@@ -30,6 +34,28 @@ from .staking_checkpoint import (
 )
 import subprocess
 import mimetypes
+
+ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
+DEFAULT_FUNDS_CHAIN = "base"
+DEFAULT_NATIVE_TOPUP_WEI = 50_000_000_000_000_000  # 0.05 ETH
+DEFAULT_NATIVE_THRESHOLD_WEI = DEFAULT_NATIVE_TOPUP_WEI // 2
+DEFAULT_STAKING_CONTRACT_ADDRESS = "0x31183503be52391844594b4B587F0e764eB3956E"
+ERC20_BALANCE_ABI = [
+    {
+        "constant": True,
+        "inputs": [{"name": "account", "type": "address"}],
+        "name": "balanceOf",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "type": "function",
+    },
+    {
+        "constant": True,
+        "inputs": [],
+        "name": "decimals",
+        "outputs": [{"name": "", "type": "uint8"}],
+        "type": "function",
+    },
+]
 
 
 class OlasInterface:
@@ -108,6 +134,13 @@ class OlasInterface:
         self.react_build_dir: Optional[Path] = None
         self.react_enabled: bool = False
 
+        # Funds status configuration
+        self.agent_eoa_address: Optional[str] = self._derive_agent_address()
+        self.agent_safe_address: Optional[str] = self._resolve_safe_address()
+        self.fund_requirements: Dict[str, Any] = self._load_fund_requirements()
+        self.fund_rpc_urls: Dict[str, str] = self._load_fund_rpc_urls()
+        self._funds_web3_clients: Dict[str, Web3] = {}
+
         # Optional on-chain components
         self.action_recorder: Optional[ActionRecorder] = None
         self.staking_checkpoint_client: Optional[StakingCheckpointClient] = None
@@ -163,6 +196,297 @@ class OlasInterface:
         if len(token) <= 12:
             return token
         return f"{token[:6]}...{token[-4:]}"
+
+    def _derive_agent_address(self) -> Optional[str]:
+        """Return the checksum EOA derived from the configured private key."""
+        private_key = (self.ethereum_private_key or "").strip()
+        if not private_key:
+            return None
+        try:
+            account = Account.from_key(private_key)
+            return Web3.to_checksum_address(account.address)
+        except Exception as exc:
+            self.logger.debug("Failed to derive agent address: %s", exc)
+            return None
+
+    def _resolve_safe_address(self) -> Optional[str]:
+        """Resolve the primary Safe address if configured."""
+        candidates = (
+            "STAKING_SAFE_ADDRESS",
+            "SERVICE_SAFE_ADDRESS",
+            "SAFE_CONTRACT_ADDRESS",
+            "SAFE_ADDRESS",
+            "CONNECTION_CONFIGS_CONFIG_SAFE_CONTRACT_ADDRESS",
+        )
+        for env_name in candidates:
+            value = os.environ.get(env_name)
+            if not value or not value.strip():
+                continue
+            try:
+                return Web3.to_checksum_address(value.strip())
+            except Exception as exc:
+                self.logger.warning(
+                    "Invalid safe address in %s ignored: %s", env_name, exc
+                )
+        mapping_candidates = (
+            "CONNECTION_CONFIGS_CONFIG_SAFE_CONTRACT_ADDRESSES",
+            "SAFE_CONTRACT_ADDRESSES",
+        )
+        for env_name in mapping_candidates:
+            raw = os.environ.get(env_name)
+            if not raw or not raw.strip():
+                continue
+            try:
+                mapping = json.loads(raw)
+            except Exception as exc:
+                self.logger.warning(
+                    "Failed to parse %s for Safe resolution: %s", env_name, exc
+                )
+                continue
+            resolved = self._select_safe_from_mapping(mapping)
+            if resolved:
+                return resolved
+        return None
+
+    def _select_safe_from_mapping(self, mapping: Any) -> Optional[str]:
+        """Select a Safe address from a JSON mapping."""
+        if not isinstance(mapping, dict) or not mapping:
+            return None
+        preferred_keys = [
+            DEFAULT_FUNDS_CHAIN,
+            DEFAULT_FUNDS_CHAIN.replace("_", ""),
+            "8453",
+            "base-mainnet",
+        ]
+        for key in preferred_keys:
+            value = mapping.get(key)
+            if value:
+                try:
+                    return Web3.to_checksum_address(str(value).strip())
+                except Exception:
+                    continue
+        if len(mapping) == 1:
+            value = next(iter(mapping.values()))
+            try:
+                return Web3.to_checksum_address(str(value).strip())
+            except Exception:
+                return None
+        for value in mapping.values():
+            try:
+                return Web3.to_checksum_address(str(value).strip())
+            except Exception:
+                continue
+        return None
+
+    def _load_fund_requirements(self) -> Dict[str, Any]:
+        """Load fund requirements from env or fall back to defaults."""
+        env_value = os.environ.get("FUND_REQUIREMENTS") or os.environ.get(
+            "CONNECTION_CONFIGS_CONFIG_FUND_REQUIREMENTS"
+        )
+        if env_value and env_value.strip():
+            try:
+                data = json.loads(env_value)
+                if isinstance(data, dict):
+                    return data
+                self.logger.warning("FUND_REQUIREMENTS must be a JSON object")
+            except Exception as exc:
+                self.logger.error("Failed to parse FUND_REQUIREMENTS: %s", exc)
+        return self._build_default_fund_requirements()
+
+    def _build_default_fund_requirements(self) -> Dict[str, Any]:
+        """Build a conservative default that covers native gas for the EOA."""
+        if not self.agent_eoa_address:
+            return {}
+        return {
+            DEFAULT_FUNDS_CHAIN: {
+                self.agent_eoa_address: {
+                    ZERO_ADDRESS: {
+                        "threshold": str(DEFAULT_NATIVE_THRESHOLD_WEI),
+                        "topup": str(DEFAULT_NATIVE_TOPUP_WEI),
+                    }
+                }
+            }
+        }
+
+    def _load_fund_rpc_urls(self) -> Dict[str, str]:
+        """Load RPC URL overrides per chain for funds calculations."""
+        env_value = (
+            os.environ.get("FUND_RPC_URLS")
+            or os.environ.get("RPC_URLS")
+            or os.environ.get("CONNECTION_CONFIGS_CONFIG_RPC_URLS")
+        )
+        if not env_value or not env_value.strip():
+            return {}
+        try:
+            mapping = json.loads(env_value)
+        except Exception as exc:
+            self.logger.error("Failed to parse RPC_URLS: %s", exc)
+            return {}
+        if not isinstance(mapping, dict):
+            return {}
+        parsed: Dict[str, str] = {}
+        for chain, url in mapping.items():
+            if not url or not str(url).strip():
+                continue
+            parsed[str(chain).lower()] = str(url).strip()
+        return parsed
+
+    def _get_funds_rpc_url(self, chain: str) -> Optional[str]:
+        """Resolve the RPC URL used to fetch balances for a chain."""
+        chain_key = chain.lower()
+        if chain_key in self.fund_rpc_urls:
+            return self.fund_rpc_urls[chain_key]
+        env_basename = f"{chain_key.upper().replace('-', '_')}_RPC_URL"
+        for candidate in (env_basename, f"CONNECTION_CONFIGS_CONFIG_{env_basename}"):
+            value = os.environ.get(candidate)
+            if value and value.strip():
+                return value.strip()
+        if chain_key == DEFAULT_FUNDS_CHAIN:
+            return self._resolve_rpc_url()
+        return None
+
+    def _get_funds_web3(self, chain: str) -> Web3:
+        """Return (and cache) a Web3 client for the requested chain."""
+        chain_key = chain.lower()
+        if chain_key in self._funds_web3_clients:
+            return self._funds_web3_clients[chain_key]
+        rpc_url = self._get_funds_rpc_url(chain_key)
+        if not rpc_url:
+            raise RuntimeError(f"No RPC URL configured for chain '{chain}'")
+        try:
+            w3 = Web3(Web3.HTTPProvider(rpc_url))
+            if not w3.is_connected():
+                raise RuntimeError("RPC connection failed")
+            try:
+                w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
+            except ValueError:
+                pass
+        except Exception as exc:
+            raise RuntimeError(f"Failed to initialise Web3 for {chain}: {exc}") from exc
+        self._funds_web3_clients[chain_key] = w3
+        return w3
+
+    def _fetch_asset_balance(
+        self, chain: str, address: str, asset: str
+    ) -> Tuple[int, int]:
+        """Return the balance and decimals for an address/asset pair."""
+        w3 = self._get_funds_web3(chain)
+        if asset == ZERO_ADDRESS:
+            balance = w3.eth.get_balance(address)
+            return balance, 18
+        contract = w3.eth.contract(address=asset, abi=ERC20_BALANCE_ABI)
+        balance = contract.functions.balanceOf(address).call()
+        try:
+            decimals_raw = contract.functions.decimals().call()
+            decimals = int(decimals_raw)
+        except Exception:
+            decimals = 18
+        return balance, decimals
+
+    def _parse_requirement_values(self, state: Dict[str, Any]) -> Tuple[int, int]:
+        """Parse threshold/topup integers from the requirement state."""
+
+        def _parse_int(value: Any) -> Optional[int]:
+            if value is None:
+                return None
+            try:
+                return int(str(value), 0)
+            except Exception:
+                return None
+
+        topup = _parse_int(state.get("topup"))
+        threshold = _parse_int(state.get("threshold"))
+        if topup is None and threshold is None:
+            return 0, 0
+        if topup is None:
+            topup = max(int(threshold or 0) * 2, 0)
+        if threshold is None:
+            threshold = max(topup // 2, 0)
+        return threshold, topup
+
+    def _coerce_address(self, value: Any) -> Optional[str]:
+        """Return checksum version of an address when possible."""
+        if value is None:
+            return None
+        try:
+            return Web3.to_checksum_address(str(value).strip())
+        except Exception:
+            self.logger.debug("Invalid address in funds requirements: %s", value)
+            return None
+
+    def _allowed_fund_addresses(self) -> Dict[str, str]:
+        """Return the canonical addresses we are allowed to request funds for."""
+        allowed: Dict[str, str] = {}
+        if self.agent_eoa_address:
+            allowed[self.agent_eoa_address.lower()] = self.agent_eoa_address
+        if self.agent_safe_address:
+            allowed[self.agent_safe_address.lower()] = self.agent_safe_address
+        return allowed
+
+    def _compute_funds_status(self) -> Dict[str, Any]:
+        """Compute the funds deficit payload expected by Pearl v1."""
+        requirements = self.fund_requirements or {}
+        allowed = self._allowed_fund_addresses()
+        if not requirements or not allowed:
+            return {}
+
+        payload: Dict[str, Dict[str, Dict[str, Dict[str, str]]]] = {}
+        for chain_name, addresses in requirements.items():
+            if not isinstance(addresses, dict):
+                continue
+            chain_key = str(chain_name).lower()
+            chain_payload: Dict[str, Dict[str, Dict[str, str]]] = {}
+            for raw_address, assets in addresses.items():
+                if not isinstance(assets, dict):
+                    continue
+                checksum_address = self._coerce_address(raw_address)
+                if not checksum_address:
+                    continue
+                if checksum_address.lower() not in allowed:
+                    continue
+                asset_payload: Dict[str, Dict[str, str]] = {}
+                for asset_address, state in assets.items():
+                    if not isinstance(state, dict):
+                        continue
+                    checksum_asset = (
+                        ZERO_ADDRESS
+                        if str(asset_address).lower()
+                        in {"0x0", ZERO_ADDRESS.lower()}
+                        else self._coerce_address(asset_address)
+                    )
+                    if not checksum_asset:
+                        continue
+                    threshold, topup = self._parse_requirement_values(state)
+                    if topup <= 0:
+                        continue
+                    try:
+                        balance, decimals = self._fetch_asset_balance(
+                            chain_key, checksum_address, checksum_asset
+                        )
+                    except Exception as exc:
+                        self.logger.error(
+                            "Failed to fetch %s balance for %s on %s: %s",
+                            checksum_asset,
+                            checksum_address,
+                            chain_key,
+                            exc,
+                        )
+                        continue
+                    if balance >= threshold:
+                        continue
+                    deficit = max(topup - balance, 0)
+                    if deficit <= 0:
+                        continue
+                    asset_payload[checksum_asset] = {
+                        "balance": str(balance),
+                        "deficit": str(deficit),
+                        "decimals": str(decimals),
+                    }
+                if asset_payload:
+                    chain_payload[checksum_address] = asset_payload
+            if chain_payload:
+                payload[chain_key] = chain_payload
+        return payload
 
     def register_agent(self, agent: "PettAgent") -> None:
         """Store a reference to the running PettAgent instance."""
@@ -489,6 +813,13 @@ class OlasInterface:
             return
 
         rpc_url = self._resolve_rpc_url()
+        discovered_staking = self._discover_staking_config()
+        used_discovered_config = False
+        if not rpc_url and discovered_staking:
+            rpc_candidate = discovered_staking.get("rpc_url")
+            if rpc_candidate:
+                rpc_url = rpc_candidate
+                used_discovered_config = True
         if not rpc_url:
             self.logger.info(
                 "Skipping staking checkpoint initialisation: RPC endpoint not configured"
@@ -508,11 +839,18 @@ class OlasInterface:
                 staking_address = value.strip()
                 break
 
+        if not staking_address and discovered_staking:
+            staking_candidate = discovered_staking.get("staking_contract_address")
+            if staking_candidate:
+                staking_address = staking_candidate
+                used_discovered_config = True
+
         if not staking_address:
+            staking_address = DEFAULT_STAKING_CONTRACT_ADDRESS
             self.logger.info(
-                "Skipping staking checkpoint initialisation: staking contract address not configured"
+                "Staking contract address not configured; defaulting to %s",
+                staking_address,
             )
-            return
 
         safe_address: Optional[str] = None
         safe_env_candidates = (
@@ -526,6 +864,11 @@ class OlasInterface:
             if value and value.strip():
                 safe_address = value.strip()
                 break
+        if not safe_address and discovered_staking:
+            safe_candidate = discovered_staking.get("safe_address")
+            if safe_candidate:
+                safe_address = safe_candidate
+                used_discovered_config = True
         safe_address = safe_address or DEFAULT_SAFE_ADDRESS
 
         liveness_env = os.environ.get(
@@ -569,6 +912,11 @@ class OlasInterface:
                 self.logger.warning(
                     "Invalid staking service id value in %s: %s", env_name, raw
                 )
+        if service_id_value is None and discovered_staking:
+            sid = discovered_staking.get("service_id")
+            if isinstance(sid, int):
+                service_id_value = sid
+                used_discovered_config = True
 
         staking_token_address = staking_address
         staking_token_env_candidates = (
@@ -582,6 +930,14 @@ class OlasInterface:
             if value and value.strip():
                 staking_token_address = value.strip()
                 break
+        if (not staking_token_address or staking_token_address == staking_address) and discovered_staking:
+            token_candidate = discovered_staking.get("staking_token_address")
+            if token_candidate:
+                staking_token_address = token_candidate
+                used_discovered_config = True
+
+        if not staking_token_address:
+            staking_token_address = staking_address
 
         try:
             config = CheckpointConfig(
@@ -600,6 +956,109 @@ class OlasInterface:
         except Exception as exc:
             self.logger.error(f"Failed to initialise staking checkpoint helper: {exc}")
             self.staking_checkpoint_client = None
+            return
+
+        if used_discovered_config and discovered_staking:
+            self.logger.info(
+                "Auto-detected staking configuration from %s (service_id=%s, chain=%s)",
+                discovered_staking.get("source", "operate services"),
+                discovered_staking.get("service_id"),
+                discovered_staking.get("chain_name"),
+            )
+
+    def _discover_staking_config(self) -> Optional[Dict[str, Any]]:
+        """Attempt to infer staking configuration from local Operate service files."""
+        candidate_roots: List[Path] = []
+        env_root = os.environ.get("OPERATE_HOME")
+        if env_root:
+            candidate_roots.append(Path(env_root).expanduser())
+        try:
+            candidate_roots.append(Path.cwd() / ".operate")
+        except Exception:
+            pass
+        candidate_roots.append(Path.home() / ".operate")
+
+        inspected: List[Path] = []
+        for root in candidate_roots:
+            root = root.expanduser()
+            try:
+                resolved = root.resolve()
+            except Exception:
+                resolved = root
+            if resolved in inspected:
+                continue
+            inspected.append(resolved)
+
+            services_dir = resolved / "services"
+            if not services_dir.exists():
+                continue
+
+            for service_dir in sorted(services_dir.iterdir()):
+                if not service_dir.is_dir():
+                    continue
+                config_path = service_dir / "config.json"
+                if not config_path.exists():
+                    continue
+                try:
+                    with config_path.open("r", encoding="utf-8") as handle:
+                        service_cfg = json.load(handle)
+                except Exception:
+                    continue
+                chain_configs = service_cfg.get("chain_configs")
+                if not isinstance(chain_configs, dict):
+                    continue
+                for chain_name, chain_cfg in chain_configs.items():
+                    if not isinstance(chain_cfg, dict):
+                        continue
+                    chain_data = chain_cfg.get("chain_data", {}) or {}
+                    user_params = chain_data.get("user_params", {}) or {}
+                    if not user_params.get("use_staking", False):
+                        continue
+                    ledger_cfg = chain_cfg.get("ledger_config", {}) or {}
+                    rpc_candidate = str(ledger_cfg.get("rpc") or "").strip() or None
+                    service_id_value = self._parse_int_like(
+                        chain_data.get("token") or user_params.get("service_id")
+                    )
+                    if service_id_value is None:
+                        continue
+                    result = {
+                        "source": str(config_path),
+                        "chain_name": chain_name,
+                        "rpc_url": rpc_candidate,
+                        "service_id": service_id_value,
+                        "safe_address": chain_data.get("multisig")
+                        or user_params.get("multisig"),
+                        "staking_contract_address": user_params.get(
+                            "staking_contract_address"
+                        )
+                        or user_params.get("staking_proxy_address")
+                        or chain_data.get("staking_contract_address"),
+                        "staking_token_address": user_params.get(
+                            "staking_token_address"
+                        )
+                        or user_params.get("staking_token_proxy_address")
+                        or chain_data.get("staking_token_address"),
+                    }
+                    if not result["staking_contract_address"]:
+                        result["staking_contract_address"] = result[
+                            "staking_token_address"
+                        ]
+                    if not result["staking_token_address"]:
+                        result["staking_token_address"] = result[
+                            "staking_contract_address"
+                        ]
+                    return result
+        return None
+
+    @staticmethod
+    def _parse_int_like(value: Any) -> Optional[int]:
+        """Coerce integers encoded as strings or hex literals."""
+        if value is None:
+            return None
+        try:
+            return int(str(value), 0)
+        except Exception:
+            return None
 
     async def _health_check_handler(self, request: web.Request) -> web.Response:
         """Handle health check endpoint (Olas SDK requirement)."""
@@ -1167,6 +1626,8 @@ class OlasInterface:
             )  # JSON health
             self.app.router.add_get("/api/status", self._health_check_handler)
             self.app.router.add_get("/healthcheck", self._health_check_handler)
+            self.app.router.add_get("/funds-status", self._funds_status_handler)
+            self.app.router.add_get("/api/funds-status", self._funds_status_handler)
             self.app.router.add_get("/api/action-history", self._action_history_handler)
             self.app.router.add_post("/api/login", self._login_api_handler)
             self.app.router.add_post("/api/register", self._register_api_handler)
@@ -1281,6 +1742,17 @@ class OlasInterface:
 
             self._last_refresh_result = refresh_result
             return refresh_result
+
+    async def _funds_status_handler(self, request: web.Request) -> web.Response:
+        """Return current funding requirements following Pearl v1 schema."""
+        try:
+            payload = await asyncio.to_thread(self._compute_funds_status)
+        except Exception as exc:
+            self.logger.error("Failed to compute funds status: %s", exc)
+            return web.json_response(
+                {"error": "funds_status_unavailable"}, status=500
+            )
+        return web.json_response(payload, status=200)
 
     async def _chat_api_handler(self, request: web.Request) -> web.Response:
         """Simple chat proxy using OpenAI for frontend chat."""

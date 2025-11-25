@@ -4,6 +4,7 @@ Olas SDK Entry Point for Pett Agent
 Compliant with: https://stack.olas.network/olas-sdk/#step-1-build-the-agent-supporting-the-following-requirements
 """
 
+import argparse
 import os
 import sys
 import asyncio
@@ -13,6 +14,8 @@ from typing import Optional
 
 # Add the current directory to Python path for local imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from eth_account import Account
 
 from agent.olas_interface import OlasInterface
 from agent.pett_agent import PettAgent
@@ -50,8 +53,30 @@ def setup_olas_logging() -> logging.Logger:
     return logger
 
 
-def read_ethereum_private_key() -> Optional[str]:
-    """Read ethereum private key from common locations or env (Olas SDK requirement)."""
+def _prepare_private_key_material(
+    key_data: str, password: Optional[str], source: str
+) -> Optional[str]:
+    """Return a usable private key, decrypting keystores when a password is given."""
+    key_data = key_data.strip()
+    if not key_data:
+        return None
+
+    if password is None:
+        return key_data
+
+    try:
+        decrypted_bytes = Account.decrypt(key_data, password)
+    except Exception as exc:
+        logging.error(
+            "Failed to decrypt ethereum private key from %s: %s", source, exc
+        )
+        return None
+
+    return f"0x{decrypted_bytes.hex()}"
+
+
+def read_ethereum_private_key(password: Optional[str] = None) -> Optional[str]:
+    """Read the ethereum private key, supporting plaintext and encrypted keystores."""
     candidates = [
         Path("./ethereum_private_key.txt"),
         Path("../agent_key/ethereum_private_key.txt"),
@@ -64,14 +89,21 @@ def read_ethereum_private_key() -> Optional[str]:
         for key_file in candidates:
             try:
                 if key_file.exists():
-                    with open(key_file, "r") as f:
-                        key = f.read().strip()
-                        if key:
-                            return key
+                    with open(key_file, "r", encoding="utf-8") as f:
+                        key = f.read()
+                        processed = _prepare_private_key_material(
+                            key, password, str(key_file)
+                        )
+                        if processed:
+                            return processed
             except Exception:
                 continue
         if env_key and env_key.strip():
-            return env_key.strip()
+            processed = _prepare_private_key_material(
+                env_key, password, "environment variable"
+            )
+            if processed:
+                return processed
         logging.warning(
             "ethereum_private_key not found (checked ./ethereum_private_key.txt, "
             "../agent_key/ethereum_private_key.txt, and ETH_PRIVATE_KEY env)"
@@ -87,14 +119,14 @@ def check_withdrawal_mode() -> bool:
     return False
 
 
-async def main():
+async def main(password: Optional[str] = None):
     """Main entry point for the Pett Agent."""
     logger = setup_olas_logging()
     logger.info("🚀 Starting Pett Agent with Olas SDK compliance")
 
     try:
         # Read Olas SDK required configurations
-        ethereum_private_key = read_ethereum_private_key()
+        ethereum_private_key = read_ethereum_private_key(password=password)
         withdrawal_mode = check_withdrawal_mode()
 
         # Log configuration
@@ -125,9 +157,21 @@ async def main():
         raise
 
 
+def parse_args() -> argparse.Namespace:
+    """Parse CLI arguments for the agent runner."""
+    parser = argparse.ArgumentParser(description="Run the Pett Agent.")
+    parser.add_argument(
+        "--password",
+        type=str,
+        help="Password to decrypt the Ethereum private key.",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
+    cli_args = parse_args()
     try:
-        asyncio.run(main())
+        asyncio.run(main(password=cli_args.password))
     except KeyboardInterrupt:
         print("\n🛑 Agent stopped by user")
         sys.exit(0)

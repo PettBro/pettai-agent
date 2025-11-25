@@ -755,3 +755,114 @@
 2025-11-24 15:32:59,422 pett_agent INFO: 🔌 WebSocket disconnected
 2025-11-24 15:32:59,424 pett_agent INFO: 🛑 Web server stopped
 2025-11-24 15:32:59,424 pett_agent INFO: ✅ Pett Agent shutdown complete
+2025-11-25 15:08:49,521 pett_agent INFO: 🚀 Starting Pett Agent with Olas SDK compliance
+2025-11-25 15:08:49,521 pett_agent INFO: Ethereum private key: Found
+2025-11-25 15:08:49,521 pett_agent INFO: Withdrawal mode: False
+2025-11-25 15:08:49,521 pett_agent INFO: 📋 Loaded 0 environment variables
+2025-11-25 15:08:49,904 pett_agent INFO: Using Safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F on chainId 8453
+2025-11-25 15:08:50,834 pett_agent INFO: Safe owners (n=1): ['0xE43d9713a0999B965750fC94934D64CA7d5D2e15']
+2025-11-25 15:08:50,834 pett_agent INFO: Safe threshold: 1
+2025-11-25 15:08:50,834 pett_agent ERROR: Agent EOA is NOT an owner of the AI Agent Safe; execTransaction will revert (GS026)
+2025-11-25 15:08:50,834 pett_agent INFO: ActionRecorder initialised for agent address 0xDd03...2803
+2025-11-25 15:08:50,834 pett_agent INFO: Skipping staking checkpoint initialisation: staking contract address not configured
+2025-11-25 15:08:50,834 pett_agent INFO: 🔧 Olas SDK Interface initialized
+2025-11-25 15:08:50,834 pett_agent INFO: 🐾 Pett Agent initialized
+2025-11-25 15:08:50,836 pett_agent INFO: 🚀 Initializing Pett Agent components...
+2025-11-25 15:08:50,836 pett_agent INFO: 🎨 Building React frontend...
+2025-11-25 15:08:50,837 pett_agent INFO: ✅ React build already exists, skipping build
+2025-11-25 15:08:50,837 pett_agent INFO: ✅ React build available for serving
+2025-11-25 15:08:50,839 pett_agent INFO: 🌐 Web server started on http://0.0.0.0:8716 (access via http://localhost:8716)
+2025-11-25 15:08:50,839 pett_agent INFO: 🎨 React App available at http://localhost:8716/ (Dashboard at /dashboard)
+2025-11-25 15:08:50,839 pett_agent INFO: 🏥 Health API: http://localhost:8716/api/health
+2025-11-25 15:08:50,839 pett_agent INFO: ℹ️  No PRIVY_TOKEN in environment
+2025-11-25 15:08:50,839 pett_agent INFO: ✨ Waiting for user to login via React app at http://localhost:8716/
+2025-11-25 15:08:50,839 pett_agent INFO: 🧾 On-chain action recorder ENABLED: contract=0x907afC85F3922CbdEB7b9Ed806742b4eF998DF31 rpc=https://base.llamarpc.com agent=0xDd03...2803
+2025-11-25 15:08:50,839 pett_agent INFO: ℹ️ No TELEGRAM_BOT_TOKEN found - Telegram disabled
+2025-11-25 15:08:50,839 pett_agent INFO: ✅ Pett Agent initialization complete
+2025-11-25 15:08:50,839 pett_agent INFO: 🎯 Pett Agent is now running...
+2025-11-25 15:09:06,898 pett_agent INFO: 🛑 Shutting down Pett Agent...
+2025-11-25 15:09:06,900 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-25 15:09:06,900 pett_agent INFO: 🔌 WebSocket disconnected
+2025-11-25 15:09:06,903 pett_agent INFO: 🛑 Web server stopped
+2025-11-25 15:09:06,903 pett_agent INFO: ✅ Pett Agent shutdown complete
+2025-11-25 23:05:14,826 pett_agent INFO: 🚀 Starting Pett Agent with Olas SDK compliance
+2025-11-25 23:05:14,827 pett_agent INFO: Ethereum private key: Found
+2025-11-25 23:05:14,827 pett_agent INFO: Withdrawal mode: False
+2025-11-25 23:05:14,827 pett_agent INFO: 📋 Loaded 0 environment variables
+2025-11-25 23:05:15,179 pett_agent INFO: Using Safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F on chainId 8453
+2025-11-25 23:05:17,474 pett_agent INFO: Safe owners (n=1): ['0xE43d9713a0999B965750fC94934D64CA7d5D2e15']
+2025-11-25 23:05:17,475 pett_agent INFO: Safe threshold: 1
+2025-11-25 23:05:17,475 pett_agent ERROR: Agent EOA is NOT an owner of the AI Agent Safe; execTransaction will revert (GS026)
+2025-11-25 23:05:17,475 pett_agent INFO: ActionRecorder initialised for agent address 0xDd03...2803
+2025-11-25 23:05:17,479 pett_agent INFO: Staking contract address not configured; defaulting to 0x31183503be52391844594b4B587F0e764eB3956E
+2025-11-25 23:05:17,479 pett_agent WARNING: Invalid staking service id '-1'; reward claims disabled
+2025-11-25 23:05:17,689 pett_agent INFO: Staking checkpoint client initialised for agent 0xDd03...2803 (safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F, contract 0x31183503be52391844594b4B587F0e764eB3956E)
+2025-11-25 23:05:17,689 pett_agent INFO: Auto-detected staking configuration from /Users/polpedu/.operate/services/sc-dc3b4331-962a-4b03-a62e-003e3787d833/config.json (service_id=-1, chain=optimistic)
+2025-11-25 23:05:17,689 pett_agent INFO: 🔧 Olas SDK Interface initialized
+2025-11-25 23:05:17,689 pett_agent INFO: 🐾 Pett Agent initialized
+2025-11-25 23:05:17,690 pett_agent INFO: 🚀 Initializing Pett Agent components...
+2025-11-25 23:05:17,691 pett_agent INFO: 🎨 Building React frontend...
+2025-11-25 23:05:17,691 pett_agent INFO: ✅ React build already exists, skipping build
+2025-11-25 23:05:17,691 pett_agent INFO: ✅ React build available for serving
+2025-11-25 23:05:17,694 pett_agent ERROR: Failed to start web server: [Errno 48] error while attempting to bind on address ('0.0.0.0', 8716): address already in use
+2025-11-25 23:05:17,694 pett_agent ERROR: ❌ Failed to initialize Pett Agent: [Errno 48] error while attempting to bind on address ('0.0.0.0', 8716): address already in use
+2025-11-25 23:05:17,694 pett_agent ERROR: ❌ Failed to initialize agent
+2025-11-25 23:05:22,078 pett_agent INFO: 🚀 Starting Pett Agent with Olas SDK compliance
+2025-11-25 23:05:22,078 pett_agent INFO: Ethereum private key: Found
+2025-11-25 23:05:22,078 pett_agent INFO: Withdrawal mode: False
+2025-11-25 23:05:22,078 pett_agent INFO: 📋 Loaded 0 environment variables
+2025-11-25 23:05:22,363 pett_agent INFO: Using Safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F on chainId 8453
+2025-11-25 23:05:23,902 pett_agent INFO: Safe owners (n=1): ['0xE43d9713a0999B965750fC94934D64CA7d5D2e15']
+2025-11-25 23:05:23,903 pett_agent INFO: Safe threshold: 1
+2025-11-25 23:05:23,903 pett_agent ERROR: Agent EOA is NOT an owner of the AI Agent Safe; execTransaction will revert (GS026)
+2025-11-25 23:05:23,903 pett_agent INFO: ActionRecorder initialised for agent address 0xDd03...2803
+2025-11-25 23:05:23,906 pett_agent INFO: Staking contract address not configured; defaulting to 0x31183503be52391844594b4B587F0e764eB3956E
+2025-11-25 23:05:23,906 pett_agent WARNING: Invalid staking service id '-1'; reward claims disabled
+2025-11-25 23:05:24,083 pett_agent INFO: Staking checkpoint client initialised for agent 0xDd03...2803 (safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F, contract 0x31183503be52391844594b4B587F0e764eB3956E)
+2025-11-25 23:05:24,083 pett_agent INFO: Auto-detected staking configuration from /Users/polpedu/.operate/services/sc-dc3b4331-962a-4b03-a62e-003e3787d833/config.json (service_id=-1, chain=optimistic)
+2025-11-25 23:05:24,083 pett_agent INFO: 🔧 Olas SDK Interface initialized
+2025-11-25 23:05:24,083 pett_agent INFO: 🐾 Pett Agent initialized
+2025-11-25 23:05:24,084 pett_agent INFO: 🚀 Initializing Pett Agent components...
+2025-11-25 23:05:24,084 pett_agent INFO: 🎨 Building React frontend...
+2025-11-25 23:05:24,084 pett_agent INFO: ✅ React build already exists, skipping build
+2025-11-25 23:05:24,084 pett_agent INFO: ✅ React build available for serving
+2025-11-25 23:05:24,086 pett_agent ERROR: Failed to start web server: [Errno 48] error while attempting to bind on address ('0.0.0.0', 8716): address already in use
+2025-11-25 23:05:24,086 pett_agent ERROR: ❌ Failed to initialize Pett Agent: [Errno 48] error while attempting to bind on address ('0.0.0.0', 8716): address already in use
+2025-11-25 23:05:24,086 pett_agent ERROR: ❌ Failed to initialize agent
+2025-11-25 23:08:17,427 pett_agent INFO: 🚀 Starting Pett Agent with Olas SDK compliance
+2025-11-25 23:08:17,427 pett_agent INFO: Ethereum private key: Found
+2025-11-25 23:08:17,427 pett_agent INFO: Withdrawal mode: False
+2025-11-25 23:08:17,427 pett_agent INFO: 📋 Loaded 0 environment variables
+2025-11-25 23:08:17,715 pett_agent INFO: Using Safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F on chainId 8453
+2025-11-25 23:08:18,512 pett_agent INFO: Safe owners (n=1): ['0xE43d9713a0999B965750fC94934D64CA7d5D2e15']
+2025-11-25 23:08:18,513 pett_agent INFO: Safe threshold: 1
+2025-11-25 23:08:18,513 pett_agent ERROR: Agent EOA is NOT an owner of the AI Agent Safe; execTransaction will revert (GS026)
+2025-11-25 23:08:18,513 pett_agent INFO: ActionRecorder initialised for agent address 0xDd03...2803
+2025-11-25 23:08:18,517 pett_agent INFO: Staking contract address not configured; defaulting to 0x31183503be52391844594b4B587F0e764eB3956E
+2025-11-25 23:08:18,518 pett_agent WARNING: Invalid staking service id '-1'; reward claims disabled
+2025-11-25 23:08:18,687 pett_agent INFO: Staking checkpoint client initialised for agent 0xDd03...2803 (safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F, contract 0x31183503be52391844594b4B587F0e764eB3956E)
+2025-11-25 23:08:18,688 pett_agent INFO: Auto-detected staking configuration from /Users/polpedu/.operate/services/sc-dc3b4331-962a-4b03-a62e-003e3787d833/config.json (service_id=-1, chain=optimistic)
+2025-11-25 23:08:18,688 pett_agent INFO: 🔧 Olas SDK Interface initialized
+2025-11-25 23:08:18,688 pett_agent INFO: 🐾 Pett Agent initialized
+2025-11-25 23:08:18,689 pett_agent INFO: 🚀 Initializing Pett Agent components...
+2025-11-25 23:08:18,690 pett_agent INFO: 🎨 Building React frontend...
+2025-11-25 23:08:18,690 pett_agent INFO: ✅ React build already exists, skipping build
+2025-11-25 23:08:18,690 pett_agent INFO: ✅ React build available for serving
+2025-11-25 23:08:18,693 pett_agent INFO: 🌐 Web server started on http://0.0.0.0:8716 (access via http://localhost:8716)
+2025-11-25 23:08:18,693 pett_agent INFO: 🎨 React App available at http://localhost:8716/ (Dashboard at /dashboard)
+2025-11-25 23:08:18,693 pett_agent INFO: 🏥 Health API: http://localhost:8716/api/health
+2025-11-25 23:08:18,693 pett_agent INFO: ℹ️  No PRIVY_TOKEN in environment
+2025-11-25 23:08:18,693 pett_agent INFO: ✨ Waiting for user to login via React app at http://localhost:8716/
+2025-11-25 23:08:18,693 pett_agent INFO: 🧾 On-chain action recorder ENABLED: contract=0x907afC85F3922CbdEB7b9Ed806742b4eF998DF31 rpc=https://base.llamarpc.com agent=0xDd03...2803
+2025-11-25 23:08:18,694 pett_agent INFO: ℹ️ No TELEGRAM_BOT_TOKEN found - Telegram disabled
+2025-11-25 23:08:18,694 pett_agent INFO: ✅ Pett Agent initialization complete
+2025-11-25 23:08:18,694 pett_agent INFO: 🎯 Pett Agent is now running...
+2025-11-25 23:08:24,848 pett_agent INFO: Reward claim skipped: staking service id not configured
+2025-11-25 23:08:24,849 pett_agent INFO: Skipping checkpointAndClaim: staking service id not configured
+2025-11-25 23:08:26,186 pett_agent INFO: Submitting staking checkpoint transaction via safe 0x066B82E413b30eCcbe65622aF31a65fde95Be88F (nonce=0, timestamp=1763114877)
+2025-11-25 23:08:26,186 pett_agent INFO: [DRY RUN] Would submit staking checkpoint tx: {'to': '0x31183503be52391844594b4B587F0e764eB3956E', 'from': '0xDd031d28aC5539b9c7702A92dD7FB5b8d5Be2803', 'nonce': 0, 'gas': 200000, 'chainId': 8453, 'maxPriorityFeePerGas': 1000000, 'maxFeePerGas': 9275352, 'gasPrice': None}
+2025-11-25 23:10:15,496 pett_agent INFO: 🛑 Shutting down Pett Agent...
+2025-11-25 23:10:15,497 agent.pett_websocket_client INFO: WebSocket connection closed
+2025-11-25 23:10:15,497 pett_agent INFO: 🔌 WebSocket disconnected
+2025-11-25 23:10:15,498 pett_agent INFO: 🛑 Web server stopped
+2025-11-25 23:10:15,498 pett_agent INFO: ✅ Pett Agent shutdown complete

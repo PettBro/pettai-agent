@@ -51,6 +51,15 @@ STAKING_PROXY_ABI: list[Dict[str, Any]] = [
         "type": "function",
     },
     {
+        "inputs": [
+            {"internalType": "uint256", "name": "serviceId", "type": "uint256"}
+        ],
+        "name": "checkpointAndClaim",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
         "inputs": [],
         "name": "tsCheckpoint",
         "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
@@ -244,14 +253,17 @@ class StakingCheckpointClient:
         self._last_submitted_at: Optional[int] = None
         self._last_tx_hash: Optional[str] = None
         self._dry_run: bool = bool(config.dry_run)
-        self._service_id: Optional[int] = config.service_id
+        self._service_id: Optional[int] = self._normalise_service_id(config.service_id)
         self._staking_token_address: Optional[str] = self._resolve_token_address(
             config
         )
+        self._staking_token_contract: Optional[Contract] = None
         self._kpi_cache: Optional[Tuple[StakingEpochKPIs, float]] = None
         self._kpi_cache_ttl: float = 60.0
         self._warned_missing_service_id = False
         self._warned_metrics_failure = False
+        self._warned_missing_rewards_service_id = False
+        self._warned_reward_check_failure = False
 
         self._load_state()
         self._initialise()
@@ -366,16 +378,7 @@ class StakingCheckpointClient:
                 self._warned_missing_service_id = True
             return cached_entry[0] if cached_entry and not force_refresh else None
 
-        staking_token_address = self._staking_token_address
-        if staking_token_address is None and self._staking_contract is not None:
-            try:
-                staking_token_address = Web3.to_checksum_address(
-                    self._staking_contract.address  # type: ignore[attr-defined]
-                )
-            except Exception:
-                staking_token_address = cast(str, self._staking_contract.address)
-            self._staking_token_address = staking_token_address
-
+        staking_token_address = self._get_staking_token_address()
         if staking_token_address is None:
             if not self._warned_metrics_failure:
                 self._logger.debug(
@@ -384,11 +387,17 @@ class StakingCheckpointClient:
                 self._warned_metrics_failure = True
             return cached_entry[0] if cached_entry and not force_refresh else None
 
+        staking_contract = self._get_staking_token_contract()
+        if staking_contract is None:
+            if not self._warned_metrics_failure:
+                self._logger.debug(
+                    "Staking KPIs unavailable: failed to instantiate staking token contract"
+                )
+                self._warned_metrics_failure = True
+            return cached_entry[0] if cached_entry and not force_refresh else None
+
         assert self._w3 is not None
         try:
-            staking_contract = self._w3.eth.contract(
-                address=staking_token_address, abi=STAKING_TOKEN_KPI_ABI
-            )
             service_info = staking_contract.functions.getServiceInfo(
                 int(self._service_id)
             ).call()
@@ -511,6 +520,96 @@ class StakingCheckpointClient:
         self._warned_metrics_failure = False
         return metrics
 
+    def _should_claim_rewards(self) -> bool:
+        """Return True when accrued staking rewards should be claimed."""
+        accrued, reason = self._get_accrued_rewards()
+        if accrued is None:
+            reason_text = reason or "reward balance unavailable"
+            self._logger.info(
+                "Skipping checkpointAndClaim: %s", reason_text
+            )
+            return False
+        if accrued > 0:
+            self._logger.info(
+                "Accrued staking rewards detected for service %s (%s wei); using checkpointAndClaim",
+                self._service_id if self._service_id is not None else "<unknown>",
+                accrued,
+            )
+            return True
+        self._logger.info(
+            "No accrued staking rewards for service %s; calling checkpoint only",
+            self._service_id if self._service_id is not None else "<unknown>",
+        )
+        return False
+
+    def _get_accrued_rewards(self) -> Tuple[Optional[int], Optional[str]]:
+        """Fetch the currently accrued rewards for the configured service."""
+        if self._service_id is None:
+            reason = "staking service id not configured"
+            if not self._warned_missing_rewards_service_id:
+                self._logger.info(
+                    "Reward claim skipped: %s", reason
+                )
+                self._warned_missing_rewards_service_id = True
+            return None, reason
+
+        staking_contract = self._get_staking_token_contract()
+        if staking_contract is None:
+            reason = "staking token contract unavailable"
+            return None, reason
+
+        try:
+            service_info = staking_contract.functions.getServiceInfo(
+                int(self._service_id)
+            ).call()
+        except Exception as exc:
+            reason = f"failed to fetch staking rewards for service {self._service_id}: {exc}"
+            if not self._warned_reward_check_failure:
+                self._logger.info(
+                    "Reward claim skipped: %s",
+                    reason,
+                )
+                self._warned_reward_check_failure = True
+            return None, reason
+
+        reward_value = self._extract_reward_value(service_info)
+        if reward_value is None:
+            reason = (
+                f"unable to parse staking rewards for service {self._service_id} from payload"
+            )
+            if not self._warned_reward_check_failure:
+                self._logger.info("Reward claim skipped: %s", reason)
+                self._warned_reward_check_failure = True
+            return None, reason
+
+        self._warned_reward_check_failure = False
+        self._warned_missing_rewards_service_id = False
+        return reward_value, None
+
+    @staticmethod
+    def _extract_reward_value(service_info: Any) -> Optional[int]:
+        """Extract the reward field from getServiceInfo payloads."""
+        if service_info is None:
+            return None
+        if isinstance(service_info, dict):
+            reward_raw = service_info.get("reward")
+            if reward_raw is None:
+                return None
+            try:
+                return int(reward_raw)
+            except (TypeError, ValueError):
+                return None
+        if isinstance(service_info, (list, tuple)):
+            try:
+                reward_raw = service_info[4]
+            except (IndexError, TypeError):
+                return None
+            try:
+                return int(reward_raw)
+            except (TypeError, ValueError):
+                return None
+        return None
+
     def _recent_submission_in_progress(self, current_ts: int) -> bool:
         """Return True if a recent submission is still within cooldown."""
         if self._last_submitted_at is None:
@@ -599,6 +698,8 @@ class StakingCheckpointClient:
         w3 = self._w3
 
         max_attempts = 3
+        claim_rewards = self._should_claim_rewards()
+        method_label = "checkpointAndClaim" if claim_rewards else "checkpoint"
         for attempt in range(max_attempts):
             try:
                 with self._nonce_lock:
@@ -608,7 +709,7 @@ class StakingCheckpointClient:
                         "nonce": nonce,
                     }
 
-                    gas_limit = self._estimate_gas(tx_params)
+                    gas_limit = self._estimate_gas(tx_params, claim_rewards)
                     if gas_limit:
                         tx_params["gas"] = gas_limit
 
@@ -616,22 +717,23 @@ class StakingCheckpointClient:
                     tx_params["chainId"] = w3.eth.chain_id
 
                     self._logger.info(
-                        "Submitting staking checkpoint transaction via safe %s "
+                        "Submitting staking %s transaction via safe %s "
                         "(nonce=%s, timestamp=%s)",
+                        method_label,
                         self._safe_address,
                         nonce,
                         current_ts,
                     )
 
-                    txn = contract.functions.checkpoint().build_transaction(
-                        cast(TxParams, tx_params)
-                    )
+                    checkpoint_fn = self._get_checkpoint_function(claim_rewards)
+                    txn = checkpoint_fn.build_transaction(cast(TxParams, tx_params))
 
                     if self._dry_run:
                         # Do not sign/send; just print what would be submitted
                         try:
                             self._logger.info(
-                                "[DRY RUN] Would submit staking checkpoint tx: %s",
+                                "[DRY RUN] Would submit staking %s tx: %s",
+                                method_label,
                                 {
                                     "to": contract.address,
                                     "from": self._account.address,
@@ -682,14 +784,24 @@ class StakingCheckpointClient:
 
         return None
 
-    def _estimate_gas(self, tx_params: Dict[str, Any]) -> Optional[int]:
+    def _get_checkpoint_function(self, claim_rewards: bool):
+        """Return the contract function to invoke for the next checkpoint."""
+        assert self._staking_contract is not None
+        if claim_rewards and self._service_id is not None:
+            return self._staking_contract.functions.checkpointAndClaim(
+                int(self._service_id)
+            )
+        return self._staking_contract.functions.checkpoint()
+
+    def _estimate_gas(
+        self, tx_params: Dict[str, Any], claim_rewards: bool
+    ) -> Optional[int]:
         """Estimate gas usage for the checkpoint transaction."""
         if self._staking_contract is None:
             return None
         try:
-            gas_estimate = self._staking_contract.functions.checkpoint().estimate_gas(
-                cast(TxParams, tx_params)
-            )
+            checkpoint_fn = self._get_checkpoint_function(claim_rewards)
+            gas_estimate = checkpoint_fn.estimate_gas(cast(TxParams, tx_params))
             buffered = int(gas_estimate * 1.2)
             return max(buffered, 200_000)
         except Exception as exc:
@@ -984,6 +1096,62 @@ class StakingCheckpointClient:
             return Web3.to_checksum_address(candidate)
         except Exception:
             return candidate
+
+    def _get_staking_token_address(self) -> Optional[str]:
+        """Return the staking token address, falling back to the checkpoint contract."""
+        if self._staking_token_address is not None:
+            return self._staking_token_address
+        if self._staking_contract is None:
+            return None
+        try:
+            address = Web3.to_checksum_address(self._staking_contract.address)  # type: ignore[attr-defined]
+        except Exception:
+            address = cast(str, self._staking_contract.address)
+        self._staking_token_address = address
+        return self._staking_token_address
+
+    def _get_staking_token_contract(self) -> Optional[Contract]:
+        """Return a contract instance for the staking token when possible."""
+        if self._staking_token_contract is not None:
+            return self._staking_token_contract
+        if self._w3 is None:
+            return None
+        staking_token_address = self._get_staking_token_address()
+        if staking_token_address is None:
+            return None
+        try:
+            contract = self._w3.eth.contract(
+                address=staking_token_address, abi=STAKING_TOKEN_KPI_ABI
+            )
+        except Exception as exc:
+            self._logger.debug(
+                "Failed to instantiate staking token contract at %s: %s",
+                staking_token_address,
+                exc,
+            )
+            return None
+        self._staking_token_contract = contract
+        return self._staking_token_contract
+
+    def _normalise_service_id(
+        self, service_id: Optional[int]
+    ) -> Optional[int]:
+        """Return a validated integer service identifier when available."""
+        if service_id is None:
+            return None
+        try:
+            value = int(service_id)
+        except (TypeError, ValueError):
+            self._logger.warning(
+                "Invalid staking service id '%s'; reward claims disabled", service_id
+            )
+            return None
+        if value < 0:
+            self._logger.warning(
+                "Invalid staking service id '%s'; reward claims disabled", service_id
+            )
+            return None
+        return value
 
     def _normalise_address(self, address: Optional[str]) -> str:
         """Return a checksum-safe address when possible."""
