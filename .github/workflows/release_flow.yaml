@@ -1,0 +1,349 @@
+name: Release Flow
+
+on:
+  release:
+    types: [prereleased, released]
+
+permissions:
+  contents: write
+
+jobs:
+  publish-packages:
+    name: Push Packages
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04]
+        python-version: ["3.10"]
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./olas-sdk-starter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Push Autonomous Packages
+        uses: addnab/docker-run-action@v3
+        with:
+          image: valory/open-autonomy-user:0.19.11
+          options: -v ${{ github.workspace }}:/work
+          run: |
+            echo "Pushing Packages"
+            cd /work/olas-sdk-starter
+            export AUTHOR=$(grep 'service' packages/packages.json | awk -F/ '{print $2}' | head -1)
+            autonomy init --reset --author "$AUTHOR" --ipfs --remote
+            autonomy push-all
+
+  publish-images:
+    name: Publish Docker Images
+    runs-on: ${{ matrix.os }}
+    needs:
+      - publish-packages
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.10"]
+    env:
+      DOCKER_USER: ${{ secrets.DOCKER_USER }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./olas-sdk-starter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Set up tag and vars
+        uses: addnab/docker-run-action@v3
+        with:
+          image: valory/open-autonomy-user:0.19.11
+          options: -v ${{ github.workspace }}:/work
+          run: |
+            echo "Setting Tag Images"
+            cd /work/olas-sdk-starter
+            apt-get update && apt-get install git -y || exit 1
+            git config --global --add safe.directory /work/olas-sdk-starter
+            export TAG=$(git describe --exact-match --tags $(git rev-parse HEAD)) || exit 1
+            if [ $? -eq 0 ]; then
+              export TAG=$(echo "$TAG" | sed 's/^v//')
+            else
+              echo "You are not on a tagged branch"
+              exit 1
+            fi
+            {
+              echo VERSION="$TAG"
+              echo AUTHOR=$(grep 'service/' packages/packages.json | awk -F/ '{print $2}' | head -1)
+              echo SERVICE=$(grep 'service/' packages/packages.json | awk -F/ '{print $3}' | head -1)
+              echo DEFAULT_IMAGE_TAG=$(grep agent/ packages/packages.json | awk -F: '{print $2}' | tr -d '", ')
+            } > env.sh
+            cat env.sh
+
+      - name: Build Images
+        uses: addnab/docker-run-action@v3
+        with:
+          image: valory/open-autonomy-user:0.19.11
+          options: -v ${{ github.workspace }}:/work -e DOCKER_USER -e DOCKER_PASSWORD
+          shell: bash
+          run: |
+            echo "Building and Pushing Docker Images"
+            cd /work/olas-sdk-starter
+            source env.sh || exit 1
+            # TODO remove `click` workaround after this is fixed in open-autonomy
+            echo "Pinning click temporarily as a workaround to address a breaking change in its defaults,\
+            which is introduced due to a too wide range of click used in open-autonomy"
+            pip install click==8.2.0
+            echo "Building images for $AUTHOR for service $SERVICE"
+            autonomy init --reset --author "$AUTHOR" --ipfs --remote
+            autonomy fetch "$AUTHOR/$SERVICE" --service --local || exit 1
+            cd "$SERVICE" || exit 1
+            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USER" --password-stdin || exit 1
+            docker buildx create --name multiarch-builder --driver docker-container --bootstrap --use
+            autonomy build-image --builder multiarch-builder --platform linux/amd64,linux/arm64,linux/arm/v7 --pre-install-command "apt update && apt upgrade -y && apt install -y libffi-dev libssl-dev" -e open-autonomy==0.19.11 --push || exit 1
+            autonomy build-image --builder multiarch-builder --platform linux/amd64,linux/arm64,linux/arm/v7 --pre-install-command "apt update && apt upgrade -y && apt install -y libffi-dev libssl-dev" -e open-autonomy==0.19.11 --version "$VERSION" --push || exit 1
+
+  deploy-service-on-propel:
+    name: Deploy service on propel
+    environment: ${{ github.event.action == 'released' && 'production' || 'staging' }}
+    needs:
+      - publish-packages
+      - publish-images
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.10"]
+    env:
+      CMD: "propel -U ${{ vars.PROPEL_BASE_URL }}"
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./olas-sdk-starter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          sudo apt-get update --fix-missing
+          sudo apt-get autoremove -y
+          sudo apt-get autoclean
+          sudo apt-get install -y dnsutils jq
+          python -m pip install --upgrade pip
+          pip install propel-client open-autonomy
+      - name: Make use proxy instead of actual nlb by dns override
+        run: |
+          # for staging
+          export IP_ADDR=$(dig +short balancer.tcp.propel.staging.autonolas.tech)
+          echo -e "\n$IP_ADDR\tapp.propel.staging.valory.xyz\n"  | sudo tee -a /etc/hosts
+
+          # for prod
+          export IP_ADDR=$(dig +short balancer.tcp.propel.autonolas.tech)
+          echo -e "\n$IP_ADDR\tapp.propel.valory.xyz\n"  | sudo tee -a /etc/hosts
+      - name: Login to propel
+        run: |
+          $CMD login -u  '${{ vars.PROPEL_USERNAME }}' -p  '${{ secrets.PROPEL_PASSWORD }}'
+      - name: Do a deployment
+        run: |
+          export IPFS_HASH=$(jq '.dev | to_entries[] | select(.key | startswith("service"))| .value' -r  ./packages/packages.json | head -n1)
+          export SERVICE_PATH=service_for_propel
+
+          autonomy init --reset --author ci --ipfs --remote
+          autonomy fetch "$IPFS_HASH" --service --alias "$SERVICE_PATH"
+
+          echo '${{ toJSON(secrets) }}' | jq -r 'to_entries|map("export \(.key)=\(.value|tojson)")|.[]' > github.vars
+          echo >> github.vars
+          echo '${{ toJSON(vars) }}' | jq -r 'to_entries|map("export \(.key)=\(.value|tojson)")|.[]' >> github.vars
+          source github.vars
+          $CMD service deploy --name  '${{ vars.SERVICE_NAME }}'  --service-dir "$SERVICE_PATH" --service-ipfs-hash "$IPFS_HASH"  --ingress-enabled true --keys '${{ vars.SERVICE_KEYS }}' --timeout 600
+
+  build-agent-runner:
+    needs:
+      - publish-packages
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, macos-14, macos-14-large]
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./olas-sdk-starter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        id: setup-python
+        with:
+          python-version: "3.10"
+      - name: Add Python to PATH
+        run: echo "${{ steps.setup-python.outputs.python-path }}" >> "$GITHUB_PATH"
+      - name: prepare sign things windows
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          echo Setup Certificate
+          echo "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > /d/Certificate_pkcs12.p12
+          echo "Set Variables!"
+          {
+            echo "SM_HOST=${{ secrets.SM_HOST }}"
+            echo "SM_API_KEY=${{ secrets.SM_API_KEY }}"
+            echo "SM_KEY_PAIR_ALIAS=${{ secrets.SM_KEY_PAIR_ALIAS }}"
+            echo "SM_CLIENT_CERT_FILE=D:\\Certificate_pkcs12.p12"
+            echo "SM_CLIENT_CERT_PASSWORD=${{ secrets.SM_CLIENT_CERT_PASSWORD }}"
+          } >> "$GITHUB_ENV"
+          echo "C:\\Program Files (x86)\\Windows Kits\\10\\App Certification Kit" >> "$GITHUB_PATH"
+          echo "C:\\Program Files (x86)\\Microsoft SDKs\\Windows\\v10.0A\\bin\\NETFX 4.8 Tools" >> "$GITHUB_PATH"
+          echo "C:\\Program Files\\DigiCert\\DigiCert One Signing Manager Tools" >> "$GITHUB_PATH"
+      - name: Setup SSM KSP on windows latest
+        if: runner.os == 'Windows'
+        shell: cmd
+        working-directory: ./olas-sdk-starter
+        run: |
+          curl -X GET  https://one.digicert.com/signingmanager/api-ui/v1/releases/smtools-windows-x64.msi/download -H "x-api-key:%SM_API_KEY%" -o smtools-windows-x64.msi
+          msiexec /i smtools-windows-x64.msi /quiet /qn
+          smksp_registrar.exe list
+          smctl.exe keypair ls
+          C:\Windows\System32\certutil.exe -csp "DigiCert Signing Manager KSP" -key -user
+          smksp_cert_sync.exe
+      - name: Install and configure Poetry
+        run: pip install poetry
+      - name: prepare agent
+        run: |
+          make poetry-install
+          poetry run autonomy init --reset --author "dummy_author_git_ci" --ipfs --remote
+          make hash_id
+          make agent_id
+          make ./agent/ethereum_private_key.txt
+      - name: prepare archives
+        if: runner.os != 'Windows'
+        run: |
+          make agent.zip
+          make agent.tar.gz
+      - name: build and sign the file mac os
+        if: runner.os != 'Windows'
+        env:
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          SIGN_ID: "Developer ID Application: Valory AG (${{ secrets.APPLE_TEAM_ID }})"
+        run: |
+          echo "$CSC_LINK" | base64 --decode > certificate.p12
+
+          security create-keychain -p temp build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p temp build.keychain
+          security import certificate.p12 -k build.keychain -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k temp build.keychain
+
+          make build-agent-runner-mac
+
+          codesign -dv --verbose=4 dist/agent_runner_bin
+      - name: rename the file mac os
+        if: runner.os != 'Windows'
+        run: |
+          export FILENAME=$(echo -n agent_runner_${{ runner.os }}_${{ runner.arch }} | tr '[:upper:]' '[:lower:]')
+          echo "FILENAME=$FILENAME" >> "$GITHUB_ENV"
+          cp dist/agent_runner_bin "dist/${FILENAME}"
+          "dist/${FILENAME}" --version
+      - name: Build Agent Runner Windows
+        if: runner.os == 'Windows'
+        run: make build-agent-runner
+      - name: sign the file
+        if: runner.os == 'Windows'
+        shell: cmd
+        working-directory: ./olas-sdk-starter
+        run: |
+          "C:\Program Files\DigiCert\DigiCert One Signing Manager Tools\smctl.exe" sign --keypair-alias=${{ secrets.SM_KEY_PAIR_ALIAS }} --input "dist/agent_runner_bin.exe"
+      - name: rename the file windows
+        if: runner.os == 'Windows'
+        run: |
+          export FILENAME=$(echo -n agent_runner_${{ runner.os }}_${{ runner.arch }}.exe | tr '[:upper:]' '[:lower:]')
+          echo "FILENAME=$FILENAME" >> "$GITHUB_ENV"
+          cp dist/agent_runner_bin.exe "dist/${FILENAME}"
+      - name: check agent runner
+        run: make check-agent-runner
+      - name: Upload agent runner binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.FILENAME }}
+          path: olas-sdk-starter/dist/${{ env.FILENAME }}
+      - name: Upload Release Assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: hash_id
+          path: olas-sdk-starter/hash_id
+          overwrite: true
+      - name: Upload Release Assets agent id
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent_id
+          path: olas-sdk-starter/agent_id
+          overwrite: true
+      - name: Upload Release Assets agent tar
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent.tar.gz
+          path: olas-sdk-starter/agent.tar.gz
+          overwrite: true
+      - name: Upload Release Assets agent zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent.zip
+          path: olas-sdk-starter/agent.zip
+          overwrite: true
+
+  upload-assets:
+    needs: build-agent-runner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download macOS x64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: agent_runner_macos_x64
+          path: ./dist/
+      - name: Download macOS arm64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: agent_runner_macos_arm64
+          path: ./dist/
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: agent_runner_windows_x64.exe
+          path: ./dist/
+      - name: Download agent id
+        uses: actions/download-artifact@v4
+        with:
+          name: agent_id
+          path: ./dist/
+      - name: Download hash id
+        uses: actions/download-artifact@v4
+        with:
+          name: hash_id
+          path: ./dist/
+      - name: Download agent zip
+        uses: actions/download-artifact@v4
+        with:
+          name: agent.zip
+          path: ./dist/
+      - name: Download agent tar.gz
+        uses: actions/download-artifact@v4
+        with:
+          name: agent.tar.gz
+          path: ./dist/
+      - name: List files
+        run: ls ./dist/
+      - name: Publish Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./dist/agent_runner*
+            ./dist/hash_id
+            ./dist/agent_id
+            ./dist/agent.zip
+            ./dist/agent.tar.gz

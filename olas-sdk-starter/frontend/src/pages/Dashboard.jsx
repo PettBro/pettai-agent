@@ -301,6 +301,12 @@ const Dashboard = () => {
 	};
 
 	const statsSummary = healthData?.pet?.stats ?? {};
+	const economyMode = healthData?.economy_mode ?? null;
+	const economyWarningMessage =
+		economyMode?.active
+			? (economyMode?.message?.trim() ||
+					'Economy mode is enabled because the agent is low on $AIP and is prioritizing owned items and earning actions.')
+			: null;
 
 	const statusSummary = useMemo(() => {
 		const rawStatus = String(healthData?.status || 'unknown').replace(/_/g, ' ').trim();
@@ -482,13 +488,19 @@ const Dashboard = () => {
 									Updated {statusSummary.formattedUpdatedAt}
 								</span>
 							)}
-							{error && (
-								<span className="inline-flex items-center gap-2 text-xs font-semibold text-red-100 bg-red-500/20 rounded-full px-3 py-1 border border-red-400/30">
-									<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="currentColor" d="M11 7h2v6h-2zm0 8h2v2h-2z" /><path fill="currentColor" d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10s10-4.477 10-10S17.523 2 12 2m0 18a8.01 8.01 0 0 1-8-8a8.01 8.01 0 0 1 8-8a8.01 8.01 0 0 1 8 8a8.01 8.01 0 0 1-8 8"></path></svg>
-									{error}
-								</span>
-							)}
-						</div>
+					{error && (
+						<span className="inline-flex items-center gap-2 text-xs font-semibold text-red-100 bg-red-500/20 rounded-full px-3 py-1 border border-red-400/30">
+							<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="currentColor" d="M11 7h2v6h-2zm0 8h2v2h-2z" /><path fill="currentColor" d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10s10-4.477 10-10S17.523 2 12 2m0 18a8.01 8.01 0 0 1-8-8a8.01 8.01 0 0 1 8-8a8.01 8.01 0 0 1 8 8a8.01 8.01 0 0 1-8 8"></path></svg>
+							{error}
+						</span>
+					)}
+					{economyWarningMessage && (
+						<span className="inline-flex items-center gap-2 text-xs font-semibold text-yellow-50 bg-yellow-500/20 rounded-full px-3 py-1 border border-yellow-400/30">
+							<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2m1 15h-2v-2h2zm0-4h-2V7h2z" /></svg>
+							{economyWarningMessage}
+						</span>
+					)}
+					</div>
 
 						<div className="header__asset flex items-center gap-2 pl-1 pr-1.5 py-1 border rounded-full bg-white border-semantic-accent-muted relative">
 							<img src={headerAssetAip} className="size-6" alt="AIP" />

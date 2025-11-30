@@ -14,10 +14,10 @@ import logging
 import os
 import threading
 import time
-from dataclasses import dataclass, field
-from decimal import Decimal, ROUND_UP
+from datetime import datetime
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, cast
+from typing import Any, Dict, Optional, cast
 
 from eth_account.signers.local import LocalAccount
 from web3 import Web3
@@ -51,9 +51,7 @@ STAKING_PROXY_ABI: list[Dict[str, Any]] = [
         "type": "function",
     },
     {
-        "inputs": [
-            {"internalType": "uint256", "name": "serviceId", "type": "uint256"}
-        ],
+        "inputs": [{"internalType": "uint256", "name": "serviceId", "type": "uint256"}],
         "name": "checkpointAndClaim",
         "outputs": [],
         "stateMutability": "nonpayable",
@@ -75,141 +73,6 @@ STAKING_PROXY_ABI: list[Dict[str, Any]] = [
     },
 ]
 
-# Minimal ABI fragments required to compute staking KPIs.
-STAKING_TOKEN_KPI_ABI: list[Dict[str, Any]] = [
-    {
-        "inputs": [],
-        "name": "activityChecker",
-        "outputs": [{"internalType": "address", "name": "", "type": "address"}],
-        "stateMutability": "view",
-        "type": "function",
-    },
-    {
-        "inputs": [],
-        "name": "getNextRewardCheckpointTimestamp",
-        "outputs": [
-            {"internalType": "uint256", "name": "tsNext", "type": "uint256"}
-        ],
-        "stateMutability": "view",
-        "type": "function",
-    },
-    {
-        "inputs": [
-            {"internalType": "uint256", "name": "serviceId", "type": "uint256"}
-        ],
-        "name": "getServiceInfo",
-        "outputs": [
-            {
-                "components": [
-                    {"internalType": "address", "name": "multisig", "type": "address"},
-                    {"internalType": "address", "name": "owner", "type": "address"},
-                    {
-                        "internalType": "uint256[]",
-                        "name": "nonces",
-                        "type": "uint256[]",
-                    },
-                    {"internalType": "uint256", "name": "tsStart", "type": "uint256"},
-                    {"internalType": "uint256", "name": "reward", "type": "uint256"},
-                    {
-                        "internalType": "uint256",
-                        "name": "inactivity",
-                        "type": "uint256",
-                    },
-                ],
-                "internalType": "struct ServiceInfo",
-                "name": "sInfo",
-                "type": "tuple",
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function",
-    },
-]
-
-ACTIVITY_CHECKER_KPI_ABI: list[Dict[str, Any]] = [
-    {
-        "inputs": [],
-        "name": "livenessRatio",
-        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function",
-    },
-    {
-        "inputs": [{"internalType": "address", "name": "agent", "type": "address"}],
-        "name": "getMultisigNonces",
-        "outputs": [
-            {"internalType": "uint256[]", "name": "nonces", "type": "uint256[]"}
-        ],
-        "stateMutability": "view",
-        "type": "function",
-    },
-]
-
-
-@dataclass
-class StakingEpochKPIs:
-    """Snapshot of staking KPI progress for the active epoch."""
-
-    service_id: int
-    multisig_address: str
-    txs_in_epoch: int
-    required_txs: int
-    txs_remaining: int
-    epoch_end_timestamp: Optional[int]
-    seconds_to_epoch_end: Optional[int]
-    liveness_ratio: Optional[int]
-    liveness_period: Optional[int]
-    current_multisig_nonce: Optional[int]
-    last_checkpoint_nonce: Optional[int]
-    threshold_met: bool
-    updated_at: float = field(default_factory=lambda: time.time())
-
-    def eta_text(self) -> str:
-        """Return human-readable text for the remaining epoch time."""
-        if self.seconds_to_epoch_end is None:
-            return "unknown"
-        seconds = self.seconds_to_epoch_end
-        if seconds <= 0:
-            return "due now"
-        hours, rem = divmod(seconds, 3600)
-        minutes, secs = divmod(rem, 60)
-        parts: list[str] = []
-        if hours:
-            parts.append(f"{hours}h")
-        if minutes or (hours and secs):
-            parts.append(f"{minutes}m")
-        if not parts:
-            parts.append(f"{secs}s")
-        return "in " + " ".join(parts)
-
-    def status(self) -> str:
-        """Return a concise status label."""
-        if self.threshold_met:
-            return "on_track"
-        if self.txs_remaining <= max(1, self.required_txs // 4):
-            return "close"
-        return "behind"
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Serialize KPI snapshot for UI/telemetry."""
-        return {
-            "service_id": self.service_id,
-            "multisig_address": self.multisig_address,
-            "txs_in_epoch": self.txs_in_epoch,
-            "required_txs": self.required_txs,
-            "txs_remaining": self.txs_remaining,
-            "epoch_end_timestamp": self.epoch_end_timestamp,
-            "seconds_to_epoch_end": self.seconds_to_epoch_end,
-            "liveness_ratio": self.liveness_ratio,
-            "liveness_period": self.liveness_period,
-            "current_multisig_nonce": self.current_multisig_nonce,
-            "last_checkpoint_nonce": self.last_checkpoint_nonce,
-            "threshold_met": self.threshold_met,
-            "status": self.status(),
-            "eta_text": self.eta_text(),
-            "updated_at": self.updated_at,
-        }
-
 
 @dataclass
 class CheckpointConfig:
@@ -222,9 +85,8 @@ class CheckpointConfig:
     liveness_period: Optional[int] = None
     state_file: Optional[Path] = None
     # When True, do not broadcast checkpoint txs; only log what would be sent
-    dry_run: bool = True
+    dry_run: bool = False
     staking_token_address: Optional[str] = None
-    service_id: Optional[int] = None
 
 
 class StakingCheckpointClient:
@@ -253,17 +115,7 @@ class StakingCheckpointClient:
         self._last_submitted_at: Optional[int] = None
         self._last_tx_hash: Optional[str] = None
         self._dry_run: bool = bool(config.dry_run)
-        self._service_id: Optional[int] = self._normalise_service_id(config.service_id)
-        self._staking_token_address: Optional[str] = self._resolve_token_address(
-            config
-        )
-        self._staking_token_contract: Optional[Contract] = None
-        self._kpi_cache: Optional[Tuple[StakingEpochKPIs, float]] = None
-        self._kpi_cache_ttl: float = 60.0
-        self._warned_missing_service_id = False
-        self._warned_metrics_failure = False
-        self._warned_missing_rewards_service_id = False
-        self._warned_reward_check_failure = False
+        self._kpi_disabled_logged = False
 
         self._load_state()
         self._initialise()
@@ -281,6 +133,9 @@ class StakingCheckpointClient:
         was submitted, None otherwise.
         """
         if not self.is_enabled:
+            self._logger.info(
+                "Skipping staking checkpoint invocation: client not enabled"
+            )
             return None
 
         loop = asyncio.get_running_loop()
@@ -288,11 +143,10 @@ class StakingCheckpointClient:
             None, self._call_checkpoint_if_needed_sync, force
         )
 
-    async def get_epoch_kpis(
-        self, force_refresh: bool = False
-    ) -> Optional[StakingEpochKPIs]:
-        """Return staking KPI snapshot for the current epoch."""
+    async def get_epoch_kpis(self, force_refresh: bool = False) -> Optional[Any]:
+        """Return staking KPI snapshot for the current epoch (always None in checkpoint-only mode)."""
         if not self.is_enabled:
+            self._logger.debug("Staking checkpoint client is not enabled")
             return None
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
@@ -305,6 +159,10 @@ class StakingCheckpointClient:
             return None
 
         if not self._call_lock.acquire(blocking=False):
+            self._logger.info(
+                "Skipping staking checkpoint (force=%s): another call in progress",
+                force,
+            )
             return None
 
         try:
@@ -314,37 +172,51 @@ class StakingCheckpointClient:
             last_onchain = self._get_last_checkpoint_on_chain()
             current_ts = self._get_current_block_timestamp()
             liveness = self._get_liveness_period()
+            next_epoch_end = self._get_next_reward_checkpoint_timestamp()
             should_execute = force
+            skip_reason: Optional[str] = None
 
             if not should_execute:
                 if self._recent_submission_in_progress(current_ts):
-                    self._logger.debug(
-                        "Skipping staking checkpoint: recent submission pending"
-                    )
-                    self._record_state(last_onchain, current_ts, self._last_tx_hash)
-                    return None
-
-                if liveness is None:
+                    skip_reason = "recent submission still pending"
+                elif liveness is None:
                     should_execute = True
                 else:
                     elapsed = current_ts - last_onchain
                     should_execute = elapsed > liveness
                     if not should_execute:
                         remaining = max(liveness - elapsed, 0)
-                        self._logger.debug(
-                            "Checkpoint liveness not reached yet (remaining %ss)",
-                            remaining,
+                        skip_reason = (
+                            f"liveness period not reached yet (remaining {remaining}s)"
                         )
+
+            if (
+                should_execute
+                and next_epoch_end is not None
+                and current_ts < next_epoch_end
+            ):
+                remaining = max(next_epoch_end - current_ts, 0)
+                eta = datetime.fromtimestamp(next_epoch_end).isoformat()
+                skip_reason = (
+                    f"epoch end not reached yet (remaining {remaining}s, ETA {eta})"
+                )
+                should_execute = False
 
             self._record_state(last_onchain, current_ts, self._last_tx_hash)
 
             if not should_execute:
+                reason = skip_reason or "execution conditions not met"
+                self._logger.info(
+                    "Skipping staking checkpoint (force=%s): %s", force, reason
+                )
                 return None
 
             tx_hash = self._submit_checkpoint_transaction(current_ts)
             if tx_hash:
                 self._logger.info(
-                    "Staking checkpoint transaction submitted: %s", tx_hash
+                    "Staking checkpoint transaction submitted (force=%s): %s",
+                    force,
+                    tx_hash,
                 )
                 self._record_state(
                     last_onchain, current_ts, tx_hash, submission_ts=current_ts
@@ -353,261 +225,17 @@ class StakingCheckpointClient:
         finally:
             self._call_lock.release()
 
-    def _get_epoch_kpis_sync(
-        self, force_refresh: bool = False
-    ) -> Optional[StakingEpochKPIs]:
-        """Blocking implementation of KPI retrieval."""
+    def _get_epoch_kpis_sync(self, force_refresh: bool = False) -> Optional[Any]:
+        """Blocking implementation of KPI retrieval (disabled in checkpoint-only mode)."""
         if not self.is_enabled:
             return None
 
-        now = time.time()
-        if (
-            not force_refresh
-            and self._kpi_cache is not None
-            and (now - self._kpi_cache[1]) < self._kpi_cache_ttl
-        ):
-            return self._kpi_cache[0]
-
-        cached_entry = self._kpi_cache
-
-        if self._service_id is None:
-            if not self._warned_missing_service_id:
-                self._logger.debug(
-                    "Staking KPIs unavailable: configure SERVICE_ID / STAKING_SERVICE_ID"
-                )
-                self._warned_missing_service_id = True
-            return cached_entry[0] if cached_entry and not force_refresh else None
-
-        staking_token_address = self._get_staking_token_address()
-        if staking_token_address is None:
-            if not self._warned_metrics_failure:
-                self._logger.debug(
-                    "Staking KPIs unavailable: staking token address not resolved"
-                )
-                self._warned_metrics_failure = True
-            return cached_entry[0] if cached_entry and not force_refresh else None
-
-        staking_contract = self._get_staking_token_contract()
-        if staking_contract is None:
-            if not self._warned_metrics_failure:
-                self._logger.debug(
-                    "Staking KPIs unavailable: failed to instantiate staking token contract"
-                )
-                self._warned_metrics_failure = True
-            return cached_entry[0] if cached_entry and not force_refresh else None
-
-        assert self._w3 is not None
-        try:
-            service_info = staking_contract.functions.getServiceInfo(
-                int(self._service_id)
-            ).call()
-        except Exception as exc:
-            if not self._warned_metrics_failure:
-                self._logger.debug(
-                    "Failed to fetch staking KPIs for service %s: %s",
-                    self._service_id,
-                    exc,
-                )
-                self._warned_metrics_failure = True
-            return cached_entry[0] if cached_entry and not force_refresh else None
-
-        try:
-            multisig_address = str(service_info[0])
-        except Exception:
-            multisig_address = ""
-        try:
-            multisig_address = Web3.to_checksum_address(multisig_address)
-        except Exception:
-            pass
-        if not multisig_address:
-            multisig_address = self._safe_address
-
-        last_checkpoint_nonce: Optional[int] = None
-        try:
-            nonce_snapshot = service_info[2]
-            if isinstance(nonce_snapshot, (list, tuple)) and nonce_snapshot:
-                last_checkpoint_nonce = int(nonce_snapshot[0])
-        except Exception:
-            last_checkpoint_nonce = None
-
-        try:
-            epoch_end_ts = int(
-                staking_contract.functions.getNextRewardCheckpointTimestamp().call()
+        if not self._kpi_disabled_logged:
+            self._logger.debug(
+                "Staking KPIs unavailable: service-specific telemetry disabled in checkpoint-only mode"
             )
-        except Exception:
-            epoch_end_ts = None
+            self._kpi_disabled_logged = True
 
-        seconds_to_epoch_end: Optional[int] = None
-        if epoch_end_ts is not None:
-            seconds_to_epoch_end = max(int(epoch_end_ts - int(now)), 0)
-
-        activity_checker_address: Optional[str]
-        try:
-            activity_checker_address = staking_contract.functions.activityChecker().call()
-            activity_checker_address = Web3.to_checksum_address(
-                str(activity_checker_address)
-            )
-        except Exception:
-            activity_checker_address = None
-
-        liveness_ratio: Optional[int] = None
-        current_multisig_nonce: Optional[int] = None
-        required_txs = 0
-
-        if activity_checker_address:
-            try:
-                activity_checker = self._w3.eth.contract(
-                    address=activity_checker_address, abi=ACTIVITY_CHECKER_KPI_ABI
-                )
-                liveness_ratio = int(
-                    activity_checker.functions.livenessRatio().call()
-                )
-
-                multisig_nonces_raw = activity_checker.functions.getMultisigNonces(
-                    multisig_address
-                ).call()
-                if isinstance(multisig_nonces_raw, (list, tuple)):
-                    if len(multisig_nonces_raw) > 0:
-                        current_multisig_nonce = int(multisig_nonces_raw[0])
-                else:
-                    current_multisig_nonce = int(multisig_nonces_raw)
-            except Exception as exc:
-                if not self._warned_metrics_failure:
-                    self._logger.debug(
-                        "Failed to query activity checker KPIs: %s", exc
-                    )
-                    self._warned_metrics_failure = True
-
-        liveness_period = self._get_liveness_period()
-        if liveness_period and liveness_ratio:
-            try:
-                ratio_dec = Decimal(liveness_ratio)
-                period_dec = Decimal(liveness_period)
-                required_dec = (ratio_dec * period_dec) / Decimal(10**18)
-                required_txs = int(required_dec.to_integral_value(rounding=ROUND_UP))
-            except Exception:
-                required_txs = 0
-
-        if required_txs <= 0:
-            # Fallback to the commonly used daily threshold of 8 txs.
-            required_txs = 8
-
-        if current_multisig_nonce is None or last_checkpoint_nonce is None:
-            txs_in_epoch = 0
-        else:
-            txs_in_epoch = max(current_multisig_nonce - last_checkpoint_nonce, 0)
-
-        txs_remaining = max(required_txs - txs_in_epoch, 0)
-        threshold_met = required_txs > 0 and txs_in_epoch >= required_txs
-
-        metrics = StakingEpochKPIs(
-            service_id=int(self._service_id),
-            multisig_address=multisig_address,
-            txs_in_epoch=txs_in_epoch,
-            required_txs=required_txs,
-            txs_remaining=txs_remaining,
-            epoch_end_timestamp=epoch_end_ts,
-            seconds_to_epoch_end=seconds_to_epoch_end,
-            liveness_ratio=liveness_ratio,
-            liveness_period=liveness_period,
-            current_multisig_nonce=current_multisig_nonce,
-            last_checkpoint_nonce=last_checkpoint_nonce,
-            threshold_met=threshold_met,
-        )
-
-        self._kpi_cache = (metrics, now)
-        self._warned_missing_service_id = False
-        self._warned_metrics_failure = False
-        return metrics
-
-    def _should_claim_rewards(self) -> bool:
-        """Return True when accrued staking rewards should be claimed."""
-        accrued, reason = self._get_accrued_rewards()
-        if accrued is None:
-            reason_text = reason or "reward balance unavailable"
-            self._logger.info(
-                "Skipping checkpointAndClaim: %s", reason_text
-            )
-            return False
-        if accrued > 0:
-            self._logger.info(
-                "Accrued staking rewards detected for service %s (%s wei); using checkpointAndClaim",
-                self._service_id if self._service_id is not None else "<unknown>",
-                accrued,
-            )
-            return True
-        self._logger.info(
-            "No accrued staking rewards for service %s; calling checkpoint only",
-            self._service_id if self._service_id is not None else "<unknown>",
-        )
-        return False
-
-    def _get_accrued_rewards(self) -> Tuple[Optional[int], Optional[str]]:
-        """Fetch the currently accrued rewards for the configured service."""
-        if self._service_id is None:
-            reason = "staking service id not configured"
-            if not self._warned_missing_rewards_service_id:
-                self._logger.info(
-                    "Reward claim skipped: %s", reason
-                )
-                self._warned_missing_rewards_service_id = True
-            return None, reason
-
-        staking_contract = self._get_staking_token_contract()
-        if staking_contract is None:
-            reason = "staking token contract unavailable"
-            return None, reason
-
-        try:
-            service_info = staking_contract.functions.getServiceInfo(
-                int(self._service_id)
-            ).call()
-        except Exception as exc:
-            reason = f"failed to fetch staking rewards for service {self._service_id}: {exc}"
-            if not self._warned_reward_check_failure:
-                self._logger.info(
-                    "Reward claim skipped: %s",
-                    reason,
-                )
-                self._warned_reward_check_failure = True
-            return None, reason
-
-        reward_value = self._extract_reward_value(service_info)
-        if reward_value is None:
-            reason = (
-                f"unable to parse staking rewards for service {self._service_id} from payload"
-            )
-            if not self._warned_reward_check_failure:
-                self._logger.info("Reward claim skipped: %s", reason)
-                self._warned_reward_check_failure = True
-            return None, reason
-
-        self._warned_reward_check_failure = False
-        self._warned_missing_rewards_service_id = False
-        return reward_value, None
-
-    @staticmethod
-    def _extract_reward_value(service_info: Any) -> Optional[int]:
-        """Extract the reward field from getServiceInfo payloads."""
-        if service_info is None:
-            return None
-        if isinstance(service_info, dict):
-            reward_raw = service_info.get("reward")
-            if reward_raw is None:
-                return None
-            try:
-                return int(reward_raw)
-            except (TypeError, ValueError):
-                return None
-        if isinstance(service_info, (list, tuple)):
-            try:
-                reward_raw = service_info[4]
-            except (IndexError, TypeError):
-                return None
-            try:
-                return int(reward_raw)
-            except (TypeError, ValueError):
-                return None
         return None
 
     def _recent_submission_in_progress(self, current_ts: int) -> bool:
@@ -684,6 +312,24 @@ class StakingCheckpointClient:
         self._cached_liveness_period = DEFAULT_LIVENESS_PERIOD
         return self._cached_liveness_period
 
+    def _get_next_reward_checkpoint_timestamp(self) -> Optional[int]:
+        """Fetch the timestamp for the next reward checkpoint."""
+        if self._staking_contract is None:
+            return None
+        try:
+            value = (
+                self._staking_contract.functions.getNextRewardCheckpointTimestamp().call()
+            )
+            ts = int(value or 0)
+            if ts <= 0:
+                return None
+            return ts
+        except Exception as exc:
+            self._logger.debug(
+                "Failed to fetch next reward checkpoint timestamp: %s", exc
+            )
+            return None
+
     def _submit_checkpoint_transaction(self, current_ts: int) -> Optional[str]:
         """Build, sign, and submit the checkpoint transaction."""
         if (
@@ -698,8 +344,7 @@ class StakingCheckpointClient:
         w3 = self._w3
 
         max_attempts = 3
-        claim_rewards = self._should_claim_rewards()
-        method_label = "checkpointAndClaim" if claim_rewards else "checkpoint"
+        method_label = "checkpoint"
         for attempt in range(max_attempts):
             try:
                 with self._nonce_lock:
@@ -709,7 +354,7 @@ class StakingCheckpointClient:
                         "nonce": nonce,
                     }
 
-                    gas_limit = self._estimate_gas(tx_params, claim_rewards)
+                    gas_limit = self._estimate_gas(tx_params)
                     if gas_limit:
                         tx_params["gas"] = gas_limit
 
@@ -725,7 +370,7 @@ class StakingCheckpointClient:
                         current_ts,
                     )
 
-                    checkpoint_fn = self._get_checkpoint_function(claim_rewards)
+                    checkpoint_fn = self._get_checkpoint_function()
                     txn = checkpoint_fn.build_transaction(cast(TxParams, tx_params))
 
                     if self._dry_run:
@@ -784,23 +429,17 @@ class StakingCheckpointClient:
 
         return None
 
-    def _get_checkpoint_function(self, claim_rewards: bool):
+    def _get_checkpoint_function(self) -> Any:
         """Return the contract function to invoke for the next checkpoint."""
         assert self._staking_contract is not None
-        if claim_rewards and self._service_id is not None:
-            return self._staking_contract.functions.checkpointAndClaim(
-                int(self._service_id)
-            )
         return self._staking_contract.functions.checkpoint()
 
-    def _estimate_gas(
-        self, tx_params: Dict[str, Any], claim_rewards: bool
-    ) -> Optional[int]:
+    def _estimate_gas(self, tx_params: Dict[str, Any]) -> Optional[int]:
         """Estimate gas usage for the checkpoint transaction."""
         if self._staking_contract is None:
             return None
         try:
-            checkpoint_fn = self._get_checkpoint_function(claim_rewards)
+            checkpoint_fn = self._get_checkpoint_function()
             gas_estimate = checkpoint_fn.estimate_gas(cast(TxParams, tx_params))
             buffered = int(gas_estimate * 1.2)
             return max(buffered, 200_000)
@@ -1086,72 +725,6 @@ class StakingCheckpointClient:
         if isinstance(state_file, Path):
             return state_file
         return Path(state_file)
-
-    def _resolve_token_address(self, config: CheckpointConfig) -> Optional[str]:
-        """Determine the staking token address used for KPI queries."""
-        candidate = config.staking_token_address or config.staking_contract_address
-        if not candidate:
-            return None
-        try:
-            return Web3.to_checksum_address(candidate)
-        except Exception:
-            return candidate
-
-    def _get_staking_token_address(self) -> Optional[str]:
-        """Return the staking token address, falling back to the checkpoint contract."""
-        if self._staking_token_address is not None:
-            return self._staking_token_address
-        if self._staking_contract is None:
-            return None
-        try:
-            address = Web3.to_checksum_address(self._staking_contract.address)  # type: ignore[attr-defined]
-        except Exception:
-            address = cast(str, self._staking_contract.address)
-        self._staking_token_address = address
-        return self._staking_token_address
-
-    def _get_staking_token_contract(self) -> Optional[Contract]:
-        """Return a contract instance for the staking token when possible."""
-        if self._staking_token_contract is not None:
-            return self._staking_token_contract
-        if self._w3 is None:
-            return None
-        staking_token_address = self._get_staking_token_address()
-        if staking_token_address is None:
-            return None
-        try:
-            contract = self._w3.eth.contract(
-                address=staking_token_address, abi=STAKING_TOKEN_KPI_ABI
-            )
-        except Exception as exc:
-            self._logger.debug(
-                "Failed to instantiate staking token contract at %s: %s",
-                staking_token_address,
-                exc,
-            )
-            return None
-        self._staking_token_contract = contract
-        return self._staking_token_contract
-
-    def _normalise_service_id(
-        self, service_id: Optional[int]
-    ) -> Optional[int]:
-        """Return a validated integer service identifier when available."""
-        if service_id is None:
-            return None
-        try:
-            value = int(service_id)
-        except (TypeError, ValueError):
-            self._logger.warning(
-                "Invalid staking service id '%s'; reward claims disabled", service_id
-            )
-            return None
-        if value < 0:
-            self._logger.warning(
-                "Invalid staking service id '%s'; reward claims disabled", service_id
-            )
-            return None
-        return value
 
     def _normalise_address(self, address: Optional[str]) -> str:
         """Return a checksum-safe address when possible."""

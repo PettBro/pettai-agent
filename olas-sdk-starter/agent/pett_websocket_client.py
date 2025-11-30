@@ -1099,6 +1099,38 @@ class PettWebSocketClient:
         success, _ = await self._send_and_wait("CONSUMABLES_GET", {}, timeout=10)
         return bool(success)
 
+    async def fetch_consumables_inventory(
+        self, timeout: int = 10
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Return the structured list of owned consumables via CONSUMABLES_GET."""
+
+        success, response = await self._send_and_wait(
+            "CONSUMABLES_GET", {}, timeout=timeout
+        )
+        if not success:
+            logger.warning("❌ Failed to fetch consumables inventory")
+            return None
+
+        payload: Dict[str, Any] = {}
+        if isinstance(response, dict):
+            payload = response.get("data", response) or {}
+
+        raw_items = payload.get("consumables", [])
+        if not isinstance(raw_items, list):
+            logger.debug(
+                "Consumables inventory payload missing list; received type %s",
+                type(raw_items).__name__,
+            )
+            return []
+
+        inventory: List[Dict[str, Any]] = []
+        for item in raw_items:
+            if isinstance(item, dict):
+                inventory.append(item)
+
+        logger.debug("📦 Retrieved %d owned consumables", len(inventory))
+        return inventory
+
     async def get_kitchen(self) -> bool:
         """Get kitchen information."""
         success, _ = await self._send_and_wait("KITCHEN_GET", {}, timeout=10)

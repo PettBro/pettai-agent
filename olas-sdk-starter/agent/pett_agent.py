@@ -47,6 +47,29 @@ class PettAgent:
     REQUIRED_ACTIONS_PER_EPOCH = 8
     CRITICAL_CORE_STATS: Tuple[str, ...] = ("hunger", "health", "hygiene", "happiness")
     CRITICAL_STAT_THRESHOLD = 5.0
+    ECONOMY_BALANCE_THRESHOLD = 350.0
+    CONSUMABLE_CACHE_TTL = timedelta(minutes=5)
+    HEALTH_CONSUMABLE_PRIORITY: Tuple[str, ...] = (
+        "SMALL_POTION",
+        "POTION",
+        "LARGE_POTION",
+        "SALAD",
+    )
+    KNOWN_FOOD_BLUEPRINTS: Tuple[str, ...] = (
+        "BURGER",
+        "SALAD",
+        "STEAK",
+        "COOKIE",
+        "PIZZA",
+        "SUSHI",
+    )
+    POTION_STAT_KEYS: Tuple[str, ...] = (
+        "hunger",
+        "health",
+        "hygiene",
+        "happiness",
+        "energy",
+    )
 
     def __init__(
         self,
@@ -100,6 +123,12 @@ class PettAgent:
         self._daily_action_tracker = DailyActionTracker(
             tracker_path, required_actions=self.REQUIRED_ACTIONS_PER_EPOCH
         )
+        self._economy_mode_active: bool = False
+        self._owned_consumables_cache: Dict[
+            str, "PettAgent.OwnedConsumable"
+        ] = {}
+        self._owned_consumables_updated_at: Optional[datetime] = None
+        self._consumables_cache_ttl: timedelta = self.CONSUMABLE_CACHE_TTL
 
     def get_daily_action_history(self) -> Dict[str, Any]:
         """Return the current snapshot of the daily action tracker."""
@@ -149,6 +178,12 @@ class PettAgent:
         inRiskOfDeathTime: Union[str, None]
         PetTokens: "PettAgent.PetTokensDict"
         PetStats: "PettAgent.PetStatsDict"
+
+    class OwnedConsumable(TypedDict, total=False):
+        blueprint_id: str
+        quantity: int
+        type: str
+        name: str
 
     async def initialize(self) -> bool:
         """Initialize all agent components."""
@@ -1239,6 +1274,384 @@ class PettAgent:
         finally:
             self._low_health_recovery_in_progress = False
 
+    def _get_aip_balance(self, pet_data: "PettAgent.PetDataDict") -> float:
+        """Convert raw PetTokens balance to a floating point $AIP value."""
+        tokens = pet_data.get("PetTokens", {}) or {}
+        raw_balance = tokens.get("tokens") or pet_data.get("balance", 0)
+        try:
+            if isinstance(raw_balance, str):
+                value = raw_balance.strip()
+                if not value:
+                    return 0.0
+                if value.lower().startswith("0x"):
+                    base_value = int(value, 16)
+                else:
+                    base_value = int(value)
+            elif isinstance(raw_balance, (int, float)):
+                base_value = int(float(raw_balance))
+            else:
+                return 0.0
+            return base_value / (10**18)
+        except Exception:
+            return self._to_float(raw_balance)  # type: ignore[arg-type]
+
+    def _update_economy_mode_state(self, balance: float) -> bool:
+        """Toggle economy mode when the available balance crosses the threshold."""
+        new_state = balance < self.ECONOMY_BALANCE_THRESHOLD
+        warning_msg = None
+        if new_state != self._economy_mode_active:
+            if new_state:
+                warning_msg = (
+                    "Economy mode active: insufficient $AIP available for purchases."
+                )
+                self.logger.warning(
+                    "🔻 Economy mode enabled: %.2f $AIP below %.2f",
+                    balance,
+                    self.ECONOMY_BALANCE_THRESHOLD,
+                )
+            else:
+                self.logger.info(
+                    "💰 Economy mode disabled: %.2f $AIP available",
+                    balance,
+                )
+        self._economy_mode_active = new_state
+        try:
+            if self.olas:
+                self.olas.update_economy_mode_status(
+                    new_state,
+                    warning_msg
+                    or (
+                        "Economy mode active: insufficient $AIP available for purchases."
+                        if new_state
+                        else None
+                    ),
+                )
+        except Exception:
+            pass
+        return new_state
+
+    def _normalize_consumable_key(self, blueprint: Any) -> str:
+        if blueprint is None:
+            return ""
+        try:
+            return str(blueprint).strip().upper()
+        except Exception:
+            return ""
+
+    def _clone_owned_consumables_cache(self) -> Dict[str, "PettAgent.OwnedConsumable"]:
+        return {key: dict(value) for key, value in self._owned_consumables_cache.items()}
+
+    def _is_food_consumable(
+        self,
+        blueprint_id: str,
+        info: Optional["PettAgent.OwnedConsumable"],
+    ) -> bool:
+        type_hint = ((info or {}).get("type") or "").upper()
+        if type_hint:
+            return type_hint == "FOOD"
+        normalized = self._normalize_consumable_key(blueprint_id)
+        return normalized in self.KNOWN_FOOD_BLUEPRINTS
+
+    def _all_specified_stats_zero(
+        self, stats: Dict[str, Any], keys: Tuple[str, ...]
+    ) -> bool:
+        for key in keys:
+            value = self._to_float(stats.get(key, 0))
+            if value > 0.0:
+                return False
+        return True
+
+    def _potion_usage_allowed(self, stats: Dict[str, Any]) -> bool:
+        return self._all_specified_stats_zero(stats, self.POTION_STAT_KEYS)
+
+    def _consumable_allowed_for_use(
+        self,
+        blueprint_id: str,
+        info: Optional["PettAgent.OwnedConsumable"],
+        stats: Dict[str, Any],
+    ) -> bool:
+        if not info or int(info.get("quantity", 0) or 0) <= 0:
+            return False
+        if not self._is_food_consumable(blueprint_id, info):
+            return False
+        if (
+            self._normalize_consumable_key(blueprint_id) == "POTION"
+            and not self._potion_usage_allowed(stats)
+        ):
+            return False
+        return True
+
+    async def _get_owned_consumables(
+        self, *, force_refresh: bool = False
+    ) -> Dict[str, "PettAgent.OwnedConsumable"]:
+        """Return a cached mapping of owned consumables keyed by blueprint name."""
+
+        now = datetime.now()
+        if (
+            not force_refresh
+            and self._owned_consumables_updated_at
+            and (now - self._owned_consumables_updated_at) < self._consumables_cache_ttl
+        ):
+            return self._clone_owned_consumables_cache()
+
+        if not self.websocket_client:
+            return self._clone_owned_consumables_cache()
+
+        raw_items: Optional[List[Dict[str, Any]]] = None
+        try:
+            raw_items = await self.websocket_client.fetch_consumables_inventory()
+        except Exception as exc:
+            self.logger.debug("Failed to refresh consumables inventory: %s", exc)
+            return self._clone_owned_consumables_cache()
+
+        inventory: Dict[str, "PettAgent.OwnedConsumable"] = {}
+        for item in raw_items or []:
+            if not isinstance(item, dict):
+                continue
+
+            blueprint_payload = item.get("blueprint")
+            blueprint_cfg = item.get("blueprintConfig")
+            blueprint_key = ""
+            blueprint_name = ""
+            blueprint_type = ""
+
+            if not blueprint_cfg and isinstance(item.get("blueprintData"), dict):
+                blueprint_cfg = item.get("blueprintData")
+
+            if isinstance(blueprint_payload, dict):
+                blueprint_name = str(blueprint_payload.get("name", "") or "")
+                blueprint_type = str(blueprint_payload.get("type", "") or "").upper()
+                blueprint_key = self._normalize_consumable_key(
+                    blueprint_payload.get("blueprintID")
+                    or blueprint_payload.get("id")
+                    or blueprint_payload.get("slug")
+                )
+                if not blueprint_cfg:
+                    inner_cfg = blueprint_payload.get("config")
+                    if isinstance(inner_cfg, dict):
+                        blueprint_cfg = inner_cfg
+            elif isinstance(blueprint_payload, str):
+                blueprint_key = self._normalize_consumable_key(blueprint_payload)
+
+            if not blueprint_type and isinstance(blueprint_cfg, dict):
+                blueprint_type = str(blueprint_cfg.get("type", "") or "").upper()
+                if not blueprint_name:
+                    blueprint_name = str(blueprint_cfg.get("name", "") or "")
+                if not blueprint_key:
+                    blueprint_key = self._normalize_consumable_key(
+                        blueprint_cfg.get("blueprintID")
+                        or blueprint_cfg.get("id")
+                        or blueprint_cfg.get("slug")
+                    )
+
+            if not blueprint_key:
+                blueprint_key = self._normalize_consumable_key(item.get("blueprintID"))
+            if not blueprint_key:
+                continue
+
+            quantity_raw = item.get("quantity", 0)
+            try:
+                quantity = int(quantity_raw)
+            except Exception:
+                try:
+                    quantity = int(float(str(quantity_raw)))
+                except Exception:
+                    quantity = 0
+            if quantity <= 0:
+                continue
+
+            entry = inventory.setdefault(
+                blueprint_key,
+                {"blueprint_id": blueprint_key, "quantity": 0},
+            )
+            entry["quantity"] = int(entry.get("quantity", 0)) + quantity
+            if blueprint_type and not entry.get("type"):
+                entry["type"] = blueprint_type
+            if blueprint_name and not entry.get("name"):
+                entry["name"] = blueprint_name
+
+        self._owned_consumables_cache = inventory
+        self._owned_consumables_updated_at = now
+        return self._clone_owned_consumables_cache()
+
+    def _decrement_consumable_cache(self, blueprint: str) -> None:
+        key = self._normalize_consumable_key(blueprint)
+        if not key:
+            return
+        entry = self._owned_consumables_cache.get(key)
+        if not entry:
+            return
+        new_qty = max(int(entry.get("quantity", 0)) - 1, 0)
+        if new_qty <= 0:
+            self._owned_consumables_cache.pop(key, None)
+        else:
+            entry["quantity"] = new_qty
+        self._owned_consumables_updated_at = datetime.now()
+
+    async def _use_owned_health_consumable(
+        self,
+        *,
+        inventory: Optional[Dict[str, "PettAgent.OwnedConsumable"]] = None,
+        force_refresh: bool = False,
+        stats: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        if not self.websocket_client:
+            return False
+
+        inv = inventory
+        if inv is None:
+            inv = await self._get_owned_consumables(force_refresh=force_refresh)
+
+        if not inv:
+            return False
+
+        current_stats = stats or {}
+        allowed_blueprints = [
+            bp
+            for bp, info in inv.items()
+            if self._consumable_allowed_for_use(bp, info, current_stats)
+        ]
+        if not allowed_blueprints:
+            return False
+
+        client = self.websocket_client
+        for blueprint in self.HEALTH_CONSUMABLE_PRIORITY:
+            info = inv.get(blueprint)
+            if blueprint not in allowed_blueprints or not info:
+                continue
+            qty = int(info.get("quantity", 0))
+            if qty:
+                self.logger.info(
+                    "🩹 Economy mode: using owned %s (qty %d)", blueprint, qty
+                )
+                success = await self._execute_action_with_tracking(
+                    "CONSUMABLES_USE",
+                    lambda bp=blueprint: client.use_consumable(bp),
+                )
+                if success:
+                    self._decrement_consumable_cache(blueprint)
+                    await self._get_owned_consumables(force_refresh=True)
+                return success
+        return False
+
+    async def _attempt_owned_food_feed(
+        self,
+        stats: Dict[str, Any],
+        *,
+        inventory: Optional[Dict[str, int]] = None,
+        force_refresh: bool = False,
+    ) -> bool:
+        if not self.decision_engine:
+            return False
+
+        inv = inventory
+        if inv is None:
+            inv = await self._get_owned_consumables(force_refresh=force_refresh)
+        if not inv:
+            return False
+
+        stats_snapshot = dict(stats)
+
+        allowed = [
+            bp
+            for bp, info in inv.items()
+            if bp and self._consumable_allowed_for_use(bp, info, stats_snapshot)
+        ]
+        if not allowed:
+            return False
+
+        self.logger.info(
+            "🍱 Economy mode: attempting to feed using %d owned consumable types",
+            len(allowed),
+        )
+
+        async def feed_action() -> bool:
+            if not self.decision_engine:
+                return False
+            return await self.decision_engine.feed_best_owned_food(
+                stats_snapshot, allowed_blueprints=allowed
+            )
+
+        success = await self._execute_action_with_tracking(
+            "CONSUMABLES_USE", feed_action
+        )
+        if success:
+            await self._get_owned_consumables(force_refresh=True)
+        return success
+
+    async def _consume_owned_resources_for_needs(
+        self,
+        *,
+        hunger_needed: bool,
+        health_needed: bool,
+        stats: Dict[str, Any],
+        inventory: Optional[Dict[str, int]] = None,
+        force_refresh: bool = False,
+    ) -> bool:
+        if not (hunger_needed or health_needed):
+            return False
+
+        inv = inventory
+        if inv is None:
+            inv = await self._get_owned_consumables(force_refresh=force_refresh)
+
+        if not inv:
+            self.logger.info(
+                "Economy mode: no owned consumables available for current needs"
+            )
+            return False
+
+        if health_needed:
+            used_health = await self._use_owned_health_consumable(
+                inventory=inv, force_refresh=False, stats=stats
+            )
+            if used_health:
+                return True
+
+        if hunger_needed:
+            used_food = await self._attempt_owned_food_feed(
+                stats, inventory=inv, force_refresh=False
+            )
+            if used_food:
+                return True
+
+        return False
+
+    async def _perform_economy_token_actions(
+        self,
+        client: PettWebSocketClient,
+        *,
+        energy: float,
+        hygiene: float,
+        happiness: float,
+    ) -> bool:
+        if energy < self.LOW_ENERGY_THRESHOLD:
+            self.logger.info(
+                "Economy mode: sleeping to rebuild energy before earning actions"
+            )
+            await self._execute_action_with_tracking("SLEEP", client.sleep_pet)
+            return True
+
+        if hygiene < self.LOW_THRESHOLD:
+            self.logger.info("Economy mode: hygiene low; showering for free gains")
+            await self._execute_action_with_tracking(
+                "SHOWER", client.shower_pet, treat_already_clean_as_success=True
+            )
+            return True
+
+        if happiness < self.LOW_THRESHOLD:
+            self.logger.info(
+                "Economy mode: happiness low; throwing ball series to earn tokens"
+            )
+            for _ in range(3):
+                await self._execute_action_with_tracking("THROWBALL", client.throw_ball)
+                await asyncio.sleep(0.5)
+            return True
+
+        self.logger.info("Economy mode: stats stable; throwing ball to earn tokens")
+        await self._execute_action_with_tracking("THROWBALL", client.throw_ball)
+        return True
+
     async def _maybe_log_mid_interval(self, now: datetime) -> None:
         """Log staking KPI progress when halfway to the next scheduled action."""
         if self._mid_interval_logged:
@@ -1463,43 +1876,95 @@ class PettAgent:
             )
 
     async def _get_epoch_action_progress(
-        self, *, force_refresh: bool = False
-    ) -> Tuple[int, int, int, bool]:
-        """Return (completed, required, remaining, using_staking) for the current epoch."""
+        self, *, force_refresh: bool = False, allow_local_fallback: bool = True
+    ) -> Tuple[Optional[Tuple[int, int, int, bool]], Optional[str]]:
+        """Return staking progress tuple and failure reason, if any.
+
+        When allow_local_fallback is False the method returns (None, reason)
+        instead of using the local daily tracker.
+        """
+        reason: Optional[str] = None
         client = self.olas.get_staking_checkpoint_client()
-        if client and client.is_enabled:
+        has_client = bool(client and client.is_enabled)
+        if has_client:
             try:
                 metrics = await client.get_epoch_kpis(force_refresh=force_refresh)
             except Exception as exc:
+                reason = f"failed to fetch staking KPIs: {exc}"
                 self.logger.debug(
                     "Failed to fetch staking KPIs for action progress: %s", exc
                 )
             else:
                 if metrics is not None:
-                    required = int(metrics.required_txs or self.REQUIRED_ACTIONS_PER_EPOCH)
+                    required = int(
+                        metrics.required_txs or self.REQUIRED_ACTIONS_PER_EPOCH
+                    )
                     if required <= 0:
                         required = self.REQUIRED_ACTIONS_PER_EPOCH
                     completed = max(int(metrics.txs_in_epoch), 0)
                     remaining = max(required - completed, 0)
-                    return completed, required, remaining, True
+                    return (completed, required, remaining, True), None
+                reason = "checkpoint client is running in checkpoint-only mode; staking KPIs unavailable"
+        else:
+            reason = "staking checkpoint client is not configured or disabled"
+            self.logger.debug(
+                "No staking checkpoint client available; using daily action tracker"
+            )
+
+        if not allow_local_fallback:
+            return None, reason
 
         completed = self._daily_action_tracker.actions_completed()
         required = self.REQUIRED_ACTIONS_PER_EPOCH
         remaining = self._daily_action_tracker.actions_remaining()
-        return completed, required, remaining, False
+        return (completed, required, remaining, False), None
 
     async def _log_action_progress(self, action_name: str) -> None:
-        """Log action counters aligned with staking epoch progress when available."""
-        completed, required, remaining, using_staking = (
-            await self._get_epoch_action_progress(force_refresh=True)
+        """Log staking-aware counters or explain why they are unavailable."""
+        progress, reason = await self._get_epoch_action_progress(
+            force_refresh=True, allow_local_fallback=False
         )
-        scope_label = "this epoch" if using_staking else "today"
+        if not progress:
+            reason_text = reason or "unknown cause"
+            self.logger.warning(
+                "Staking KPI snapshot unavailable for %s: %s",
+                action_name,
+                reason_text,
+            )
+            fallback_progress, _ = await self._get_epoch_action_progress(
+                force_refresh=False, allow_local_fallback=True
+            )
+            if fallback_progress:
+                f_completed, f_required, f_remaining, using_staking = fallback_progress
+                scope_label = (
+                    "this epoch (cached)" if using_staking else "today (local tracker)"
+                )
+                self.logger.info(
+                    "📋 Action %s recorded (%d/%d %s, %d remaining) — pending staking KPIs",
+                    action_name,
+                    f_completed,
+                    f_required,
+                    scope_label,
+                    f_remaining,
+                )
+            else:
+                self.logger.info(
+                    "📋 Action %s recorded — pending staking KPIs", action_name
+                )
+            return
+
+        completed, required, remaining, using_staking = progress
+        if not using_staking:
+            self.logger.debug(
+                "Staking KPI data unexpectedly unavailable for %s; skipping log",
+                action_name,
+            )
+            return
         self.logger.info(
-            "📋 Action %s recorded (%d/%d %s, %d remaining)",
+            "📋 On-chain action %s recorded (%d/%d this epoch, %d remaining)",
             action_name,
             completed,
             required,
-            scope_label,
             remaining,
         )
 
@@ -1559,6 +2024,14 @@ class PettAgent:
             self._daily_action_tracker.record_action(normalized_name)
             await self._log_action_progress(normalized_name)
 
+        try:
+            await self._maybe_call_staking_checkpoint()
+        except Exception as exc:
+            self.logger.debug(
+                "Liveness checkpoint check after %s action failed: %s",
+                normalized_name,
+                exc,
+            )
         try:
             await self._maybe_checkpoint_epoch_end(f"action:{normalized_name}")
         except Exception as exc:
@@ -1736,6 +2209,15 @@ class PettAgent:
         critical_threshold = self.CRITICAL_STAT_THRESHOLD
         stats_critical = self._all_core_stats_below_threshold(stats, critical_threshold)
         sleep_blocked = stats_critical
+        token_balance = self._get_aip_balance(pet_data)
+        economy_mode = self._update_economy_mode_state(token_balance)
+        needs_consumables = hunger < self.LOW_THRESHOLD or health < self.LOW_THRESHOLD
+        inventory_snapshot: Optional[
+            Dict[str, "PettAgent.OwnedConsumable"]
+        ] = None
+        if economy_mode and needs_consumables:
+            inventory_snapshot = await self._get_owned_consumables(force_refresh=True)
+        owned_consumable_used = False
 
         if stats_critical and sleeping:
             self.logger.info(
@@ -1746,6 +2228,19 @@ class PettAgent:
             sleeping = False
 
         if stats_critical:
+            if economy_mode and needs_consumables and inventory_snapshot is not None:
+                owned_consumable_used = await self._consume_owned_resources_for_needs(
+                    hunger_needed=hunger < self.LOW_THRESHOLD,
+                    health_needed=health < self.LOW_THRESHOLD,
+                    stats=stats,
+                    inventory=inventory_snapshot,
+                )
+                if owned_consumable_used:
+                    self.logger.info(
+                        "🍱 Economy mode resolved critical stats using owned consumables"
+                    )
+                    return
+
             self.logger.warning(
                 "⚠️ Hunger, health, hygiene, and happiness all below %.1f; prioritizing consumables",
                 critical_threshold,
@@ -1758,7 +2253,9 @@ class PettAgent:
                 async def emergency_feed() -> bool:
                     if not self.decision_engine:
                         return False
-                    return await self.decision_engine.feed_best_owned_food(stats_snapshot)
+                    return await self.decision_engine.feed_best_owned_food(
+                        stats_snapshot
+                    )
 
                 feed_success = await self._execute_action_with_tracking(
                     "CONSUMABLES_USE", emergency_feed
@@ -1787,6 +2284,21 @@ class PettAgent:
             self.logger.warning(
                 "⚠️ Consumable attempts failed; sleeping remains disabled for this cycle"
             )
+
+        if (
+            economy_mode
+            and not owned_consumable_used
+            and needs_consumables
+            and inventory_snapshot is not None
+        ):
+            owned_consumable_used = await self._consume_owned_resources_for_needs(
+                hunger_needed=hunger < self.LOW_THRESHOLD,
+                health_needed=health < self.LOW_THRESHOLD,
+                stats=stats,
+                inventory=inventory_snapshot,
+            )
+            if owned_consumable_used:
+                return
 
         if actions_remaining == 1:
             if sleep_blocked:
@@ -1848,7 +2360,9 @@ class PettAgent:
                 sleeping = False
             else:
                 wake_threshold = (
-                    self.POST_KPI_SLEEP_TARGET if kpi_met else self.WAKE_ENERGY_THRESHOLD
+                    self.POST_KPI_SLEEP_TARGET
+                    if kpi_met
+                    else self.WAKE_ENERGY_THRESHOLD
                 )
                 if energy >= wake_threshold:
                     self.logger.info(
@@ -1934,6 +2448,16 @@ class PettAgent:
                 )
             return
 
+        if economy_mode:
+            handled = await self._perform_economy_token_actions(
+                client,
+                energy=energy,
+                hygiene=hygiene,
+                happiness=happiness,
+            )
+            if handled:
+                return
+
         # Priority 3: low happiness -> throw ball 3 times with delays
         if happiness < self.LOW_THRESHOLD:
             self.logger.info("🎾 Low happiness detected; throwing ball 3 times")
@@ -1956,9 +2480,9 @@ class PettAgent:
         self.logger.info("🎯 Pett Agent is now running...")
 
         try:
-            await self._maybe_checkpoint_epoch_end("startup")
+            await self._maybe_call_staking_checkpoint()
         except Exception as exc:
-            self.logger.debug("Startup checkpoint trigger failed: %s", exc)
+            self.logger.debug("Startup checkpoint check failed: %s", exc)
 
         try:
             # Start background tasks
@@ -2000,6 +2524,14 @@ class PettAgent:
 
         except Exception as e:
             self.logger.error(f"❌ Error during shutdown: {e}")
+        finally:
+            try:
+                if self.olas:
+                    self.olas.persist_agent_performance_metrics()
+            except Exception as exc:
+                self.logger.debug(
+                    "Failed to persist agent performance metrics on shutdown: %s", exc
+                )
 
     def get_action_timing_info(self) -> Dict[str, Any]:
         """Expose action scheduling info for UI/health."""

@@ -58,7 +58,10 @@ class PetDecisionEngine:
         self._prompt_recorder = recorder
 
     async def choose_food_from_kitchen(
-        self, kitchen_json: str, pet_stats: Optional[Dict[str, Any]] = None
+        self,
+        kitchen_json: str,
+        pet_stats: Optional[Dict[str, Any]] = None,
+        allowed_blueprints: Optional[List[str]] = None,
     ) -> Optional[str]:
         """Ask the model to pick the owned consumable that best increases hunger.
 
@@ -69,6 +72,27 @@ class PetDecisionEngine:
                 "[DecisionEngine] No valid mall data provided for food choice"
             )
             return None
+
+        def stats_zero(values: Optional[Dict[str, Any]]) -> bool:
+            if not isinstance(values, dict):
+                return False
+            required_keys = ("hunger", "health", "hygiene", "happiness", "energy")
+            for key in required_keys:
+                if key not in values:
+                    return False
+                try:
+                    if float(values.get(key, 0)) > 0.0:
+                        return False
+                except Exception:
+                    return False
+            return True
+
+        potion_allowed = stats_zero(pet_stats)
+
+        def is_potion_item(summary: Dict[str, Any]) -> bool:
+            blueprint_id = str(summary.get("blueprintID", "") or "").upper()
+            name = str(summary.get("name", "") or "").upper()
+            return blueprint_id == "POTION" or name == "POTION"
 
         # Parse and summarize kitchen payload to a compact list the model can reason about
         try:
@@ -111,6 +135,45 @@ class PetDecisionEngine:
         if not food_items:
             logger.info("[DecisionEngine] No FOOD items available in kitchen payload")
             return None
+
+        if not potion_allowed:
+            filtered_without_potion = [
+                item for item in food_items if not is_potion_item(item)
+            ]
+            if not filtered_without_potion:
+                logger.info(
+                    "[DecisionEngine] Potions ignored until all stats reach 0; no other FOOD available"
+                )
+                return None
+            food_items = filtered_without_potion
+
+        if allowed_blueprints:
+            allowed = {bp.upper() for bp in allowed_blueprints if bp}
+            filtered_food: List[Dict[str, Any]] = []
+            for item in food_items:
+                blueprint_id = str(item.get("blueprintID", "") or "").upper()
+                consumable_id = str(item.get("id", "") or "").upper()
+                name = str(item.get("name", "") or "").upper()
+                if is_potion_item(item) and not potion_allowed:
+                    continue
+                if (
+                    (blueprint_id and blueprint_id in allowed)
+                    or (consumable_id and consumable_id in allowed)
+                    or (name and name in allowed)
+                ):
+                    filtered_food.append(item)
+
+            if not filtered_food:
+                logger.info(
+                    "[DecisionEngine] No FOOD items matched allowed inventory filter (%d candidates)",
+                    len(allowed),
+                )
+                return None
+
+            food_items = filtered_food
+            logger.info(
+                f"[DecisionEngine] Filtered food choices to {len(food_items)} owned items"
+            )
 
         logger.info(f"[DecisionEngine] Found {len(food_items)} food items in kitchen")
 
@@ -187,13 +250,17 @@ class PetDecisionEngine:
         return choice
 
     async def feed_best_owned_food(
-        self, pet_stats: Optional[Dict[str, Any]] = None
+        self,
+        pet_stats: Optional[Dict[str, Any]] = None,
+        allowed_blueprints: Optional[List[str]] = None,
     ) -> bool:
         """Fetch mall data and ask the model which owned food to use."""
         logger.info("[DecisionEngine] 🍔 Starting AI-driven food selection process")
 
         mall = await self.websocket_client.get_kitchen_data(timeout=10)
-        choice = await self.choose_food_from_kitchen(mall, pet_stats)
+        choice = await self.choose_food_from_kitchen(
+            mall, pet_stats, allowed_blueprints=allowed_blueprints
+        )
 
         logger.info(f"[DecisionEngine] 🍔 Choice: {choice}")
 

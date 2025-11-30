@@ -32,12 +32,37 @@ from .staking_checkpoint import (
     DEFAULT_SAFE_ADDRESS,
     DEFAULT_STATE_FILE,
 )
+from .agent_performance import AgentPerformanceStore
 import subprocess
 import mimetypes
 
 ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 DEFAULT_FUNDS_CHAIN = "base"
-DEFAULT_NATIVE_TOPUP_WEI = 50_000_000_000_000_000  # 0.05 ETH
+_DEFAULT_NATIVE_TOPUP_FALLBACK_WEI = 80000000000000  # 0.00008 ETH
+
+
+def _resolve_default_native_topup() -> int:
+    """Resolve the default native top-up (wei) from environment overrides."""
+    env_candidates = (
+        "DEFAULT_NATIVE_TOPUP_WEI",
+        "FUND_NATIVE_TOPUP_WEI",
+        "CONNECTION_CONFIGS_CONFIG_DEFAULT_NATIVE_TOPUP_WEI",
+        "CONNECTION_CONFIGS_CONFIG_FUND_NATIVE_TOPUP_WEI",
+    )
+    for env_name in env_candidates:
+        raw = os.environ.get(env_name)
+        if not raw or not str(raw).strip():
+            continue
+        try:
+            value = int(str(raw).strip(), 0)
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            return value
+    return _DEFAULT_NATIVE_TOPUP_FALLBACK_WEI
+
+
+DEFAULT_NATIVE_TOPUP_WEI = _resolve_default_native_topup()
 DEFAULT_NATIVE_THRESHOLD_WEI = DEFAULT_NATIVE_TOPUP_WEI // 2
 DEFAULT_STAKING_CONTRACT_ADDRESS = "0x31183503be52391844594b4B587F0e764eB3956E"
 ERC20_BALANCE_ABI = [
@@ -114,6 +139,13 @@ class OlasInterface:
         self.pet_hotel_tier: int = 0
         self.pet_dead: bool = False
         self.pet_sleeping: bool = False
+        self.agent_ui_behavior: Optional[str] = (
+            "Make sure to login to your favourite pet through the Agent Profile to enable autonomous pet sitting actions!"
+        )
+        self.economy_mode_active: bool = False
+        self.economy_mode_message: Optional[str] = None
+        self.economy_mode_threshold: float = 350.0
+
         # Pet stats storage
         self.pet_hunger: float = 0.0
         self.pet_health: float = 0.0
@@ -134,12 +166,13 @@ class OlasInterface:
         self.react_build_dir: Optional[Path] = None
         self.react_enabled: bool = False
 
-        # Funds status configuration
+        # Funds / performance configuration
         self.agent_eoa_address: Optional[str] = self._derive_agent_address()
         self.agent_safe_address: Optional[str] = self._resolve_safe_address()
         self.fund_requirements: Dict[str, Any] = self._load_fund_requirements()
         self.fund_rpc_urls: Dict[str, str] = self._load_fund_rpc_urls()
         self._funds_web3_clients: Dict[str, Web3] = {}
+        self.agent_performance_store = AgentPerformanceStore(logger=self.logger)
 
         # Optional on-chain components
         self.action_recorder: Optional[ActionRecorder] = None
@@ -423,6 +456,32 @@ class OlasInterface:
             allowed[self.agent_safe_address.lower()] = self.agent_safe_address
         return allowed
 
+    def _update_agent_performance_metrics(self) -> None:
+        """Persist the latest pet snapshot to the Pearl performance file."""
+        store = getattr(self, "agent_performance_store", None)
+        if store is None or not store.is_enabled:
+            self.logger.warning(
+                "Agent performance store is not enabled, skipping update"
+            )
+            return
+        pet_name = (
+            self.pet_name if self.pet_name and self.pet_name != "Unknown" else None
+        )
+        if not pet_name:
+            return
+        try:
+            store.update_pet_metrics(
+                pet_name=pet_name,
+                is_dead=self.pet_dead,
+                agent_ui_behavior=self.agent_ui_behavior,
+            )
+        except Exception as exc:
+            self.logger.debug("Failed to update agent performance metrics: %s", exc)
+
+    def persist_agent_performance_metrics(self) -> None:
+        """Public wrapper to ensure the performance file is refreshed on demand."""
+        self._update_agent_performance_metrics()
+
     def _compute_funds_status(self) -> Dict[str, Any]:
         """Compute the funds deficit payload expected by Pearl v1."""
         requirements = self.fund_requirements or {}
@@ -436,6 +495,7 @@ class OlasInterface:
                 continue
             chain_key = str(chain_name).lower()
             chain_payload: Dict[str, Dict[str, Dict[str, str]]] = {}
+            chain_needs_funds = False
             for raw_address, assets in addresses.items():
                 if not isinstance(assets, dict):
                     continue
@@ -450,8 +510,7 @@ class OlasInterface:
                         continue
                     checksum_asset = (
                         ZERO_ADDRESS
-                        if str(asset_address).lower()
-                        in {"0x0", ZERO_ADDRESS.lower()}
+                        if str(asset_address).lower() in {"0x0", ZERO_ADDRESS.lower()}
                         else self._coerce_address(asset_address)
                     )
                     if not checksum_asset:
@@ -472,19 +531,19 @@ class OlasInterface:
                             exc,
                         )
                         continue
-                    if balance >= threshold:
-                        continue
-                    deficit = max(topup - balance, 0)
-                    if deficit <= 0:
-                        continue
+                    deficit = 0
+                    if balance < threshold:
+                        deficit = max(topup - balance, 0)
                     asset_payload[checksum_asset] = {
                         "balance": str(balance),
                         "deficit": str(deficit),
                         "decimals": str(decimals),
                     }
+                    if deficit > 0:
+                        chain_needs_funds = True
                 if asset_payload:
                     chain_payload[checksum_address] = asset_payload
-            if chain_payload:
+            if chain_needs_funds and chain_payload:
                 payload[chain_key] = chain_payload
         return payload
 
@@ -539,6 +598,17 @@ class OlasInterface:
         self.pet_status = status
         self.logger.debug(f"Pet status updated: connected={connected}, status={status}")
 
+    def update_economy_mode_status(
+        self, active: bool, message: Optional[str] = None
+    ) -> None:
+        """Expose the agent's economy mode state for UI warnings."""
+        self.economy_mode_active = bool(active)
+        self.economy_mode_message = message if active else None
+        if active:
+            self.logger.warning(
+                "⚠️ Economy mode active: %s", message or "insufficient funds"
+            )
+
     def update_registration_state(
         self, required: bool, error: Optional[str] = None
     ) -> None:
@@ -571,17 +641,27 @@ class OlasInterface:
             raw_balance = pet_data.get("PetTokens", {}).get(
                 "tokens", pet_data.get("balance", "0")
             )
+            balance_float: Optional[float] = None
             try:
                 if isinstance(raw_balance, str):
                     raw_balance = int(raw_balance)
                 eth_value = raw_balance / (10**18)
                 self.pet_balance = f"{eth_value:.4f}"
+                balance_float = eth_value
             except (ValueError, TypeError, ZeroDivisionError):
                 self.pet_balance = "0.0000"
+                balance_float = None
 
             self.pet_hotel_tier = pet_data.get("currentHotelTier", 0)
             self.pet_dead = pet_data.get("dead", False)
             self.pet_sleeping = pet_data.get("sleeping", False)
+
+            if (
+                balance_float is not None
+                and balance_float > self.economy_mode_threshold
+                and self.economy_mode_active
+            ):
+                self.update_economy_mode_status(False, None)
 
             # Extract and normalize PetStats
             stats = pet_data.get("PetStats", {}) if isinstance(pet_data, dict) else {}
@@ -614,6 +694,7 @@ class OlasInterface:
                     pass
 
             self.logger.debug(f"Pet data updated: {self.pet_name} (ID: {self.pet_id})")
+            self._update_agent_performance_metrics()
         else:
             # Reset to defaults if no data
             self.pet_name = "Unknown"
@@ -891,33 +972,6 @@ class OlasInterface:
             else DEFAULT_STATE_FILE
         )
 
-        service_id_value: Optional[int] = None
-        service_env_candidates = (
-            "STAKING_SERVICE_ID",
-            "SERVICE_ID",
-            "SERVICE_TOKEN_ID",
-            "SERVICE_TOKEN",
-            "CONNECTION_CONFIGS_CONFIG_SERVICE_ID",
-            "CONNECTION_CONFIGS_CONFIG_SERVICE_TOKEN",
-            "CONNECTION_CONFIGS_CONFIG_TOKEN",
-        )
-        for env_name in service_env_candidates:
-            raw = os.environ.get(env_name)
-            if not raw or not raw.strip():
-                continue
-            try:
-                service_id_value = int(raw.strip(), 0)
-                break
-            except ValueError:
-                self.logger.warning(
-                    "Invalid staking service id value in %s: %s", env_name, raw
-                )
-        if service_id_value is None and discovered_staking:
-            sid = discovered_staking.get("service_id")
-            if isinstance(sid, int):
-                service_id_value = sid
-                used_discovered_config = True
-
         staking_token_address = staking_address
         staking_token_env_candidates = (
             "STAKING_TOKEN_ADDRESS",
@@ -930,7 +984,9 @@ class OlasInterface:
             if value and value.strip():
                 staking_token_address = value.strip()
                 break
-        if (not staking_token_address or staking_token_address == staking_address) and discovered_staking:
+        if (
+            not staking_token_address or staking_token_address == staking_address
+        ) and discovered_staking:
             token_candidate = discovered_staking.get("staking_token_address")
             if token_candidate:
                 staking_token_address = token_candidate
@@ -948,7 +1004,6 @@ class OlasInterface:
                 liveness_period=liveness_period,
                 state_file=state_file_path,
                 staking_token_address=staking_token_address,
-                service_id=service_id_value,
             )
             self.staking_checkpoint_client = StakingCheckpointClient(
                 config=config, logger=self.logger
@@ -960,9 +1015,8 @@ class OlasInterface:
 
         if used_discovered_config and discovered_staking:
             self.logger.info(
-                "Auto-detected staking configuration from %s (service_id=%s, chain=%s)",
+                "Auto-detected staking configuration from %s (chain=%s)",
                 discovered_staking.get("source", "operate services"),
-                discovered_staking.get("service_id"),
                 discovered_staking.get("chain_name"),
             )
 
@@ -1020,6 +1074,10 @@ class OlasInterface:
                         chain_data.get("token") or user_params.get("service_id")
                     )
                     if service_id_value is None:
+                        continue
+                    if service_id_value < 0:
+                        # Ignore placeholder service definitions that do not
+                        # represent real staking deployments.
                         continue
                     result = {
                         "source": str(config_path),
@@ -1153,6 +1211,10 @@ class OlasInterface:
                 self.is_transitioning and seconds_since_transition < 30
             ),
             "agent_health": agent_health,
+            "economy_mode": {
+                "active": self.economy_mode_active,
+                "message": self.economy_mode_message,
+            },
             "rounds_info": {},
             "env_var_status": {
                 "needs_update": needs_env_update,
@@ -1749,9 +1811,7 @@ class OlasInterface:
             payload = await asyncio.to_thread(self._compute_funds_status)
         except Exception as exc:
             self.logger.error("Failed to compute funds status: %s", exc)
-            return web.json_response(
-                {"error": "funds_status_unavailable"}, status=500
-            )
+            return web.json_response({"error": "funds_status_unavailable"}, status=500)
         return web.json_response(payload, status=200)
 
     async def _chat_api_handler(self, request: web.Request) -> web.Response:
