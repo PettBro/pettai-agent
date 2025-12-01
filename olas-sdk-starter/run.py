@@ -5,20 +5,23 @@ Compliant with: https://stack.olas.network/olas-sdk/#step-1-build-the-agent-supp
 """
 
 import argparse
-import os
-import sys
 import asyncio
 import logging
+import os
+import sys
 from pathlib import Path
 from typing import Optional
 
 # Add the current directory to Python path for local imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import typing_extensions_patch  # noqa: F401  # ensures Sentinel backport if needed
 from eth_account import Account
 
 from agent.olas_interface import OlasInterface
 from agent.pett_agent import PettAgent
+
+DEFAULT_AGENT_VERSION = "0.1.0"
 
 
 def setup_olas_logging() -> logging.Logger:
@@ -67,9 +70,7 @@ def _prepare_private_key_material(
     try:
         decrypted_bytes = Account.decrypt(key_data, password)
     except Exception as exc:
-        logging.error(
-            "Failed to decrypt ethereum private key from %s: %s", source, exc
-        )
+        logging.error("Failed to decrypt ethereum private key from %s: %s", source, exc)
         return None
 
     return f"0x{decrypted_bytes.hex()}"
@@ -157,6 +158,11 @@ async def main(password: Optional[str] = None):
         raise
 
 
+def get_version() -> str:
+    """Return the current agent version."""
+    return os.environ.get("PETT_AGENT_VERSION", DEFAULT_AGENT_VERSION)
+
+
 def parse_args() -> argparse.Namespace:
     """Parse CLI arguments for the agent runner."""
     parser = argparse.ArgumentParser(description="Run the Pett Agent.")
@@ -165,11 +171,21 @@ def parse_args() -> argparse.Namespace:
         type=str,
         help="Password to decrypt the Ethereum private key.",
     )
+    parser.add_argument(
+        "--version",
+        action="store_true",
+        help="Print the Pett Agent version and exit.",
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     cli_args = parse_args()
+
+    if cli_args.version:
+        print(f"Pett Agent Runner {get_version()}")
+        sys.exit(0)
+
     try:
         asyncio.run(main(password=cli_args.password))
     except KeyboardInterrupt:

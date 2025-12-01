@@ -20,11 +20,13 @@ jobs:
         shell: bash
         working-directory: ./olas-sdk-starter
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Push Autonomous Packages
+      - name: Push Autonomous Packages # push the agent/service packages to the remote registry
         uses: addnab/docker-run-action@v3
         with:
           image: valory/open-autonomy-user:0.19.11
@@ -53,10 +55,13 @@ jobs:
         shell: bash
         working-directory: ./olas-sdk-starter
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - name: Set up tag and vars
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Enable QEMU emulation # allows multi-arch Docker builds
+        uses: docker/setup-qemu-action@v3
+      - name: Configure Buildx # multi-arch builder for Docker
+        uses: docker/setup-buildx-action@v3
+      - name: Set up tag and vars # derive author/service names and versions
         uses: addnab/docker-run-action@v3
         with:
           image: valory/open-autonomy-user:0.19.11
@@ -81,7 +86,7 @@ jobs:
             } > env.sh
             cat env.sh
 
-      - name: Build Images
+      - name: Build Images # fetch service and push multi-arch Docker images
         uses: addnab/docker-run-action@v3
         with:
           image: valory/open-autonomy-user:0.19.11
@@ -122,11 +127,13 @@ jobs:
         shell: bash
         working-directory: ./olas-sdk-starter
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
+      - name: Install dependencies # OS packages plus Python CLI tools
         run: |
           sudo apt-get update --fix-missing
           sudo apt-get autoremove -y
@@ -134,7 +141,7 @@ jobs:
           sudo apt-get install -y dnsutils jq
           python -m pip install --upgrade pip
           pip install propel-client open-autonomy
-      - name: Make use proxy instead of actual nlb by dns override
+      - name: Override DNS for Propel proxy # route traffic via the proxy balancers
         run: |
           # for staging
           export IP_ADDR=$(dig +short balancer.tcp.propel.staging.autonolas.tech)
@@ -143,10 +150,10 @@ jobs:
           # for prod
           export IP_ADDR=$(dig +short balancer.tcp.propel.autonolas.tech)
           echo -e "\n$IP_ADDR\tapp.propel.valory.xyz\n"  | sudo tee -a /etc/hosts
-      - name: Login to propel
+      - name: Login to propel # authenticate CLI using GitHub secrets
         run: |
           $CMD login -u  '${{ vars.PROPEL_USERNAME }}' -p  '${{ secrets.PROPEL_PASSWORD }}'
-      - name: Do a deployment
+      - name: Do a deployment # fetch the service and deploy via Propel CLI
         run: |
           export IPFS_HASH=$(jq '.dev | to_entries[] | select(.key | startswith("service"))| .value' -r  ./packages/packages.json | head -n1)
           export SERVICE_PATH=service_for_propel
@@ -172,14 +179,16 @@ jobs:
         shell: bash
         working-directory: ./olas-sdk-starter
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         id: setup-python
         with:
           python-version: "3.10"
-      - name: Add Python to PATH
+      - name: Add Python to PATH # exposes the interpreter to subsequent shell steps
         run: echo "${{ steps.setup-python.outputs.python-path }}" >> "$GITHUB_PATH"
-      - name: prepare sign things windows
+      - name: Prepare Windows signing environment # install certificates and set env vars
         if: runner.os == 'Windows'
         shell: bash
         run: |
@@ -196,7 +205,7 @@ jobs:
           echo "C:\\Program Files (x86)\\Windows Kits\\10\\App Certification Kit" >> "$GITHUB_PATH"
           echo "C:\\Program Files (x86)\\Microsoft SDKs\\Windows\\v10.0A\\bin\\NETFX 4.8 Tools" >> "$GITHUB_PATH"
           echo "C:\\Program Files\\DigiCert\\DigiCert One Signing Manager Tools" >> "$GITHUB_PATH"
-      - name: Setup SSM KSP on windows latest
+      - name: Install DigiCert tooling on Windows # required for code-signing
         if: runner.os == 'Windows'
         shell: cmd
         working-directory: ./olas-sdk-starter
@@ -207,21 +216,19 @@ jobs:
           smctl.exe keypair ls
           C:\Windows\System32\certutil.exe -csp "DigiCert Signing Manager KSP" -key -user
           smksp_cert_sync.exe
-      - name: Install and configure Poetry
-        run: pip install poetry
-      - name: prepare agent
+      - name: Prepare agent workspace # install deps, init autonomy, and derive IDs
         run: |
-          make poetry-install
-          poetry run autonomy init --reset --author "dummy_author_git_ci" --ipfs --remote
+          make install-deps
+          autonomy init --reset --author "dummy_author_git_ci" --ipfs --remote
           make hash_id
           make agent_id
           make ./agent/ethereum_private_key.txt
-      - name: prepare archives
+      - name: Prepare agent archives # tar/zip bundles for release assets
         if: runner.os != 'Windows'
         run: |
           make agent.zip
           make agent.tar.gz
-      - name: build and sign the file mac os
+      - name: Build and sign macOS binary # runs PyInstaller and codesigns output
         if: runner.os != 'Windows'
         env:
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
@@ -242,54 +249,54 @@ jobs:
           make build-agent-runner-mac
 
           codesign -dv --verbose=4 dist/agent_runner_bin
-      - name: rename the file mac os
+      - name: Rename macOS binary to release naming convention
         if: runner.os != 'Windows'
         run: |
           export FILENAME=$(echo -n agent_runner_${{ runner.os }}_${{ runner.arch }} | tr '[:upper:]' '[:lower:]')
           echo "FILENAME=$FILENAME" >> "$GITHUB_ENV"
           cp dist/agent_runner_bin "dist/${FILENAME}"
           "dist/${FILENAME}" --version
-      - name: Build Agent Runner Windows
+      - name: Build Windows binary with PyInstaller
         if: runner.os == 'Windows'
         run: make build-agent-runner
-      - name: sign the file
+      - name: Sign Windows binary via DigiCert CLI
         if: runner.os == 'Windows'
         shell: cmd
         working-directory: ./olas-sdk-starter
         run: |
           "C:\Program Files\DigiCert\DigiCert One Signing Manager Tools\smctl.exe" sign --keypair-alias=${{ secrets.SM_KEY_PAIR_ALIAS }} --input "dist/agent_runner_bin.exe"
-      - name: rename the file windows
+      - name: Rename Windows binary to release naming convention
         if: runner.os == 'Windows'
         run: |
           export FILENAME=$(echo -n agent_runner_${{ runner.os }}_${{ runner.arch }}.exe | tr '[:upper:]' '[:lower:]')
           echo "FILENAME=$FILENAME" >> "$GITHUB_ENV"
           cp dist/agent_runner_bin.exe "dist/${FILENAME}"
-      - name: check agent runner
+      - name: Check agent runner binary # executes the sanity-check script
         run: make check-agent-runner
-      - name: Upload agent runner binary
+      - name: Upload agent runner binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.FILENAME }}
           path: olas-sdk-starter/dist/${{ env.FILENAME }}
-      - name: Upload Release Assets
+      - name: Upload hash_id artifact
         uses: actions/upload-artifact@v4
         with:
           name: hash_id
           path: olas-sdk-starter/hash_id
           overwrite: true
-      - name: Upload Release Assets agent id
+      - name: Upload agent_id artifact
         uses: actions/upload-artifact@v4
         with:
           name: agent_id
           path: olas-sdk-starter/agent_id
           overwrite: true
-      - name: Upload Release Assets agent tar
+      - name: Upload agent.tar.gz artifact
         uses: actions/upload-artifact@v4
         with:
           name: agent.tar.gz
           path: olas-sdk-starter/agent.tar.gz
           overwrite: true
-      - name: Upload Release Assets agent zip
+      - name: Upload agent.zip artifact
         uses: actions/upload-artifact@v4
         with:
           name: agent.zip
@@ -315,29 +322,29 @@ jobs:
         with:
           name: agent_runner_windows_x64.exe
           path: ./dist/
-      - name: Download agent id
+      - name: Download agent_id artifact
         uses: actions/download-artifact@v4
         with:
           name: agent_id
           path: ./dist/
-      - name: Download hash id
+      - name: Download hash_id artifact
         uses: actions/download-artifact@v4
         with:
           name: hash_id
           path: ./dist/
-      - name: Download agent zip
+      - name: Download agent.zip artifact
         uses: actions/download-artifact@v4
         with:
           name: agent.zip
           path: ./dist/
-      - name: Download agent tar.gz
+      - name: Download agent.tar.gz artifact
         uses: actions/download-artifact@v4
         with:
           name: agent.tar.gz
           path: ./dist/
-      - name: List files
+      - name: List release bundle contents
         run: ls ./dist/
-      - name: Publish Release
+      - name: Publish GitHub Release with binaries
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:

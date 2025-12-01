@@ -419,3 +419,6 @@ minting_key.txt
 bin/
 
 agent_key.txt
+
+agent_id
+hash_id

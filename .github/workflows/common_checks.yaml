@@ -9,14 +9,13 @@ on:
 
 jobs:
   lock_check:
-    continue-on-error: False
+    continue-on-error: false
     runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
         python-version: [ "3.10" ]
-        poetry-version: ["1.8.4"]
 
     defaults:
       run:
@@ -25,22 +24,14 @@ jobs:
     timeout-minutes: 10
 
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install and configure Poetry
-      uses: snok/install-poetry@v1
-      with:
-        version: ${{ matrix.poetry-version }}
-        virtualenvs-create: true
-        virtualenvs-in-project: false
-        virtualenvs-path: ~/my-custom-path
-        installer-parallel: true
-    - name: Check if dependencies can be locked
-      run: poetry lock --check
-    - name: Poetry install requirements and check they can be locked
-      run: poetry install --all-extras --no-interaction -vvv
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install pip dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
 
   linter_checks:
     continue-on-error: False
