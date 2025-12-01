@@ -909,6 +909,8 @@ class OlasInterface:
 
         staking_address: Optional[str] = None
         staking_env_candidates = (
+            "STAKING_TOKEN_CONTRACT_ADDRESS",
+            "CONNECTION_CONFIGS_CONFIG_STAKING_TOKEN_CONTRACT_ADDRESS",
             "STAKING_CONTRACT_ADDRESS",
             "STAKING_PROXY_ADDRESS",
             "SERVICE_STAKING_CONTRACT_ADDRESS",

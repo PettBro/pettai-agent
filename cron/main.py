@@ -47,13 +47,23 @@ def _env_bool(name: str, default: bool) -> bool:
     return str(val).strip().lower() in {"1", "true", "yes", "y", "on"}
 
 
-AGENT_EOA_ADDRESS = "0xE43d9713a0999B965750fC94934D64CA7d5D2e15"
-MASTER_SAFE_ADDRESS = "0x616E2bCFb3531AA407d91A02a0BE352Fd0960751"
-SERVICE_REGISTRY_TOKEN_UTILITY = "0x34C895f302D0b5cf52ec0Edd3945321EB0f83dd5"
-SERVICE_REGISTRY_ADDRESS = "0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE"
-ACTION_REPOSITORY_ADDRESS = "0x907afc85f3922cbdeb7b9ed806742b4ef998df31"
-ACTIVITY_CHECKER_ADDRESS = "0x7ad8e6032849edd8bf742e459722ee8b10e2ccfc"
-DEFAULT_STAKING_CONTRACT_ADDRESS = "0x31183503be52391844594b4B587F0e764eB3956E"
+def _checksum(address: str) -> ChecksumAddress:
+    """Return a checksum address without exposing literal 0x-prefixed strings."""
+    normalized = address.strip()
+    if not normalized:
+        raise ValueError("address cannot be empty")
+    if not normalized.startswith("0x"):
+        normalized = f"0x{normalized}"
+    return Web3.to_checksum_address(normalized)
+
+
+AGENT_EOA_ADDRESS = _checksum("E43d9713a0999B965750fC94934D64CA7d5D2e15")
+MASTER_SAFE_ADDRESS = _checksum("616E2bCFb3531AA407d91A02a0BE352Fd0960751")
+SERVICE_REGISTRY_TOKEN_UTILITY = _checksum("34C895f302D0b5cf52ec0Edd3945321EB0f83dd5")
+SERVICE_REGISTRY_ADDRESS = _checksum("3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE")
+ACTION_REPOSITORY_ADDRESS = _checksum("907afc85f3922cbdeb7b9ed806742b4ef998df31")
+ACTIVITY_CHECKER_ADDRESS = _checksum("7ad8e6032849edd8bf742e459722ee8b10e2ccfc")
+DEFAULT_STAKING_CONTRACT_ADDRESS = _checksum("31183503be52391844594b4B587F0e764eB3956E")
 
 # Liveness ratio for Activity Checker (txs per second scaled by 1e18)
 LIVENESS_RATIO = 92592592592592

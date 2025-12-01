@@ -19,11 +19,19 @@ async def test_pet_data_ui():
 
     print("🧪 Testing enhanced UI with pet data...")
 
+    logger = logging.getLogger("test_pet_data_ui")
+    ethereum_private_key = os.environ.get("ETH_PRIVATE_KEY")
+    if not ethereum_private_key:
+        logger.warning(
+            "ETH_PRIVATE_KEY not set; using demo placeholder which cannot sign real txs."
+        )
+        ethereum_private_key = "demo_eth_private_key"
+
     # Create Olas interface
     olas = OlasInterface(
-        ethereum_private_key="0x1234567890abcdef1234567890abcdef12345678",
+        ethereum_private_key=ethereum_private_key,
         withdrawal_mode=False,
-        logger=logging.getLogger("test_pet_data_ui"),
+        logger=logger,
     )
 
     # Update with sample pet data
