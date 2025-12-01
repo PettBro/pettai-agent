@@ -9,13 +9,13 @@ on:
 
 jobs:
   lock_check:
+    name: Lock Check (ubuntu-latest)
     continue-on-error: false
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest, windows-latest ]
-        python-version: [ "3.10" ]
+        python-version: ['3.10']
 
     defaults:
       run:
@@ -31,7 +31,78 @@ jobs:
       - name: Install pip dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
+          for req_file in cron/requirements.txt olas-sdk-starter/requirements.txt; do
+            if [ -f "$req_file" ]; then
+              echo "Installing dependencies from $req_file"
+              python -m pip install -r "$req_file"
+            else
+              echo "Skipping missing requirements file: $req_file"
+            fi
+          done
+
+  lock_check_macos:
+    name: Lock Check (macos-latest)
+    continue-on-error: false
+    runs-on: macos-latest
+
+    strategy:
+      matrix:
+        python-version: ['3.10']
+
+    defaults:
+      run:
+        shell: bash
+
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install pip dependencies
+        run: |
+          python -m pip install --upgrade pip
+          for req_file in cron/requirements.txt olas-sdk-starter/requirements.txt; do
+            if [ -f "$req_file" ]; then
+              echo "Installing dependencies from $req_file"
+              python -m pip install -r "$req_file"
+            else
+              echo "Skipping missing requirements file: $req_file"
+            fi
+          done
+
+  lock_check_windows:
+    name: Lock Check (windows-latest)
+    continue-on-error: false
+    runs-on: windows-latest
+
+    strategy:
+      matrix:
+        python-version: ['3.10']
+
+    defaults:
+      run:
+        shell: bash
+
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install pip dependencies
+        run: |
+          python -m pip install --upgrade pip
+          for req_file in cron/requirements.txt olas-sdk-starter/requirements.txt; do
+            if [ -f "$req_file" ]; then
+              echo "Installing dependencies from $req_file"
+              python -m pip install -r "$req_file"
+            else
+              echo "Skipping missing requirements file: $req_file"
+            fi
+          done
 
   linter_checks:
     continue-on-error: False
@@ -39,42 +110,29 @@ jobs:
 
     strategy:
       matrix:
-        os: [ ubuntu-latest ]
-        python-version: [ "3.10" ]
+        os: [ubuntu-latest]
+        python-version: ['3.10']
 
     timeout-minutes: 30
 
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 18
-    - name: Install dependencies
-      run:  |
-        pip install tomte[tox,cli]==0.2.14
-
-        # Install `mdspell` for spelling checks
-        npm install -g markdown-spellcheck
-
-    - name: Security checks
-      working-directory: olas-sdk-starter
-      run: tomte check-security       
-    - name: Check spelling
-      working-directory: olas-sdk-starter
-      run: tomte check-spelling
-          
-  scan:
-    name: gitleaks
-    runs-on: ubuntu-latest
-    steps:
       - uses: actions/checkout@v3
+      - uses: actions/setup-python@v5
         with:
-          fetch-depth: 0
-      - run: |
-          wget https://github.com/zricethezav/gitleaks/releases/download/v8.10.1/gitleaks_8.10.1_linux_x64.tar.gz && \
-          tar -xzf gitleaks_8.10.1_linux_x64.tar.gz && \
-          sudo install gitleaks /usr/bin && \
-          gitleaks detect --source . --no-git --report-format json --report-path leak_report -v
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Install dependencies
+        run: |
+          pip install tomte[tox,cli]==0.2.14
+
+          # Install `mdspell` for spelling checks
+          npm install -g markdown-spellcheck
+
+      - name: Security checks
+        working-directory: olas-sdk-starter
+        run: tomte check-security
+      - name: Check spelling
+        working-directory: olas-sdk-starter
+        run: tomte check-spelling

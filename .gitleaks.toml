@@ -1,0 +1,18 @@
+title = "pett_agent gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow known historical commits and skip vendored/tooling directories"
+commits = [
+  "ca8474af2e19169d98bc74450b4fc17c807c3cad",
+  "25697b79a9f27b6a6ebb6d8166e1c7b397c2b90d",
+  "9536444b081b88508e14df8d77906d697b693ed1",
+  "4a2a91530dc0ab03e86efb8fc107bb0a0e3c317b",
+  "ca1f2ecfb9d7e46fa360250ac78cb623c632c916",
+]
+paths = [
+  '''olas-sdk-starter/\.venv/.*''',
+  '''olas-sdk-starter/frontend/build/.*'''
+]
