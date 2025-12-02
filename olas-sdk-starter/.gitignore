@@ -422,3 +422,5 @@ agent_key.txt
 
 agent_id
 hash_id
+
+../cron/__pycache__/

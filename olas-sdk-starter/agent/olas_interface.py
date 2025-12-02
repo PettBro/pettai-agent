@@ -920,6 +920,7 @@ class OlasInterface:
             value = os.environ.get(env_name)
             if value and value.strip():
                 staking_address = value.strip()
+                self.logger.info(f"[OLAS SDK] Staking contract address found in environment: {staking_address}. We will use this one.")
                 break
 
         if not staking_address and discovered_staking:
