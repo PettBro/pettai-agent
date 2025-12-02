@@ -915,6 +915,8 @@ class OlasInterface:
             "STAKING_PROXY_ADDRESS",
             "SERVICE_STAKING_CONTRACT_ADDRESS",
             "CONNECTION_CONFIGS_CONFIG_STAKING_CONTRACT_ADDRESS",
+            "STAKING_PROGRAM_ID",
+            "CONNECTION_CONFIGS_CONFIG_STAKING_PROGRAM_ID",
         )
         for env_name in staking_env_candidates:
             value = os.environ.get(env_name)
@@ -924,7 +926,10 @@ class OlasInterface:
                 break
 
         if not staking_address and discovered_staking:
-            staking_candidate = discovered_staking.get("staking_contract_address")
+            staking_candidate = (
+                discovered_staking.get("staking_contract_address")
+                or discovered_staking.get("staking_program_id")
+            )
             if staking_candidate:
                 staking_address = staking_candidate
                 used_discovered_config = True
@@ -1082,6 +1087,21 @@ class OlasInterface:
                         # Ignore placeholder service definitions that do not
                         # represent real staking deployments.
                         continue
+                    staking_program_id = (
+                        user_params.get("staking_program_id")
+                        or chain_data.get("staking_program_id")
+                    )
+                    staking_contract_address = (
+                        user_params.get("staking_contract_address")
+                        or user_params.get("staking_proxy_address")
+                        or staking_program_id
+                        or chain_data.get("staking_contract_address")
+                    )
+                    staking_token_address = (
+                        user_params.get("staking_token_address")
+                        or user_params.get("staking_token_proxy_address")
+                        or chain_data.get("staking_token_address")
+                    )
                     result = {
                         "source": str(config_path),
                         "chain_name": chain_name,
@@ -1089,16 +1109,9 @@ class OlasInterface:
                         "service_id": service_id_value,
                         "safe_address": chain_data.get("multisig")
                         or user_params.get("multisig"),
-                        "staking_contract_address": user_params.get(
-                            "staking_contract_address"
-                        )
-                        or user_params.get("staking_proxy_address")
-                        or chain_data.get("staking_contract_address"),
-                        "staking_token_address": user_params.get(
-                            "staking_token_address"
-                        )
-                        or user_params.get("staking_token_proxy_address")
-                        or chain_data.get("staking_token_address"),
+                        "staking_program_id": staking_program_id,
+                        "staking_contract_address": staking_contract_address,
+                        "staking_token_address": staking_token_address,
                     }
                     if not result["staking_contract_address"]:
                         result["staking_contract_address"] = result[
