@@ -124,9 +124,7 @@ class PettAgent:
             tracker_path, required_actions=self.REQUIRED_ACTIONS_PER_EPOCH
         )
         self._economy_mode_active: bool = False
-        self._owned_consumables_cache: Dict[
-            str, "PettAgent.OwnedConsumable"
-        ] = {}
+        self._owned_consumables_cache: Dict[str, "PettAgent.OwnedConsumable"] = {}
         self._owned_consumables_updated_at: Optional[datetime] = None
         self._consumables_cache_ttl: timedelta = self.CONSUMABLE_CACHE_TTL
 
@@ -290,6 +288,31 @@ class PettAgent:
                         self.websocket_client.register_message_handler(
                             "pet_update", self._on_client_pet_update_message
                         )
+                        # Update olas interface when auth_result is received (check for death)
+
+                        async def _handle_auth_result_for_olas(
+                            message: Dict[str, Any],
+                        ) -> None:
+                            """Update olas interface with pet data from auth_result message."""
+                            try:
+                                # Extract pet data from auth_result message
+                                if "data" in message:
+                                    data = message.get("data", {})
+                                    pet_data = data.get("pet", {})
+                                else:
+                                    pet_data = message.get("pet", {})
+
+                                if pet_data:
+                                    # Update olas interface with pet data (this will check for death)
+                                    self.olas.update_pet_data(pet_data)
+                            except Exception as exc:
+                                self.logger.debug(
+                                    f"Error updating olas interface from auth_result: {exc}"
+                                )
+
+                        self.websocket_client.register_message_handler(
+                            "auth_result", _handle_auth_result_for_olas
+                        )
                     except Exception:
                         pass
 
@@ -380,6 +403,33 @@ class PettAgent:
                         self.olas.record_client_send(m, success=success, error=err)
 
                     self.websocket_client.set_telemetry_recorder(_recorder_msg)
+                except Exception:
+                    pass
+                try:
+                    # Register handler to update olas interface when auth_result is received
+                    async def _handle_auth_result_for_olas(
+                        message: Dict[str, Any],
+                    ) -> None:
+                        """Update olas interface with pet data from auth_result message."""
+                        try:
+                            # Extract pet data from auth_result message
+                            if "data" in message:
+                                data = message.get("data", {})
+                                pet_data = data.get("pet", {})
+                            else:
+                                pet_data = message.get("pet", {})
+
+                            if pet_data:
+                                # Update olas interface with pet data (this will check for death)
+                                self.olas.update_pet_data(pet_data)
+                        except Exception as exc:
+                            self.logger.debug(
+                                f"Error updating olas interface from auth_result: {exc}"
+                            )
+
+                    self.websocket_client.register_message_handler(
+                        "auth_result", _handle_auth_result_for_olas
+                    )
                 except Exception:
                     pass
                 self.waiting_for_react_login = True
@@ -553,11 +603,61 @@ class PettAgent:
                 self.websocket_client.set_telemetry_recorder(_recorder_msg)
             except Exception:
                 pass
+            try:
+                # Register handler to update olas interface when auth_result is received
+                async def _handle_auth_result_for_olas(message: Dict[str, Any]) -> None:
+                    """Update olas interface with pet data from auth_result message."""
+                    try:
+                        # Extract pet data from auth_result message
+                        if "data" in message:
+                            data = message.get("data", {})
+                            pet_data = data.get("pet", {})
+                        else:
+                            pet_data = message.get("pet", {})
+
+                        if pet_data:
+                            # Update olas interface with pet data (this will check for death)
+                            self.olas.update_pet_data(pet_data)
+                    except Exception as exc:
+                        self.logger.debug(
+                            f"Error updating olas interface from auth_result: {exc}"
+                        )
+
+                self.websocket_client.register_message_handler(
+                    "auth_result", _handle_auth_result_for_olas
+                )
+            except Exception:
+                pass
         else:
             self.websocket_client.set_privy_token(token)
             try:
                 self.websocket_client.set_action_recorder(
                     self.olas.get_action_recorder()
+                )
+            except Exception:
+                pass
+            try:
+                # Register handler to update olas interface when auth_result is received
+                async def _handle_auth_result_for_olas(message: Dict[str, Any]) -> None:
+                    """Update olas interface with pet data from auth_result message."""
+                    try:
+                        # Extract pet data from auth_result message
+                        if "data" in message:
+                            data = message.get("data", {})
+                            pet_data = data.get("pet", {})
+                        else:
+                            pet_data = message.get("pet", {})
+
+                        if pet_data:
+                            # Update olas interface with pet data (this will check for death)
+                            self.olas.update_pet_data(pet_data)
+                    except Exception as exc:
+                        self.logger.debug(
+                            f"Error updating olas interface from auth_result: {exc}"
+                        )
+
+                self.websocket_client.register_message_handler(
+                    "auth_result", _handle_auth_result_for_olas
                 )
             except Exception:
                 pass
@@ -1058,8 +1158,17 @@ class PettAgent:
                 try:
                     pet_data = client.get_pet_data()
                     if pet_data:
+                        # Update pet data (this will check for death status)
                         self.olas.update_pet_data(pet_data)
                         result["pet"] = pet_data
+
+                        # Explicitly check if pet is dead after AUTH state update
+                        if pet_data.get("dead", False):
+                            self.logger.warning(
+                                f"💀 Pet death detected after AUTH health check: "
+                                f"{pet_data.get('name', 'Unknown')} (ID: {pet_data.get('id', 'Unknown')}) "
+                                "is dead. Actions cannot be performed until the pet is revived."
+                            )
                 except Exception as exc:
                     self.logger.debug(
                         "Health refresh: failed to capture latest pet snapshot: %s", exc
@@ -1339,7 +1448,9 @@ class PettAgent:
             return ""
 
     def _clone_owned_consumables_cache(self) -> Dict[str, "PettAgent.OwnedConsumable"]:
-        return {key: dict(value) for key, value in self._owned_consumables_cache.items()}
+        return {
+            key: dict(value) for key, value in self._owned_consumables_cache.items()
+        }
 
     def _is_food_consumable(
         self,
@@ -1374,10 +1485,9 @@ class PettAgent:
             return False
         if not self._is_food_consumable(blueprint_id, info):
             return False
-        if (
-            self._normalize_consumable_key(blueprint_id) == "POTION"
-            and not self._potion_usage_allowed(stats)
-        ):
+        if self._normalize_consumable_key(
+            blueprint_id
+        ) == "POTION" and not self._potion_usage_allowed(stats):
             return False
         return True
 
@@ -2212,9 +2322,7 @@ class PettAgent:
         token_balance = self._get_aip_balance(pet_data)
         economy_mode = self._update_economy_mode_state(token_balance)
         needs_consumables = hunger < self.LOW_THRESHOLD or health < self.LOW_THRESHOLD
-        inventory_snapshot: Optional[
-            Dict[str, "PettAgent.OwnedConsumable"]
-        ] = None
+        inventory_snapshot: Optional[Dict[str, "PettAgent.OwnedConsumable"]] = None
         if economy_mode and needs_consumables:
             inventory_snapshot = await self._get_owned_consumables(force_refresh=True)
         owned_consumable_used = False

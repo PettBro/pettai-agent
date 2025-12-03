@@ -25,6 +25,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the agent code
 COPY agent/ ./agent/
 COPY run.py .
+COPY typing_extensions_patch.py .
 
 # Copy frontend code
 COPY frontend/ ./frontend/

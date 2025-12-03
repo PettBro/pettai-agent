@@ -631,6 +631,8 @@ class OlasInterface:
 
     def update_pet_data(self, pet_data: Optional[Dict[str, Any]]) -> None:
         """Update pet data with detailed information."""
+        # Check for death status transition before updating
+        was_dead = self.pet_dead
         self.pet_data = pet_data
         self.pet_updated_at = datetime.now()
         if pet_data and pet_data.get("name"):
@@ -653,8 +655,21 @@ class OlasInterface:
                 balance_float = None
 
             self.pet_hotel_tier = pet_data.get("currentHotelTier", 0)
-            self.pet_dead = pet_data.get("dead", False)
+            new_dead_status = pet_data.get("dead", False)
+            self.pet_dead = new_dead_status
             self.pet_sleeping = pet_data.get("sleeping", False)
+
+            # Check if pet just died (transition from alive to dead)
+            if new_dead_status and not was_dead:
+                self.logger.warning(
+                    f"💀 Pet {self.pet_name} (ID: {self.pet_id}) has died! "
+                    "Actions cannot be performed until the pet is revived."
+                )
+            elif new_dead_status:
+                # Pet is still dead (was already dead)
+                self.logger.debug(
+                    f"💀 Pet {self.pet_name} (ID: {self.pet_id}) is still dead."
+                )
 
             if (
                 balance_float is not None
@@ -922,14 +937,15 @@ class OlasInterface:
             value = os.environ.get(env_name)
             if value and value.strip():
                 staking_address = value.strip()
-                self.logger.info(f"[OLAS SDK] Staking contract address found in environment: {staking_address}. We will use this one.")
+                self.logger.info(
+                    f"[OLAS SDK] Staking contract address found in environment: {staking_address}. We will use this one."
+                )
                 break
 
         if not staking_address and discovered_staking:
-            staking_candidate = (
-                discovered_staking.get("staking_contract_address")
-                or discovered_staking.get("staking_program_id")
-            )
+            staking_candidate = discovered_staking.get(
+                "staking_contract_address"
+            ) or discovered_staking.get("staking_program_id")
             if staking_candidate:
                 staking_address = staking_candidate
                 used_discovered_config = True
@@ -1087,10 +1103,9 @@ class OlasInterface:
                         # Ignore placeholder service definitions that do not
                         # represent real staking deployments.
                         continue
-                    staking_program_id = (
-                        user_params.get("staking_program_id")
-                        or chain_data.get("staking_program_id")
-                    )
+                    staking_program_id = user_params.get(
+                        "staking_program_id"
+                    ) or chain_data.get("staking_program_id")
                     staking_contract_address = (
                         user_params.get("staking_contract_address")
                         or user_params.get("staking_proxy_address")

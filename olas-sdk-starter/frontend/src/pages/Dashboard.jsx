@@ -305,7 +305,7 @@ const Dashboard = () => {
 	const economyWarningMessage =
 		economyMode?.active
 			? (economyMode?.message?.trim() ||
-					'Economy mode is enabled because the agent is low on $AIP and is prioritizing owned items and earning actions.')
+				'Economy mode is enabled because the agent is low on $AIP and is prioritizing owned items and earning actions.')
 			: null;
 
 	const statusSummary = useMemo(() => {
@@ -488,19 +488,19 @@ const Dashboard = () => {
 									Updated {statusSummary.formattedUpdatedAt}
 								</span>
 							)}
-					{error && (
-						<span className="inline-flex items-center gap-2 text-xs font-semibold text-red-100 bg-red-500/20 rounded-full px-3 py-1 border border-red-400/30">
-							<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="currentColor" d="M11 7h2v6h-2zm0 8h2v2h-2z" /><path fill="currentColor" d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10s10-4.477 10-10S17.523 2 12 2m0 18a8.01 8.01 0 0 1-8-8a8.01 8.01 0 0 1 8-8a8.01 8.01 0 0 1 8 8a8.01 8.01 0 0 1-8 8"></path></svg>
-							{error}
-						</span>
-					)}
-					{economyWarningMessage && (
-						<span className="inline-flex items-center gap-2 text-xs font-semibold text-yellow-50 bg-yellow-500/20 rounded-full px-3 py-1 border border-yellow-400/30">
-							<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2m1 15h-2v-2h2zm0-4h-2V7h2z" /></svg>
-							{economyWarningMessage}
-						</span>
-					)}
-					</div>
+							{error && (
+								<span className="inline-flex items-center gap-2 text-xs font-semibold text-red-100 bg-red-500/20 rounded-full px-3 py-1 border border-red-400/30">
+									<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="currentColor" d="M11 7h2v6h-2zm0 8h2v2h-2z" /><path fill="currentColor" d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10s10-4.477 10-10S17.523 2 12 2m0 18a8.01 8.01 0 0 1-8-8a8.01 8.01 0 0 1 8-8a8.01 8.01 0 0 1 8 8a8.01 8.01 0 0 1-8 8"></path></svg>
+									{error}
+								</span>
+							)}
+							{economyWarningMessage && (
+								<span className="inline-flex items-center gap-2 text-xs font-semibold text-yellow-50 bg-yellow-500/20 rounded-full px-3 py-1 border border-yellow-400/30">
+									<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2m1 15h-2v-2h2zm0-4h-2V7h2z" /></svg>
+									{economyWarningMessage}
+								</span>
+							)}
+						</div>
 
 						<div className="header__asset flex items-center gap-2 pl-1 pr-1.5 py-1 border rounded-full bg-white border-semantic-accent-muted relative">
 							<img src={headerAssetAip} className="size-6" alt="AIP" />
@@ -746,10 +746,17 @@ const Dashboard = () => {
 									has passed away!
 								</p>
 								<p className="text-lg font-medium text-gray-800 leading-relaxed">
-									You can still revive or reset {petDisplayName}, through the Pett.ai app. Should you wish to do so, click the button below, log in with the same method used here, and follow the pet reset/revival instructions.
+									You can still revive or reset {petDisplayName} through the Pett.ai app. Click the button below to open the app, log in with the same method used here, and follow the pet reset/revival instructions.
 								</p>
 							</div>
 						</div>
+						<button
+							type="button"
+							onClick={handleRevivePetClick}
+							className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all transform hover:scale-105 active:scale-95"
+						>
+							Open Pett.ai App to Revive Pet
+						</button>
 					</div>
 				</div>
 			)}
