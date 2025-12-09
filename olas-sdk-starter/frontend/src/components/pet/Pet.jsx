@@ -1,10 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
-// Use local assets from public folder - bundled with the app
-// Assets should be placed in public/assets/emotions/ and public/assets/stinky.gif
-// Fallback to hosted version if local assets are not available
-const ASSETS_BASE_URL = process.env.PUBLIC_URL ? `${process.env.PUBLIC_URL}/assets` : '/assets';
-const HOSTED_ASSETS_BASE_URL = 'https://storage.googleapis.com/pettai_assets';
+const ASSETS_BASE_URL = 'https://storage.googleapis.com/pettai_assets';
 const EMOTION_THRESHOLDS = [30, 50, 85];
 
 function calculateBaseEmotion(pet) {
@@ -63,7 +59,6 @@ function generatePetLayers(pet) {
   if (shouldShowStinky(pet)) {
     layers.push({
       url: `${ASSETS_BASE_URL}/stinky.gif`,
-      fallbackUrl: `${HOSTED_ASSETS_BASE_URL}/stinky.gif`,
       zIndex: 1,
       type: 'stinky',
       alt: 'Stinky overlay',
@@ -73,7 +68,6 @@ function generatePetLayers(pet) {
   const baseEmotion = calculateBaseEmotion(pet);
   layers.push({
     url: `${ASSETS_BASE_URL}/emotions/${baseEmotion}.gif`,
-    fallbackUrl: `${HOSTED_ASSETS_BASE_URL}/emotions/${baseEmotion}.gif`,
     zIndex: 3,
     type: 'emotion',
     alt: `Pet ${baseEmotion} emotion`,
