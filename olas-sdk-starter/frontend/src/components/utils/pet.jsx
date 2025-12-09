@@ -54,7 +54,8 @@
 } */
 
 const EMOTION_THRESHOLDS = [30, 50, 85];
-const ASSETS_BASE_URL = 'https://storage.googleapis.com/pettai_assets';
+// Use local assets from public folder - bundled with the app
+const ASSETS_BASE_URL = process.env.PUBLIC_URL || '';
 
 function calculateBaseEmotion(
   pet,

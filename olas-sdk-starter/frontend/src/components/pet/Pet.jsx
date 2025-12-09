@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
-const ASSETS_BASE_URL = 'https://storage.googleapis.com/pettai_assets';
+// Use local assets from public folder - bundled with the app
+// Assets should be placed in public/assets/emotions/ and public/assets/stinky.gif
+// Fallback to hosted version if local assets are not available
+const ASSETS_BASE_URL = process.env.PUBLIC_URL ? `${process.env.PUBLIC_URL}/assets` : '/assets';
+const HOSTED_ASSETS_BASE_URL = 'https://storage.googleapis.com/pettai_assets';
 const EMOTION_THRESHOLDS = [30, 50, 85];
 
 function calculateBaseEmotion(pet) {
@@ -59,6 +63,7 @@ function generatePetLayers(pet) {
   if (shouldShowStinky(pet)) {
     layers.push({
       url: `${ASSETS_BASE_URL}/stinky.gif`,
+      fallbackUrl: `${HOSTED_ASSETS_BASE_URL}/stinky.gif`,
       zIndex: 1,
       type: 'stinky',
       alt: 'Stinky overlay',
@@ -68,6 +73,7 @@ function generatePetLayers(pet) {
   const baseEmotion = calculateBaseEmotion(pet);
   layers.push({
     url: `${ASSETS_BASE_URL}/emotions/${baseEmotion}.gif`,
+    fallbackUrl: `${HOSTED_ASSETS_BASE_URL}/emotions/${baseEmotion}.gif`,
     zIndex: 3,
     type: 'emotion',
     alt: `Pet ${baseEmotion} emotion`,
@@ -91,10 +97,12 @@ export default function Pet({ name, pet, size = 'big', message, isClickable = fa
   const { layers } = useMemo(() => generatePetLayers(pet), [pet]);
   const [errorCount, setErrorCount] = useState(0);
 
+  const layerUrls = useMemo(() => layers.map(l => l.url).join(','), [layers]);
+
   useEffect(() => {
     // reset error counter when layers set changes
     setErrorCount(0);
-  }, [layers.map(l => l.url).join(',')]);
+  }, [layerUrls]);
 
   const showFallback = layers.length === 0 || errorCount >= layers.length;
 
