@@ -175,7 +175,7 @@ jobs:
         run: |
           make agent.zip
           make agent.tar.gz
-      - name: Build and sign macOS binary # runs PyInstaller and codesigns output
+      - name: Build and sign macOS binary # runs PyInstaller and codesigns output, needs changing from the OLAS team
         if: runner.os != 'Windows'
         # env:
         #   CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
