@@ -26,7 +26,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Push Autonomous Packages # push the agent/service packages to the remote registry
+      - name: Push Autonomous Packages # push the agent/service packages to the remote registry in OLAS
         uses: addnab/docker-run-action@v3
         with:
           image: valory/open-autonomy-user:0.19.11
