@@ -114,7 +114,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest, macos-13, macos-14]
+        os: [windows-latest, macos-15, macos-14]
     defaults:
       run:
         shell: bash
