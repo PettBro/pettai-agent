@@ -7,9 +7,6 @@ on:
 permissions:
   contents: write
 
-env:
-  WS_PETT_AI_CA_BUNDLE_B64: ${{ secrets.WS_PETT_AI_CA_BUNDLE_B64 }}
-
 jobs:
   publish-packages:
     name: Push Packages
