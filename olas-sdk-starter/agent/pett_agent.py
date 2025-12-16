@@ -1418,7 +1418,7 @@ class PettAgent:
             try:
                 bought = await client.buy_consumable("SALAD", 1, record_on_chain=False)
                 if bought:
-                    await asyncio.sleep(2.0)  # Wait a bit after purchase
+                    await asyncio.sleep(1.5)  # Wait a bit after purchase
                     # Retry SALAD after purchase
                     self.logger.info("🔁 Retrying SALAD after purchase")
                     success = await self._execute_action_with_tracking(
@@ -1456,7 +1456,7 @@ class PettAgent:
                     "SMALL_POTION", 1, record_on_chain=False
                 )
                 if bought:
-                    await asyncio.sleep(2.0)  # Wait a bit after purchase
+                    await asyncio.sleep(1.5)  # Wait a bit after purchase
                     # Use POTION after purchase
                     self.logger.info("🔁 Using POTION after purchase")
                     success = await self._execute_action_with_tracking(
