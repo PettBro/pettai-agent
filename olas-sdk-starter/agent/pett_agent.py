@@ -1412,13 +1412,15 @@ class PettAgent:
                     self.logger.info("✅ SMALL_POTION use confirmed")
                     await asyncio.sleep(0.5)
                     return True
+                # If use failed, wait before retrying to avoid rate limiting
+                await asyncio.sleep(1.0)
                 # If use failed, try to buy one then use again
                 self.logger.info("🛒 SMALL_POTION not available; attempting to buy 1")
                 bought = await client.buy_consumable(
                     "SMALL_POTION", 1, record_on_chain=False
                 )
                 if bought:
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(1.0)  # Wait before using after purchase
                     self.logger.info("🔁 Using SMALL_POTION after purchase")
                     success = await self._execute_action_with_tracking(
                         "CONSUMABLES_USE", lambda: client.use_consumable("SMALL_POTION")
@@ -1429,7 +1431,11 @@ class PettAgent:
                         return True
             except Exception as e:
                 self.logger.debug(f"Small potion use/buy failed: {e}")
+                # Wait after exception before falling back
+                await asyncio.sleep(1.0)
 
+            # Wait before falling back to avoid rate limiting
+            await asyncio.sleep(1.5)
             # Fallback to SALAD (improves health and hunger)
             self.logger.info("🥗 Falling back to SALAD to recover health")
             try:
@@ -1440,11 +1446,13 @@ class PettAgent:
                     self.logger.info("✅ SALAD consumption confirmed")
                     await asyncio.sleep(0.5)
                     return True
+                # If use failed, wait before retrying to avoid rate limiting
+                await asyncio.sleep(1.0)
                 # If use failed, try to buy one then use again
                 self.logger.info("🛒 SALAD not available; attempting to buy 1")
                 bought = await client.buy_consumable("SALAD", 1, record_on_chain=False)
                 if bought:
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(1.0)  # Wait before using after purchase
                     self.logger.info("🔁 Using SALAD after purchase")
                     success = await self._execute_action_with_tracking(
                         "CONSUMABLES_USE", lambda: client.use_consumable("SALAD")
@@ -1457,6 +1465,8 @@ class PettAgent:
                         return True
             except Exception as e:
                 self.logger.debug(f"Salad use/buy failed: {e}")
+                # Wait after exception
+                await asyncio.sleep(1.0)
 
             return False
         finally:
