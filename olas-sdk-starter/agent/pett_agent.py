@@ -102,7 +102,7 @@ class PettAgent:
         self.logger.info("🐾 Pett Agent initialized")
         # Action scheduler config uration
         self.action_interval_minutes: float = (
-            2.0  # 7 minutes between actions, should be 7 in prod
+            1.5  # 7 minutes between actions, should be 7 in prod
         )
         self.next_action_at: Optional[datetime] = None
         self.last_action_at: Optional[datetime] = None
@@ -2787,6 +2787,27 @@ class PettAgent:
                     self.logger.warning(
                         "⚠️ AI food selection failed; skipping fallback use"
                     )
+                    # try to rub, sleep or bath depending on the stats\
+                    if hygiene < self.LOW_THRESHOLD:
+                        self.logger.info("🚿 Low hygiene detected; showering pet")
+                        await self._execute_action_with_tracking(
+                            "SHOWER", client.shower_pet
+                        )
+                        return
+                    if energy < self.LOW_ENERGY_THRESHOLD:
+                        self.logger.info("😴 Low energy detected; sleeping pet")
+                        await self._execute_action_with_tracking(
+                            "SLEEP", client.sleep_pet
+                        )
+                        return
+                    if happiness < self.LOW_THRESHOLD:
+                        self.logger.info(
+                            "🎾 Low happiness detected; throwing ball 3 times"
+                        )
+                        await self._execute_action_with_tracking(
+                            "THROWBALL", client.throw_ball
+                        )
+                        return
             else:
                 self.logger.warning(
                     "⚠️ No decision engine available; skipping food selection"
