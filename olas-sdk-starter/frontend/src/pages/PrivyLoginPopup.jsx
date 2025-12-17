@@ -25,20 +25,6 @@ const PrivyLoginPopupContent = () => {
   const [isClearingSession, setIsClearingSession] = useState(false);
   const [hasForcedLogout, setHasForcedLogout] = useState(false);
 
-  const forceLogout = useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const raw = params.get('forceLogout');
-      if (raw === null) return false;
-      const normalized = raw.toString().toLowerCase();
-      return raw === '' || normalized === '1' || normalized === 'true';
-    } catch (error) {
-      console.warn('[PrivyLoginPopup] Unable to parse query params for forceLogout', error);
-      return false;
-    }
-  }, []);
-
   const openerOrigins = useMemo(() => {
     if (typeof window === 'undefined') {
       return [];
@@ -236,7 +222,7 @@ const PrivyLoginPopupContent = () => {
   }, [ready, authenticated, status]);
 
   useEffect(() => {
-    if (!ready || !forceLogout || hasForcedLogout) return;
+    if (!ready || hasForcedLogout) return;
     const clearPrivySession = async () => {
       setIsClearingSession(true);
       try {
@@ -251,7 +237,7 @@ const PrivyLoginPopupContent = () => {
       }
     };
     clearPrivySession();
-  }, [forceLogout, hasForcedLogout, logout, ready]);
+  }, [hasForcedLogout, logout, ready]);
 
   const handleSendCode = useCallback(async () => {
     if (!normalizedEmail) {
@@ -345,12 +331,10 @@ const PrivyLoginPopupContent = () => {
       }
     };
 
-    const shouldWaitForLogout =
-      forceLogout && (isClearingSession || !hasForcedLogout);
-    if (ready && authenticated && !shouldWaitForLogout) {
+    if (ready && authenticated && !hasForcedLogout) {
       sendToken();
     }
-  }, [authenticated, forceLogout, getAccessToken, handlePrivyError, hasForcedLogout, isClearingSession, logout, ready, sendMessageToOpener, statusCopy]);
+  }, [authenticated, getAccessToken, handlePrivyError, hasForcedLogout, isClearingSession, logout, ready, sendMessageToOpener, statusCopy]);
 
   const statusDescription = statusCopy[status];
 

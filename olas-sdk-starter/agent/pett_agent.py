@@ -45,7 +45,7 @@ class PettAgent:
     WAKE_ENERGY_THRESHOLD = 65.0
     POST_KPI_SLEEP_TRIGGER = 85.0
     POST_KPI_SLEEP_TARGET = 80.0
-    REQUIRED_ACTIONS_PER_EPOCH = 8  # 8 IN THE STAKING CONTRACT. TODO ideally we should fetch this directly from the staking contract.
+    REQUIRED_ACTIONS_PER_EPOCH = 2  # 8 IN THE STAKING CONTRACT. TODO ideally we should fetch this directly from the staking contract.
     CRITICAL_CORE_STATS: Tuple[str, ...] = ("hunger", "health", "hygiene", "happiness")
     CRITICAL_STAT_THRESHOLD = 5.0
     ECONOMY_BALANCE_THRESHOLD = 350.0
@@ -102,7 +102,7 @@ class PettAgent:
         self.logger.info("🐾 Pett Agent initialized")
         # Action scheduler config uration
         self.action_interval_minutes: float = (
-            7.0  # 7 minutes between actions, should be 7 in prod
+            2.0  # 7 minutes between actions, should be 7 in prod
         )
         self.next_action_at: Optional[datetime] = None
         self.last_action_at: Optional[datetime] = None
