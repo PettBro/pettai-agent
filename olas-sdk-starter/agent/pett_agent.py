@@ -29,7 +29,12 @@ from .pett_websocket_client import PettWebSocketClient
 from .pett_tools import PettTools
 from .telegram_bot import PetTelegramBot
 from .olas_interface import OlasInterface
-from .decision_engine import PetDecisionEngine
+from .decision_engine import (
+    PetContext,
+    PetDecisionMaker,
+    PetStats,
+    feed_best_owned_food,
+)
 from .daily_action_tracker import DailyActionTracker
 from .staking_checkpoint import DEFAULT_LIVENESS_PERIOD
 
@@ -89,7 +94,7 @@ class PettAgent:
         self.websocket_client: Optional[PettWebSocketClient] = None
         self.telegram_bot: Optional[PetTelegramBot] = None
         self.pett_tools: Optional[PettTools] = None
-        self.decision_engine: Optional[PetDecisionEngine] = None
+        self.decision_engine: Optional[PetDecisionMaker] = None
 
         # Configuration
         self.telegram_token = (
@@ -315,7 +320,7 @@ class PettAgent:
                         )
 
                     # Initialize Decision Engine and Pett Tools
-                    self.decision_engine = PetDecisionEngine(self.websocket_client)
+                    self.decision_engine = PetDecisionMaker(self.logger)
                     # Wire prompt recorder to Olas
                     try:
 
@@ -324,10 +329,13 @@ class PettAgent:
                         ) -> None:
                             self.olas.record_openai_prompt(kind, prompt, context=ctx)
 
-                        self.decision_engine.set_prompt_recorder(_recorder_prompt)
+                        # PetDecisionMaker doesn't have set_prompt_recorder
+                        pass
                     except Exception:
                         pass
-                    self.pett_tools = self.decision_engine.pett_tools
+                    # PetDecisionMaker doesn't have pett_tools, initialize separately
+                    if not self.pett_tools:
+                        self.pett_tools = PettTools(self.websocket_client)
                     self.logger.info("🛠️ Decision Engine and Pett Tools initialized")
 
                     # React to server-side errors (e.g., low health) with recovery actions
@@ -884,26 +892,16 @@ class PettAgent:
                     pass
 
                 # Wire up decision engine and tools if needed
-                if self.decision_engine:
-                    self.decision_engine.websocket_client = client
-                    try:
-                        self.decision_engine.pett_tools.set_client(client)
-                    except Exception:
-                        pass
-                    self.pett_tools = self.decision_engine.pett_tools
+                if not self.decision_engine:
+                    self.decision_engine = PetDecisionMaker(self.logger)
+                # Initialize pett_tools separately if needed
+                if not self.pett_tools:
+                    self.pett_tools = PettTools(client)
                 else:
-                    self.decision_engine = PetDecisionEngine(client)
                     try:
-
-                        def _recorder_prompt2(
-                            kind: str, prompt: str, ctx: Optional[Dict[str, Any]]
-                        ) -> None:
-                            self.olas.record_openai_prompt(kind, prompt, context=ctx)
-
-                        self.decision_engine.set_prompt_recorder(_recorder_prompt2)
+                        self.pett_tools.set_client(client)
                     except Exception:
                         pass
-                    self.pett_tools = self.decision_engine.pett_tools
 
                 # Refresh pet status once more for UI
                 try:
@@ -946,34 +944,25 @@ class PettAgent:
         if openai_key:
             os.environ["OPENAI_API_KEY"] = openai_key
 
-        if self.decision_engine:
-            self.decision_engine.websocket_client = client
-            self.decision_engine.pett_tools.set_client(client)
-            # Ensure recorder remains wired
-            try:
-
-                def _recorder_prompt2(
-                    kind: str, prompt: str, ctx: Optional[Dict[str, Any]]
-                ) -> None:
-                    self.olas.record_openai_prompt(kind, prompt, context=ctx)
-
-                self.decision_engine.set_prompt_recorder(_recorder_prompt2)
-            except Exception:
-                pass
-            self.pett_tools = self.decision_engine.pett_tools
+        # Initialize decision engine and pett_tools if needed
+        if not self.decision_engine:
+            self.decision_engine = PetDecisionMaker(self.logger)
+        if not self.pett_tools:
+            self.pett_tools = PettTools(client)
         else:
-            self.decision_engine = PetDecisionEngine(client)
             try:
-
-                def _recorder_prompt3(
-                    kind: str, prompt: str, ctx: Optional[Dict[str, Any]]
-                ) -> None:
-                    self.olas.record_openai_prompt(kind, prompt, context=ctx)
-
-                self.decision_engine.set_prompt_recorder(_recorder_prompt3)
+                self.pett_tools.set_client(client)
             except Exception:
                 pass
-            self.pett_tools = self.decision_engine.pett_tools
+            if not self.decision_engine:
+                self.decision_engine = PetDecisionMaker(self.logger)
+            if not self.pett_tools:
+                self.pett_tools = PettTools(client)
+            else:
+                try:
+                    self.pett_tools.set_client(client)
+                except Exception:
+                    pass
 
         try:
             pet_status_result = self.pett_tools.get_pet_status()
@@ -1311,8 +1300,11 @@ class PettAgent:
                                         )
 
                                         # Decide and perform actions based on current state
+                                        pet_context = await self._build_pet_context(
+                                            pet_data
+                                        )
                                         try:
-                                            await self._decide_and_perform_actions(pet_data)  # type: ignore[arg-type]
+                                            await PetDecisionMaker.decide(pet_context)
                                             # Update scheduler timestamps
                                             self.last_action_at = datetime.now()
                                             self.next_action_at = (
@@ -1688,6 +1680,45 @@ class PettAgent:
             entry["quantity"] = new_qty
         self._owned_consumables_updated_at = datetime.now()
 
+    async def _build_pet_context(self, pet_data: "PettAgent.PetDataDict") -> PetContext:
+        """Build PetContext object from pet_data."""
+        # Extract PetStats
+        stats_dict = pet_data.get("PetStats", {})
+        stats = PetStats.from_dict(stats_dict)
+
+        # Extract pet state
+        is_sleeping = bool(pet_data.get("sleeping", False))
+        is_dead = bool(pet_data.get("dead", False))
+
+        # Extract token balance (convert from wei to float)
+        raw_balance = pet_data.get("PetTokens", {}).get(
+            "tokens", pet_data.get("balance", "0")
+        )
+        try:
+            if isinstance(raw_balance, str):
+                raw_balance = int(raw_balance)
+            token_balance = float(raw_balance) / (10**18)
+        except (ValueError, TypeError, ZeroDivisionError):
+            token_balance = 0.0
+
+        # Get owned consumables (list of blueprint IDs)
+        owned_consumables_dict = await self._get_owned_consumables(force_refresh=False)
+        owned_consumables = list(owned_consumables_dict.keys())
+
+        # Get action tracking info
+        actions_recorded_this_epoch = self._daily_action_tracker.actions_completed()
+        required_actions_per_epoch = self._daily_action_tracker.required_actions
+
+        return PetContext(
+            stats=stats,
+            is_sleeping=is_sleeping,
+            is_dead=is_dead,
+            token_balance=token_balance,
+            owned_consumables=owned_consumables,
+            actions_recorded_this_epoch=actions_recorded_this_epoch,
+            required_actions_per_epoch=required_actions_per_epoch,
+        )
+
     async def _use_owned_health_consumable(
         self,
         *,
@@ -1766,11 +1797,17 @@ class PettAgent:
         )
 
         async def feed_action() -> bool:
-            if not self.decision_engine:
+            if not self.websocket_client:
                 return False
-            return await self.decision_engine.feed_best_owned_food(
-                stats_snapshot, allowed_blueprints=allowed
-            )
+            # Get the best food consumable from the allowed list
+            best_food = feed_best_owned_food(allowed)
+            if best_food:
+                try:
+                    result = await self.websocket_client.use_consumable(best_food)
+                    return bool(result)
+                except Exception:
+                    return False
+            return False
 
         success = await self._execute_action_with_tracking(
             "CONSUMABLES_USE", feed_action
@@ -2362,9 +2399,23 @@ class PettAgent:
             stats_snapshot = dict(stats)
 
             async def feed_candidate() -> bool:
-                if not self.decision_engine:
+                if not self.websocket_client:
                     return False
-                return await self.decision_engine.feed_best_owned_food(stats_snapshot)
+                # Get owned consumables and find the best food
+                inv = await self._get_owned_consumables(force_refresh=False)
+                owned_food = [
+                    bp
+                    for bp, info in inv.items()
+                    if bp in self.KNOWN_FOOD_BLUEPRINTS and info.get("quantity", 0) > 0
+                ]
+                best_food = feed_best_owned_food(owned_food)
+                if best_food:
+                    try:
+                        result = await self.websocket_client.use_consumable(best_food)
+                        return bool(result)
+                    except Exception:
+                        return False
+                return False
 
             add_candidate(
                 hunger_deficit + 20.0, "CONSUMABLES_USE", feed_candidate, False
@@ -2546,11 +2597,26 @@ class PettAgent:
             if self.decision_engine:
 
                 async def emergency_feed() -> bool:
-                    if not self.decision_engine:
+                    if not self.websocket_client:
                         return False
-                    return await self.decision_engine.feed_best_owned_food(
-                        stats_snapshot
-                    )
+                    # Get owned consumables and find the best food
+                    inv = await self._get_owned_consumables(force_refresh=False)
+                    owned_food = [
+                        bp
+                        for bp, info in inv.items()
+                        if bp in self.KNOWN_FOOD_BLUEPRINTS
+                        and info.get("quantity", 0) > 0
+                    ]
+                    best_food = feed_best_owned_food(owned_food)
+                    if best_food:
+                        try:
+                            result = await self.websocket_client.use_consumable(
+                                best_food
+                            )
+                            return bool(result)
+                        except Exception:
+                            return False
+                    return False
 
                 feed_success = await self._execute_action_with_tracking(
                     "CONSUMABLES_USE", emergency_feed
@@ -2776,9 +2842,26 @@ class PettAgent:
             if self.decision_engine:
 
                 async def feed_action() -> bool:
-                    if not self.decision_engine:
+                    if not self.websocket_client:
                         return False
-                    return await self.decision_engine.feed_best_owned_food(stats)
+                    # Get owned consumables and find the best food
+                    inv = await self._get_owned_consumables(force_refresh=False)
+                    owned_food = [
+                        bp
+                        for bp, info in inv.items()
+                        if bp in self.KNOWN_FOOD_BLUEPRINTS
+                        and info.get("quantity", 0) > 0
+                    ]
+                    best_food = feed_best_owned_food(owned_food)
+                    if best_food:
+                        try:
+                            result = await self.websocket_client.use_consumable(
+                                best_food
+                            )
+                            return bool(result)
+                        except Exception:
+                            return False
+                    return False
 
                 feed_success = await self._execute_action_with_tracking(
                     "CONSUMABLES_USE", feed_action
