@@ -27,8 +27,8 @@ class AgentPerformanceStore:
             self._logger.warning(
                 "No store path configured, agent performance metrics will be on the current directory"
             )
-            self._store_path = Path(".")
-            self._file_path = Path(".") / self.FILENAME
+            self._store_path = Path("./persistent_data")
+            self._file_path = Path("./persistent_data") / self.FILENAME
         self._ensure_initialized()
 
     @property
