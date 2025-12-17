@@ -33,6 +33,8 @@ from .decision_engine import (
     PetContext,
     PetDecisionMaker,
     PetStats,
+    ActionType,
+    ActionDecision,
     feed_best_owned_food,
 )
 from .daily_action_tracker import DailyActionTracker
@@ -50,7 +52,7 @@ class PettAgent:
     WAKE_ENERGY_THRESHOLD = 65.0
     POST_KPI_SLEEP_TRIGGER = 85.0
     POST_KPI_SLEEP_TARGET = 80.0
-    REQUIRED_ACTIONS_PER_EPOCH = 2  # 8 IN THE STAKING CONTRACT. TODO ideally we should fetch this directly from the staking contract.
+    REQUIRED_ACTIONS_PER_EPOCH = 8  # 8 IN THE STAKING CONTRACT. TODO ideally we should fetch this directly from the staking contract.
     CRITICAL_CORE_STATS: Tuple[str, ...] = ("hunger", "health", "hygiene", "happiness")
     CRITICAL_STAT_THRESHOLD = 5.0
     ECONOMY_BALANCE_THRESHOLD = 350.0
@@ -107,7 +109,7 @@ class PettAgent:
         self.logger.info("🐾 Pett Agent initialized")
         # Action scheduler config uration
         self.action_interval_minutes: float = (
-            1.5  # 7 minutes between actions, should be 7 in prod
+            7  # 7 minutes between actions, should be 7 in prod
         )
         self.next_action_at: Optional[datetime] = None
         self.last_action_at: Optional[datetime] = None
@@ -273,8 +275,25 @@ class PettAgent:
                                 addr_preview,
                             )
                         else:
+                            diag = self.olas.get_action_recorder_diagnostics()
+                            reasons = []
+                            if not diag["private_key_available"]:
+                                reasons.append("missing private key")
+                            if not diag["rpc_url_available"]:
+                                reasons.append(
+                                    f"missing RPC URL (checked: ACTION_REPO_RPC_URL, BASE_LEDGER_RPC, ETH_RPC_URL, RPC_URL)"
+                                )
+                            if not diag["safe_address_available"]:
+                                reasons.append("missing Safe contract address")
+                            if diag["recorder_exists"] and not diag["recorder_enabled"]:
+                                reasons.append(
+                                    "recorder exists but not enabled (check initialization logs)"
+                                )
+                            reason_str = (
+                                ", ".join(reasons) if reasons else "unknown reason"
+                            )
                             self.logger.info(
-                                "🧾 On-chain action recorder DISABLED (missing key or RPC)"
+                                "🧾 On-chain action recorder DISABLED: %s", reason_str
                             )
                     except Exception as e:
                         self.logger.error("❌ Failed to set action recorder: %s", e)
@@ -454,8 +473,25 @@ class PettAgent:
                                 addr_preview2,
                             )
                         else:
+                            diag = self.olas.get_action_recorder_diagnostics()
+                            reasons = []
+                            if not diag["private_key_available"]:
+                                reasons.append("missing private key")
+                            if not diag["rpc_url_available"]:
+                                reasons.append(
+                                    f"missing RPC URL (checked: ACTION_REPO_RPC_URL, BASE_LEDGER_RPC, ETH_RPC_URL, RPC_URL)"
+                                )
+                            if not diag["safe_address_available"]:
+                                reasons.append("missing Safe contract address")
+                            if diag["recorder_exists"] and not diag["recorder_enabled"]:
+                                reasons.append(
+                                    "recorder exists but not enabled (check initialization logs)"
+                                )
+                            reason_str = (
+                                ", ".join(reasons) if reasons else "unknown reason"
+                            )
                             self.logger.info(
-                                "🧾 On-chain action recorder DISABLED (missing key or RPC)"
+                                "🧾 On-chain action recorder DISABLED: %s", reason_str
                             )
                     except Exception:
                         pass
@@ -667,8 +703,23 @@ class PettAgent:
                             addr_preview,
                         )
                     else:
+                        diag = self.olas.get_action_recorder_diagnostics()
+                        reasons = []
+                        if not diag["private_key_available"]:
+                            reasons.append("missing private key")
+                        if not diag["rpc_url_available"]:
+                            reasons.append(
+                                f"missing RPC URL (checked: ACTION_REPO_RPC_URL, BASE_LEDGER_RPC, ETH_RPC_URL, RPC_URL)"
+                            )
+                        if not diag["safe_address_available"]:
+                            reasons.append("missing Safe contract address")
+                        if diag["recorder_exists"] and not diag["recorder_enabled"]:
+                            reasons.append(
+                                "recorder exists but not enabled (check initialization logs)"
+                            )
+                        reason_str = ", ".join(reasons) if reasons else "unknown reason"
                         self.logger.info(
-                            "🧾 On-chain action recorder DISABLED (missing key or RPC)"
+                            "🧾 On-chain action recorder DISABLED: %s", reason_str
                         )
                 except Exception:
                     pass
@@ -1304,19 +1355,41 @@ class PettAgent:
                                             pet_data
                                         )
                                         try:
-                                            await PetDecisionMaker.decide(pet_context)
-                                            # Update scheduler timestamps
-                                            self.last_action_at = datetime.now()
-                                            self.next_action_at = (
-                                                self.last_action_at
-                                                + timedelta(
+                                            if not self.decision_engine:
+                                                self.logger.warning(
+                                                    "⚠️ Decision engine not initialized"
+                                                )
+                                                await asyncio.sleep(5)
+                                                continue
+
+                                            # Get decision from decision engine (not async)
+                                            decision = self.decision_engine.decide(
+                                                pet_context
+                                            )
+
+                                            # Execute the decision
+                                            action_success = (
+                                                await self._execute_decision(decision)
+                                            )
+
+                                            # Only update scheduler timestamps if action was successful
+                                            if action_success:
+                                                self.last_action_at = datetime.now()
+                                                self.next_action_at = self.last_action_at + timedelta(
                                                     minutes=self.action_interval_minutes
                                                 )
-                                            )
-                                            self._mid_interval_logged = False
+                                                self._mid_interval_logged = False
+                                                self.logger.info(
+                                                    f"✅ Action executed successfully: {decision.action.name} - {decision.reason}"
+                                                )
+                                            else:
+                                                self.logger.warning(
+                                                    f"⚠️ Action execution failed: {decision.action.name} - {decision.reason}"
+                                                )
                                         except Exception as e:
-                                            self.logger.debug(
-                                                f"Action decision error: {e}"
+                                            self.logger.error(
+                                                f"❌ Action decision/execution error: {e}",
+                                                exc_info=True,
                                             )
                             else:
                                 pet_connected = False
@@ -1718,6 +1791,97 @@ class PettAgent:
             actions_recorded_this_epoch=actions_recorded_this_epoch,
             required_actions_per_epoch=required_actions_per_epoch,
         )
+
+    async def _execute_decision(self, decision: ActionDecision) -> bool:
+        """Execute an ActionDecision using the agent's action execution methods."""
+        if not self.websocket_client:
+            self.logger.error("❌ No WebSocket client available to execute action")
+            return False
+
+        if decision.action == ActionType.NONE:
+            self.logger.info("No action to execute")
+            return False
+
+        client = self.websocket_client
+        record_on_chain = decision.should_record_onchain
+
+        try:
+            if decision.action == ActionType.SLEEP:
+                wake_first = decision.params.get("wake_first", False)
+                if wake_first:
+                    # Wake first by calling sleep_pet (it toggles sleep state)
+                    # Then sleep again to get an on-chain record
+                    self.logger.info(
+                        "🔄 Waking pet first, then sleeping for on-chain record"
+                    )
+                    await client.sleep_pet(record_on_chain=False)
+                    await asyncio.sleep(0.5)
+                return await self._execute_action_with_tracking(
+                    "SLEEP",
+                    lambda: client.sleep_pet(record_on_chain=record_on_chain),
+                    skipped_onchain_recording=not record_on_chain,
+                )
+
+            elif decision.action == ActionType.SHOWER:
+                return await self._execute_action_with_tracking(
+                    "SHOWER",
+                    lambda: client.shower_pet(record_on_chain=record_on_chain),
+                    treat_already_clean_as_success=True,
+                    skipped_onchain_recording=not record_on_chain,
+                )
+
+            elif decision.action == ActionType.RUB:
+                return await self._execute_action_with_tracking(
+                    "RUB",
+                    lambda: client.rub_pet(record_on_chain=record_on_chain),
+                    treat_already_clean_as_success=True,
+                    skipped_onchain_recording=not record_on_chain,
+                )
+
+            elif decision.action == ActionType.THROWBALL:
+                return await self._execute_action_with_tracking(
+                    "THROWBALL",
+                    lambda: client.throw_ball(record_on_chain=record_on_chain),
+                    skipped_onchain_recording=not record_on_chain,
+                )
+
+            elif decision.action == ActionType.CONSUMABLES_USE:
+                consumable_id = decision.params.get("consumable_id", "")
+                if not consumable_id:
+                    self.logger.warning(
+                        "⚠️ CONSUMABLES_USE decision missing consumable_id"
+                    )
+                    return False
+                return await self._execute_action_with_tracking(
+                    "CONSUMABLES_USE",
+                    lambda: client.use_consumable(
+                        consumable_id, record_on_chain=record_on_chain
+                    ),
+                    skipped_onchain_recording=not record_on_chain,
+                )
+
+            elif decision.action == ActionType.CONSUMABLES_BUY:
+                consumable_id = decision.params.get("consumable_id", "")
+                amount = decision.params.get("amount", 1)
+                if not consumable_id:
+                    self.logger.warning(
+                        "⚠️ CONSUMABLES_BUY decision missing consumable_id"
+                    )
+                    return False
+                # Note: buy_consumable may not support record_on_chain parameter
+                return await self._execute_action_with_tracking(
+                    "CONSUMABLES_BUY",
+                    lambda: client.buy_consumable(consumable_id, amount),
+                    skipped_onchain_recording=not record_on_chain,
+                )
+
+            else:
+                self.logger.warning("Unknown action type: %s", decision.action)
+                return False
+
+        except Exception as e:
+            self.logger.error("❌ Error executing decision %s: %s", decision.action, e)
+            return False
 
     async def _use_owned_health_consumable(
         self,
@@ -2217,7 +2381,9 @@ class PettAgent:
 
         return False
 
-    async def _log_action_progress(self, action_name: str) -> None:
+    async def _log_action_progress(
+        self, action_name: str, *, skipped_onchain_recording: bool = False
+    ) -> None:
         """Log staking-aware counters showing verified on-chain txs."""
         progress, reason = await self._get_epoch_action_progress(
             force_refresh=True, allow_local_fallback=False
@@ -2239,13 +2405,19 @@ class PettAgent:
                     if using_staking
                     else "verified on-chain txs (local tracker)"
                 )
+                skipped_msg = (
+                    ", skipped verification on-chain"
+                    if skipped_onchain_recording
+                    else ""
+                )
                 self.logger.info(
-                    "📋 Action %s — %d/%d %s, %d remaining to unlock staking",
+                    "📋 Action %s — %d/%d %s, %d remaining to unlock staking%s",
                     action_name,
                     f_completed,
                     f_required,
                     scope_label,
                     f_remaining,
+                    skipped_msg,
                 )
             else:
                 self.logger.info(
@@ -2260,12 +2432,16 @@ class PettAgent:
                 action_name,
             )
             return
+        skipped_msg = (
+            ", skipped verification on-chain" if skipped_onchain_recording else ""
+        )
         self.logger.info(
-            "📋 Action %s — %d/%d verified on-chain txs this epoch, %d remaining to unlock staking",
+            "📋 Action %s — %d/%d verified on-chain txs this epoch, %d remaining to unlock staking%s",
             action_name,
             completed,
             required,
             remaining,
+            skipped_msg,
         )
 
     async def _record_resting_sleep_action(self, client: PettWebSocketClient) -> bool:
@@ -2320,6 +2496,7 @@ class PettAgent:
         action_callable: Callable[[], Awaitable[bool]],
         *,
         treat_already_clean_as_success: bool = False,
+        skipped_onchain_recording: bool = False,
     ) -> bool:
         """Run an action coroutine and record it toward the daily requirement."""
         normalized_name = (action_name or "").upper() or "UNKNOWN"
@@ -2340,7 +2517,9 @@ class PettAgent:
         # Note: counter increment moved to websocket client's _onchain_success_recorder
         # Only successful on-chain recordings count toward the staking threshold
         if success:
-            await self._log_action_progress(normalized_name)
+            await self._log_action_progress(
+                normalized_name, skipped_onchain_recording=skipped_onchain_recording
+            )
 
         try:
             await self._maybe_call_staking_checkpoint()
