@@ -39,6 +39,7 @@ from .decision_engine import (
 )
 from .daily_action_tracker import DailyActionTracker
 from .staking_checkpoint import DEFAULT_LIVENESS_PERIOD
+from .constants import REQUIRED_ACTIONS_PER_EPOCH
 
 # Load environment variables
 load_dotenv()
@@ -52,7 +53,8 @@ class PettAgent:
     WAKE_ENERGY_THRESHOLD = 65.0
     POST_KPI_SLEEP_TRIGGER = 85.0
     POST_KPI_SLEEP_TARGET = 80.0
-    REQUIRED_ACTIONS_PER_EPOCH = 8  # 8 IN THE STAKING CONTRACT. TODO ideally we should fetch this directly from the staking contract.
+    # Use constant from constants module for single source of truth
+    REQUIRED_ACTIONS_PER_EPOCH: int = REQUIRED_ACTIONS_PER_EPOCH
     CRITICAL_CORE_STATS: Tuple[str, ...] = ("hunger", "health", "hygiene", "happiness")
     CRITICAL_STAT_THRESHOLD = 5.0
     ECONOMY_BALANCE_THRESHOLD = 350.0
