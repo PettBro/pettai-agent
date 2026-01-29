@@ -972,10 +972,10 @@ class PettWebSocketClient:
         if self.privy_token:
             add_candidate("privy", self.privy_token, "privy")
 
-        # Log available candidates for debugging
+        # Log available candidates for debugging (debug-level to avoid sensitive context in production logs)
         if candidates:
             candidate_info = [f"{label}({auth_type})" for auth_type, _, label in candidates]
-            logger.info(f"🔑 Available auth candidates (priority order): {', '.join(candidate_info)}")
+            logger.debug(f"🔑 Available auth candidates (priority order): {', '.join(candidate_info)}")
         else:
             logger.warning("⚠️  No auth candidates available")
 
@@ -989,8 +989,8 @@ class PettWebSocketClient:
             for keyword in (
                 "exp",
                 "jwt_expired",
+                "jwt expired",
                 "timestamp check failed",
-                "jwt",
                 "token expired",
                 "expired jwt",
             )
@@ -1075,10 +1075,10 @@ class PettWebSocketClient:
 
         for auth_type, token, label in candidates:
             if auth_type == "session":
-                logger.info("🔐 Authenticating with session token (%s)", label)
+                logger.debug("🔐 Authenticating with session token (%s)", label)
                 success = await self.authenticate_session(token, timeout)
             else:
-                logger.info("🔐 Authenticating with privy token (%s)", label)
+                logger.debug("🔐 Authenticating with privy token (%s)", label)
                 success = await self.authenticate_privy(token, timeout)
             if success:
                 return True
@@ -1136,8 +1136,8 @@ class PettWebSocketClient:
                 },
             }
 
-            # Log the authentication attempt with detailed info
-            logger.info(f"📤 Sending AUTH message with authType='{auth_type}' to server")
+            # Log the authentication attempt with detailed info (debug-level to avoid sensitive context in production logs)
+            logger.debug(f"📤 Sending AUTH message with authType='{auth_type}' to server")
 
             # Send the auth message
             success = await self._send_message(auth_message)
@@ -1152,7 +1152,7 @@ class PettWebSocketClient:
             # Wait for the auth result with timeout
             try:
                 auth_result = await asyncio.wait_for(auth_future, timeout=timeout)
-                logger.info(f"✅ AUTH response received (type='{auth_type}'): success={auth_result}")
+                logger.debug(f"✅ AUTH response received (type='{auth_type}'): success={auth_result}")
                 return auth_result
             except asyncio.TimeoutError:
                 # Timeout on single attempt is not critical - caller will handle retries
@@ -1283,12 +1283,12 @@ class PettWebSocketClient:
 
                 for auth_type, token, label in candidates:
                     if auth_type == "session":
-                        logger.info("🔐 Attempting session auth (%s)...", label)
+                        logger.debug("🔐 Attempting session auth (%s)...", label)
                         auth_success = await self.authenticate_session(
                             token, timeout=auth_timeout
                         )
                     else:
-                        logger.info("🔐 Attempting privy auth (%s)...", label)
+                        logger.debug("🔐 Attempting privy auth (%s)...", label)
                         auth_success = await self.authenticate_privy(
                             token, timeout=auth_timeout
                         )
@@ -1452,7 +1452,7 @@ class PettWebSocketClient:
                 else:
                     auth_type = "privy"
             token_source = "explicitly_provided"
-            logger.info(f"🔐 auth_ping: Using {token_source} token of type '{auth_type}'")
+            logger.debug(f"🔐 auth_ping: Using {token_source} token of type '{auth_type}'")
         else:
             candidates = self._get_auth_candidates()
             if not candidates:
@@ -1460,7 +1460,7 @@ class PettWebSocketClient:
                 return False
             auth_type, auth_token, token_label = candidates[0]
             token_source = f"auto_selected_{token_label}"
-            logger.info(f"🔐 auth_ping: Using {token_source} token of type '{auth_type}' (selected from {len(candidates)} candidates)")
+            logger.debug(f"🔐 auth_ping: Using {token_source} token of type '{auth_type}' (selected from {len(candidates)} candidates)")
 
         auth_token = (auth_token or "").strip()
         if not auth_token:
@@ -1481,9 +1481,9 @@ class PettWebSocketClient:
 
             try:
                 if auth_type == "session":
-                    logger.info(f"➡️  auth_ping: Calling authenticate_session() with {token_source}")
+                    logger.debug(f"➡️  auth_ping: Calling authenticate_session() with {token_source}")
                     return await self.authenticate_session(auth_token, timeout=timeout)
-                logger.info(f"➡️  auth_ping: Calling authenticate_privy() with {token_source}")
+                logger.debug(f"➡️  auth_ping: Calling authenticate_privy() with {token_source}")
                 return await self.authenticate_privy(auth_token, timeout=timeout)
             except Exception as exc:
                 logger.error("auth_ping error: %s", exc)
@@ -1832,9 +1832,9 @@ class PettWebSocketClient:
             session_expires_at = message.get("sessionExpiresAt")
 
         if success:
-            # Log which token type succeeded
+            # Log which token type succeeded (debug-level to avoid auth context in production logs)
             success_token_type = self._pending_auth_type or "unknown"
-            logger.info(f"✅ Authentication succeeded with token type '{success_token_type}'")
+            logger.debug(f"✅ Authentication succeeded with token type '{success_token_type}'")
 
             self.authenticated = True
             # Reset JWT expiration flag on successful auth
@@ -1897,9 +1897,10 @@ class PettWebSocketClient:
                 logger.info(f"🔑 Privy ID: {user_data.get('privyID', 'Unknown')}")
                 logger.info(f"📱 Telegram ID: {user_data.get('telegramID', 'Unknown')}")
         else:
-            # Log which token type failed
+            # Log authentication failure (token type at debug level to avoid auth context in production logs)
             failed_token_type = self._pending_auth_type or "unknown"
-            logger.error(f"❌ Authentication failed with token type '{failed_token_type}': {error}")
+            logger.debug(f"❌ Authentication failed with token type '{failed_token_type}'")
+            logger.error(f"❌ Authentication failed: {error}")
             self.authenticated = False
 
             # Store the error for retry logic
@@ -2058,10 +2059,26 @@ class PettWebSocketClient:
     async def _handle_error(self, message: Dict[str, Any]) -> None:
         """Handle error message."""
         error = message.get("error")
+        # Some server errors are nested under data.error depending on the endpoint
+        if error is None and isinstance(message.get("data"), dict):
+            error = message.get("data", {}).get("error")
+
         logger.error(f"Server error: {error}")
         try:
             if error is not None:
-                self._last_action_error = str(error)
+                error_text = str(error)
+                self._last_action_error = error_text
+
+                # If the server tells us the pet is dead, mirror that locally immediately
+                # so the agent stops attempting actions until revived/reset.
+                lowered = error_text.lower()
+                if ("pet is dead" in lowered) or (
+                    "invalid pet state" in lowered and "dead" in lowered
+                ):
+                    if not isinstance(self.pet_data, dict):
+                        self.pet_data = {}
+                    # Preserve existing fields; only force the dead flag.
+                    self.pet_data["dead"] = True
         except Exception:
             pass
 

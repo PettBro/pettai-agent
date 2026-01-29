@@ -1272,7 +1272,12 @@ class PettAgent:
             return False
 
     async def run_auth_health_check(self, timeout: int = 8) -> Dict[str, Any]:
-        """Trigger a lightweight AUTH call to sync websocket + pet data for UI polling."""
+        """Trigger a lightweight AUTH call to sync websocket + pet data for UI polling.
+
+        Token selection is delegated to PettWebSocketClient._get_auth_candidates()
+        to ensure consistency between the token used by the WebSocket client and
+        the token checked by the health check.
+        """
         result: Dict[str, Any] = {
             "success": False,
             "websocket_connected": bool(
@@ -1288,45 +1293,36 @@ class PettAgent:
             result["reason"] = "websocket_unavailable"
             return result
 
-        session_token = (client.session_token or "").strip()
-        privy_token = (client.privy_token or self.privy_token or "").strip()
-
-        # Log available tokens for debugging
-        token_status = []
-        if session_token:
-            token_status.append("session_token=✓")
-        else:
-            token_status.append("session_token=✗")
-        if privy_token:
-            token_status.append("privy_token=✓")
-        else:
-            token_status.append("privy_token=✗")
-        self.logger.info(f"🔍 Health check tokens available: {', '.join(token_status)}")
-
-        primary_token = session_token or privy_token
-        if not primary_token:
+        # Delegate token selection to the WebSocket client's _get_auth_candidates()
+        # This ensures we use the same prioritized token order as the client:
+        # 1. saved session token, 2. session token, 3. saved privy token, 4. privy token
+        candidates = client._get_auth_candidates()
+        if not candidates:
             result["reason"] = "auth_token_missing"
             self.logger.warning("⚠️  No auth tokens available for health check")
             return result
 
-        # Log which token is being used as primary
-        primary_type = "SESSION" if session_token else "PRIVY"
-        self.logger.info(f"🎯 Health check using PRIMARY token type: {primary_type}")
+        # Log available candidates for debugging
+        candidate_info = [f"{label}({auth_type})" for auth_type, _, label in candidates]
+        self.logger.info(f"🔍 Health check candidates: {', '.join(candidate_info)}")
 
         async with self._auth_refresh_lock:
-            auth_success = await client.auth_ping(primary_token, timeout=timeout)
-            if auth_success:
-                self.logger.info(f"✅ Health check AUTH succeeded with {primary_type} token")
-            else:
-                self.logger.warning(f"❌ Health check AUTH failed with {primary_type} token")
+            auth_success = False
 
-            if not auth_success and session_token and privy_token:
-                self.logger.info("🔄 Retrying health check with PRIVY token (fallback)")
-                auth_success = await client.auth_ping(privy_token, timeout=timeout)
-                if auth_success:
-                    self.logger.info("✅ Health check AUTH succeeded with PRIVY token (fallback)")
+            # Try each candidate in priority order until one succeeds
+            for idx, (auth_type, auth_token, token_label) in enumerate(candidates):
+                is_first = idx == 0
+                if is_first:
+                    self.logger.info(f"🎯 Health check using PRIMARY token: {token_label}({auth_type})")
                 else:
-                    self.logger.warning("❌ Health check AUTH failed with PRIVY token (fallback)")
+                    self.logger.info(f"🔄 Health check trying FALLBACK token: {token_label}({auth_type})")
+
+                auth_success = await client.auth_ping(auth_token, timeout=timeout)
+                if auth_success:
+                    self.logger.info(f"✅ Health check AUTH succeeded with {token_label}({auth_type}) token")
+                    break
+                else:
+                    self.logger.warning(f"❌ Health check AUTH failed with {token_label}({auth_type}) token")
 
             result["success"] = bool(auth_success)
             result["websocket_connected"] = client.is_connected()
@@ -2908,8 +2904,10 @@ class PettAgent:
                             self.logger.error("❌ SLEEP action raised: %s", exc)
                             success = False
 
-                        # Log progress if successful
+                        # Record and log progress if successful
                         if success:
+                            # Record for UI (Latest activity) so it appears even when the frontend was not open
+                            self._daily_action_tracker.record_display_action(normalized_name)
                             await self._log_action_progress(
                                 normalized_name,
                                 skipped_onchain_recording=skipped_onchain_recording,
