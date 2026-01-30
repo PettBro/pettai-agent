@@ -153,7 +153,7 @@ async def main(password: Optional[str] = None):
             f"Ethereum private key: {'Found' if ethereum_private_key else 'Not found'}"
         )
         logger.info(f"Withdrawal mode: {withdrawal_mode}")
-        
+
         # Check if session encryption password is provided
         if password:
             logger.info("✅ Session token encryption enabled (using provided password)")

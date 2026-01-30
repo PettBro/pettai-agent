@@ -8,6 +8,7 @@ import platform
 import random
 import ssl
 import stat
+import sys
 import time
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
@@ -125,6 +126,7 @@ class PettWebSocketClient:
         self._pending_auth_type: Optional[str] = None
         self._session_expires_at: Optional[int] = None
         self._session_store_path = self._resolve_session_store_path()
+        logger.info("📁 Session token storage path: %s", self._session_store_path)
         if not self.session_token:
             stored_token, stored_expiry = self._load_persisted_session_token()
             if stored_token:
@@ -664,8 +666,28 @@ class PettWebSocketClient:
         for env_name in env_candidates:
             value = os.getenv(env_name)
             if value and value.strip():
-                return Path(value).expanduser() / "pett_session_token.json"
-        return Path("./persistent_data") / "pett_session_token.json"
+                resolved = Path(value).expanduser() / "pett_session_token.json"
+                logger.debug("Session token store path from %s: %s", env_name, resolved)
+                return resolved
+
+        # Default path: use a stable location that persists across PyInstaller runs
+        # For PyInstaller binaries, ./persistent_data is relative to the temp extraction
+        # folder, so we use an absolute path based on the user's home or data directory
+        if getattr(sys, "frozen", False):
+            # Running as PyInstaller binary - use user data directory
+            if platform.system() == "Windows":
+                base_dir = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+            elif platform.system() == "Darwin":
+                base_dir = Path.home() / "Library" / "Application Support"
+            else:
+                base_dir = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+            default_path = base_dir / "pett-agent" / "pett_session_token.json"
+        else:
+            # Running from source - use relative path
+            default_path = Path("./persistent_data") / "pett_session_token.json"
+
+        logger.debug("Session token store path (default): %s", default_path)
+        return default_path
 
     def _get_encryption_key(self) -> Optional[bytes]:
         """
