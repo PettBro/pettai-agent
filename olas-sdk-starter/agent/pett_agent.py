@@ -109,6 +109,8 @@ class PettAgent:
         self.privy_token = (self.olas.get_env_var("PRIVY_TOKEN") or "").strip()
         self.websocket_url = self.olas.get_env_var("WEBSOCKET_URL", "wss://ws.pett.ai")
         self.session_encryption_password = session_encryption_password
+        # Track which websocket client instance has had one-time handlers installed
+        self._auth_result_handler_client_id: Optional[int] = None
 
         self.logger.info("🐾 Pett Agent initialized")
         # Action scheduler config uration
@@ -336,7 +338,11 @@ class PettAgent:
                 self.logger.info(
                     "🔐 Attempting authentication with environment token..."
                 )
-                connected = await self.websocket_client.connect_and_authenticate()
+                # Use the standard Privy refresh flow so we can auto-register on
+                # "User not found" errors (missing user/pet).
+                connected = await self.update_privy_token(
+                    privy_token, max_retries=5, auth_timeout=20
+                )
                 if connected:
                     self.logger.info("✅ WebSocket connected and authenticated")
 
@@ -385,31 +391,6 @@ class PettAgent:
                         # Keep Olas pet data in sync on live updates
                         self.websocket_client.register_message_handler(
                             "pet_update", self._on_client_pet_update_message
-                        )
-                        # Update olas interface when auth_result is received (check for death)
-
-                        async def _handle_auth_result_for_olas(
-                            message: Dict[str, Any],
-                        ) -> None:
-                            """Update olas interface with pet data from auth_result message."""
-                            try:
-                                # Extract pet data from auth_result message
-                                if "data" in message:
-                                    data = message.get("data", {})
-                                    pet_data = data.get("pet", {})
-                                else:
-                                    pet_data = message.get("pet", {})
-
-                                if pet_data:
-                                    # Update olas interface with pet data (this will check for death)
-                                    self.olas.update_pet_data(pet_data)
-                            except Exception as exc:
-                                self.logger.debug(
-                                    f"Error updating olas interface from auth_result: {exc}"
-                                )
-
-                        self.websocket_client.register_message_handler(
-                            "auth_result", _handle_auth_result_for_olas
                         )
                     except Exception:
                         pass
@@ -640,9 +621,25 @@ class PettAgent:
                         )
 
                         # Try to reconnect
-                        connected = (
-                            await self.websocket_client.connect_and_authenticate()
-                        )
+                        # Prefer the Privy refresh flow when we have a Privy token,
+                        # since it includes auto-registration for missing users/pets.
+                        reconnect_token = (self.privy_token or "").strip()
+                        if not reconnect_token:
+                            try:
+                                reconnect_token = (
+                                    getattr(self.websocket_client, "privy_token", "") or ""
+                                ).strip()
+                            except Exception:
+                                reconnect_token = ""
+
+                        if reconnect_token:
+                            connected = await self.update_privy_token(
+                                reconnect_token, max_retries=3, auth_timeout=10
+                            )
+                        else:
+                            connected = (
+                                await self.websocket_client.connect_and_authenticate()
+                            )
                         if connected:
                             self.logger.info("✅ WebSocket reconnected")
 
@@ -762,28 +759,33 @@ class PettAgent:
             except Exception:
                 pass
             try:
-                # Register handler to update olas interface when auth_result is received
-                async def _handle_auth_result_for_olas(message: Dict[str, Any]) -> None:
-                    """Update olas interface with pet data from auth_result message."""
-                    try:
-                        # Extract pet data from auth_result message
-                        if "data" in message:
-                            data = message.get("data", {})
-                            pet_data = data.get("pet", {})
-                        else:
-                            pet_data = message.get("pet", {})
+                client_id = id(self.websocket_client)
+                if self._auth_result_handler_client_id != client_id:
+                    # Register handler to update olas interface when auth_result is received
+                    async def _handle_auth_result_for_olas(
+                        message: Dict[str, Any],
+                    ) -> None:
+                        """Update olas interface with pet data from auth_result message."""
+                        try:
+                            # Extract pet data from auth_result message
+                            if "data" in message:
+                                data = message.get("data", {})
+                                pet_data = data.get("pet", {})
+                            else:
+                                pet_data = message.get("pet", {})
 
-                        if pet_data:
-                            # Update olas interface with pet data (this will check for death)
-                            self.olas.update_pet_data(pet_data)
-                    except Exception as exc:
-                        self.logger.debug(
-                            f"Error updating olas interface from auth_result: {exc}"
-                        )
+                            if pet_data:
+                                # Update olas interface with pet data (this will check for death)
+                                self.olas.update_pet_data(pet_data)
+                        except Exception as exc:
+                            self.logger.debug(
+                                f"Error updating olas interface from auth_result: {exc}"
+                            )
 
-                self.websocket_client.register_message_handler(
-                    "auth_result", _handle_auth_result_for_olas
-                )
+                    self.websocket_client.register_message_handler(
+                        "auth_result", _handle_auth_result_for_olas
+                    )
+                    self._auth_result_handler_client_id = client_id
             except Exception:
                 pass
         else:
@@ -801,28 +803,33 @@ class PettAgent:
             except Exception:
                 pass
             try:
-                # Register handler to update olas interface when auth_result is received
-                async def _handle_auth_result_for_olas(message: Dict[str, Any]) -> None:
-                    """Update olas interface with pet data from auth_result message."""
-                    try:
-                        # Extract pet data from auth_result message
-                        if "data" in message:
-                            data = message.get("data", {})
-                            pet_data = data.get("pet", {})
-                        else:
-                            pet_data = message.get("pet", {})
+                client_id = id(self.websocket_client)
+                if self._auth_result_handler_client_id != client_id:
+                    # Register handler to update olas interface when auth_result is received
+                    async def _handle_auth_result_for_olas(
+                        message: Dict[str, Any],
+                    ) -> None:
+                        """Update olas interface with pet data from auth_result message."""
+                        try:
+                            # Extract pet data from auth_result message
+                            if "data" in message:
+                                data = message.get("data", {})
+                                pet_data = data.get("pet", {})
+                            else:
+                                pet_data = message.get("pet", {})
 
-                        if pet_data:
-                            # Update olas interface with pet data (this will check for death)
-                            self.olas.update_pet_data(pet_data)
-                    except Exception as exc:
-                        self.logger.debug(
-                            f"Error updating olas interface from auth_result: {exc}"
-                        )
+                            if pet_data:
+                                # Update olas interface with pet data (this will check for death)
+                                self.olas.update_pet_data(pet_data)
+                        except Exception as exc:
+                            self.logger.debug(
+                                f"Error updating olas interface from auth_result: {exc}"
+                            )
 
-                self.websocket_client.register_message_handler(
-                    "auth_result", _handle_auth_result_for_olas
-                )
+                    self.websocket_client.register_message_handler(
+                        "auth_result", _handle_auth_result_for_olas
+                    )
+                    self._auth_result_handler_client_id = client_id
             except Exception:
                 pass
 
@@ -1064,6 +1071,20 @@ class PettAgent:
 
     def _get_default_pet_name(self) -> str:
         """Choose a default pet name using env var or a generated fallback."""
+        env_candidates = (
+            "PET_NAME",
+            "PETT_PET_NAME",
+            "PETT_DEFAULT_PET_NAME",
+            "DEFAULT_PET_NAME",
+        )
+        for key in env_candidates:
+            try:
+                value = (self.olas.get_env_var(key) or "").strip()
+            except Exception:
+                value = (os.getenv(key) or "").strip()
+            if value:
+                return value
+
         # Fallback randomized name
         return f"MyPett{random.randint(1, 1000000)}"
 

@@ -126,7 +126,7 @@ class PettWebSocketClient:
         self._pending_auth_type: Optional[str] = None
         self._session_expires_at: Optional[int] = None
         self._session_store_path = self._resolve_session_store_path()
-        logger.info("📁 Session token storage path: %s", self._session_store_path)
+        logger.info("Session token storage path: %s", self._session_store_path)
         if not self.session_token:
             stored_token, stored_expiry = self._load_persisted_session_token()
             if stored_token:
@@ -676,11 +676,15 @@ class PettWebSocketClient:
         if getattr(sys, "frozen", False):
             # Running as PyInstaller binary - use user data directory
             if platform.system() == "Windows":
-                base_dir = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+                base_dir = Path(
+                    os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")
+                )
             elif platform.system() == "Darwin":
                 base_dir = Path.home() / "Library" / "Application Support"
             else:
-                base_dir = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+                base_dir = Path(
+                    os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")
+                )
             default_path = base_dir / "pett-agent" / "pett_session_token.json"
         else:
             # Running from source - use relative path
@@ -996,8 +1000,12 @@ class PettWebSocketClient:
 
         # Log available candidates for debugging (debug-level to avoid sensitive context in production logs)
         if candidates:
-            candidate_info = [f"{label}({auth_type})" for auth_type, _, label in candidates]
-            logger.debug(f"🔑 Available auth candidates (priority order): {', '.join(candidate_info)}")
+            candidate_info = [
+                f"{label}({auth_type})" for auth_type, _, label in candidates
+            ]
+            logger.debug(
+                f"🔑 Available auth candidates (priority order): {', '.join(candidate_info)}"
+            )
         else:
             logger.warning("⚠️  No auth candidates available")
 
@@ -1159,22 +1167,30 @@ class PettWebSocketClient:
             }
 
             # Log the authentication attempt with detailed info (debug-level to avoid sensitive context in production logs)
-            logger.debug(f"📤 Sending AUTH message with authType='{auth_type}' to server")
+            logger.debug(
+                f"📤 Sending AUTH message with authType='{auth_type}' to server"
+            )
 
             # Send the auth message
             success = await self._send_message(auth_message)
             if not success:
-                logger.error(f"❌ Failed to send AUTH message with authType='{auth_type}'")
+                logger.error(
+                    f"❌ Failed to send AUTH message with authType='{auth_type}'"
+                )
                 self._pending_auth_token = None
                 self._pending_auth_type = None
                 return False
 
-            logger.debug(f"⏳ AUTH message sent (type='{auth_type}'), waiting for response...")
+            logger.debug(
+                f"⏳ AUTH message sent (type='{auth_type}'), waiting for response..."
+            )
 
             # Wait for the auth result with timeout
             try:
                 auth_result = await asyncio.wait_for(auth_future, timeout=timeout)
-                logger.debug(f"✅ AUTH response received (type='{auth_type}'): success={auth_result}")
+                logger.debug(
+                    f"✅ AUTH response received (type='{auth_type}'): success={auth_result}"
+                )
                 return auth_result
             except asyncio.TimeoutError:
                 # Timeout on single attempt is not critical - caller will handle retries
@@ -1474,7 +1490,9 @@ class PettWebSocketClient:
                 else:
                     auth_type = "privy"
             token_source = "explicitly_provided"
-            logger.debug(f"🔐 auth_ping: Using {token_source} token of type '{auth_type}'")
+            logger.debug(
+                f"🔐 auth_ping: Using {token_source} token of type '{auth_type}'"
+            )
         else:
             candidates = self._get_auth_candidates()
             if not candidates:
@@ -1482,7 +1500,9 @@ class PettWebSocketClient:
                 return False
             auth_type, auth_token, token_label = candidates[0]
             token_source = f"auto_selected_{token_label}"
-            logger.debug(f"🔐 auth_ping: Using {token_source} token of type '{auth_type}' (selected from {len(candidates)} candidates)")
+            logger.debug(
+                f"🔐 auth_ping: Using {token_source} token of type '{auth_type}' (selected from {len(candidates)} candidates)"
+            )
 
         auth_token = (auth_token or "").strip()
         if not auth_token:
@@ -1503,9 +1523,13 @@ class PettWebSocketClient:
 
             try:
                 if auth_type == "session":
-                    logger.debug(f"➡️  auth_ping: Calling authenticate_session() with {token_source}")
+                    logger.debug(
+                        f"➡️  auth_ping: Calling authenticate_session() with {token_source}"
+                    )
                     return await self.authenticate_session(auth_token, timeout=timeout)
-                logger.debug(f"➡️  auth_ping: Calling authenticate_privy() with {token_source}")
+                logger.debug(
+                    f"➡️  auth_ping: Calling authenticate_privy() with {token_source}"
+                )
                 return await self.authenticate_privy(auth_token, timeout=timeout)
             except Exception as exc:
                 logger.error("auth_ping error: %s", exc)
@@ -1856,7 +1880,9 @@ class PettWebSocketClient:
         if success:
             # Log which token type succeeded (debug-level to avoid auth context in production logs)
             success_token_type = self._pending_auth_type or "unknown"
-            logger.debug(f"✅ Authentication succeeded with token type '{success_token_type}'")
+            logger.debug(
+                f"✅ Authentication succeeded with token type '{success_token_type}'"
+            )
 
             self.authenticated = True
             # Reset JWT expiration flag on successful auth
@@ -1921,7 +1947,9 @@ class PettWebSocketClient:
         else:
             # Log authentication failure (token type at debug level to avoid auth context in production logs)
             failed_token_type = self._pending_auth_type or "unknown"
-            logger.debug(f"❌ Authentication failed with token type '{failed_token_type}'")
+            logger.debug(
+                f"❌ Authentication failed with token type '{failed_token_type}'"
+            )
             logger.error(f"❌ Authentication failed: {error}")
             self.authenticated = False
 
