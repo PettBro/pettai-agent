@@ -131,6 +131,8 @@ class PettAgent:
         self._auth_refresh_lock: asyncio.Lock = asyncio.Lock()
         self._epoch_checkpoint_lock: asyncio.Lock = asyncio.Lock()
         self._last_health_refresh: Optional[datetime] = None
+        self._last_revival_check: Optional[datetime] = None
+        self._revival_check_interval: timedelta = timedelta(seconds=30)
         self._last_known_epoch_end_ts: Optional[int] = None
         self._last_checkpointed_epoch_end_ts: Optional[int] = None
         self._epoch_length_seconds: Optional[int] = None
@@ -627,7 +629,8 @@ class PettAgent:
                         if not reconnect_token:
                             try:
                                 reconnect_token = (
-                                    getattr(self.websocket_client, "privy_token", "") or ""
+                                    getattr(self.websocket_client, "privy_token", "")
+                                    or ""
                                 ).strip()
                             except Exception:
                                 reconnect_token = ""
@@ -1334,16 +1337,24 @@ class PettAgent:
             for idx, (auth_type, auth_token, token_label) in enumerate(candidates):
                 is_first = idx == 0
                 if is_first:
-                    self.logger.info(f"🎯 Health check using PRIMARY token: {token_label}({auth_type})")
+                    self.logger.info(
+                        f"🎯 Health check using PRIMARY token: {token_label}({auth_type})"
+                    )
                 else:
-                    self.logger.info(f"🔄 Health check trying FALLBACK token: {token_label}({auth_type})")
+                    self.logger.info(
+                        f"🔄 Health check trying FALLBACK token: {token_label}({auth_type})"
+                    )
 
                 auth_success = await client.auth_ping(auth_token, timeout=timeout)
                 if auth_success:
-                    self.logger.info(f"✅ Health check AUTH succeeded with {token_label}({auth_type}) token")
+                    self.logger.info(
+                        f"✅ Health check AUTH succeeded with {token_label}({auth_type}) token"
+                    )
                     break
                 else:
-                    self.logger.warning(f"❌ Health check AUTH failed with {token_label}({auth_type}) token")
+                    self.logger.warning(
+                        f"❌ Health check AUTH failed with {token_label}({auth_type}) token"
+                    )
 
             result["success"] = bool(auth_success)
             result["websocket_connected"] = client.is_connected()
@@ -1442,6 +1453,53 @@ class PettAgent:
                                             decision = self.decision_engine.decide(
                                                 pet_context
                                             )
+
+                                            # If pet is dead, periodically refresh to check for revival
+                                            if pet_context.is_dead:
+                                                now = datetime.now()
+                                                should_check_revival = (
+                                                    self._last_revival_check is None
+                                                    or (now - self._last_revival_check)
+                                                    >= self._revival_check_interval
+                                                )
+                                                if should_check_revival:
+                                                    self._last_revival_check = now
+                                                    self.logger.info(
+                                                        "💀 Pet is dead - checking server for revival status..."
+                                                    )
+                                                    try:
+                                                        # Do an auth_ping to refresh pet data from server
+                                                        if self.websocket_client:
+                                                            await self.websocket_client.auth_ping()
+                                                            refreshed_pet_data = (
+                                                                self.websocket_client.get_pet_data()
+                                                            )
+                                                            if refreshed_pet_data:
+                                                                self.olas.update_pet_data(
+                                                                    refreshed_pet_data
+                                                                )
+                                                                # Check if pet is now alive
+                                                                if not refreshed_pet_data.get(
+                                                                    "dead", False
+                                                                ):
+                                                                    self.logger.info(
+                                                                        f"✨ Pet {refreshed_pet_data.get('name', 'Unknown')} has been revived! "
+                                                                        "Resuming normal operations."
+                                                                    )
+                                                                    # Reset revival check timer
+                                                                    self._last_revival_check = (
+                                                                        None
+                                                                    )
+                                                                    # Continue to next iteration with fresh state
+                                                                    continue
+                                                                else:
+                                                                    self.logger.debug(
+                                                                        "💀 Pet still dead after server refresh"
+                                                                    )
+                                                    except Exception as e:
+                                                        self.logger.debug(
+                                                            f"Revival check error: {e}"
+                                                        )
 
                                             # Execute the decision
                                             action_success = (
@@ -2928,7 +2986,9 @@ class PettAgent:
                         # Record and log progress if successful
                         if success:
                             # Record for UI (Latest activity) so it appears even when the frontend was not open
-                            self._daily_action_tracker.record_display_action(normalized_name)
+                            self._daily_action_tracker.record_display_action(
+                                normalized_name
+                            )
                             await self._log_action_progress(
                                 normalized_name,
                                 skipped_onchain_recording=skipped_onchain_recording,
@@ -2964,11 +3024,40 @@ class PettAgent:
             was_sleeping = await self._ensure_pet_is_awake()
 
         success = False
-        try:
-            result = await action_callable()
-            success = bool(result)
-        except Exception as exc:
-            self.logger.error("❌ Action %s raised: %s", normalized_name, exc)
+        max_retries = 2  # Allow one retry if pet is sleeping
+        for attempt in range(max_retries):
+            try:
+                result = await action_callable()
+                success = bool(result)
+            except Exception as exc:
+                self.logger.error("❌ Action %s raised: %s", normalized_name, exc)
+                break
+
+            # Check if action failed due to pet sleeping
+            if not success and self.websocket_client:
+                last_error = self.websocket_client.get_last_action_error()
+                if last_error and "sleeping" in last_error.lower():
+                    if attempt < max_retries - 1:
+                        self.logger.warning(
+                            "😴 Action failed because pet is sleeping - waking pet and retrying..."
+                        )
+                        # Force wake the pet
+                        try:
+                            woke = await self.websocket_client.sleep_pet(
+                                record_on_chain=False
+                            )
+                            if woke:
+                                await asyncio.sleep(0.5)
+                                self.logger.info("✅ Pet woken up, retrying action...")
+                                self.websocket_client.clear_last_action_error()
+                                continue  # Retry the action
+                            else:
+                                self.logger.warning("⚠️ Failed to wake pet for retry")
+                        except Exception as wake_exc:
+                            self.logger.warning(
+                                "⚠️ Error waking pet for retry: %s", wake_exc
+                            )
+            break  # Exit loop if action succeeded or no retry needed
 
         if (
             not success
