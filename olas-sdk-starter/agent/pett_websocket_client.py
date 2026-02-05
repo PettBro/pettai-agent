@@ -125,6 +125,9 @@ class PettWebSocketClient:
         self._pending_auth_token: Optional[str] = None
         self._pending_auth_type: Optional[str] = None
         self._session_expires_at: Optional[int] = None
+        # Track consecutive failures before clearing saved token (bounded retry)
+        self._saved_token_failure_count: int = 0
+        self._saved_token_max_failures: int = 2  # Clear after 2 consecutive failures
         self._session_store_path = self._resolve_session_store_path()
         logger.info("Session token storage path: %s", self._session_store_path)
         if not self.session_token:
@@ -600,6 +603,7 @@ class PettWebSocketClient:
         self._saved_auth_token = None
         self._saved_auth_type = None
         self._was_previously_authenticated = False
+        self._saved_token_failure_count = 0
         logger.info("Saved auth token cleared")
 
     async def refresh_token_and_reconnect(
@@ -1333,6 +1337,8 @@ class PettWebSocketClient:
 
                     if auth_success:
                         logger.info("✅ Connection and authentication successful!")
+                        # Reset saved token failure counter on successful auth
+                        self._saved_token_failure_count = 0
                         return True
 
                     error_text = (self._last_auth_error or "").lower()
@@ -1341,10 +1347,17 @@ class PettWebSocketClient:
                         self._was_previously_authenticated
                         and token == self._saved_auth_token
                     ):
+                        # Implement bounded retry: only clear after multiple consecutive failures
+                        self._saved_token_failure_count += 1
                         logger.warning(
-                            "🔑 Saved auth token failed, clearing saved state"
+                            f"🔑 Saved auth token failed (attempt {self._saved_token_failure_count}/{self._saved_token_max_failures})"
                         )
-                        self.clear_saved_auth_token()
+                        if self._saved_token_failure_count >= self._saved_token_max_failures:
+                            logger.warning(
+                                "🔑 Saved auth token failed multiple times, clearing saved state"
+                            )
+                            self.clear_saved_auth_token()
+                            self._saved_token_failure_count = 0
 
                     if auth_type == "session" and self._is_session_token_invalid(
                         error_text
@@ -1898,6 +1911,8 @@ class PettWebSocketClient:
                 self._saved_auth_token = self._pending_auth_token
                 self._saved_auth_type = self._pending_auth_type
             self._was_previously_authenticated = True
+            # Reset failure counter on successful auth with saved token
+            self._saved_token_failure_count = 0
 
             # Extract pet data - now it's directly in the pet field
             if pet_data:

@@ -604,13 +604,23 @@ class PettAgent:
                 # Check WebSocket connection
                 if self.websocket_client:
                     if not self.websocket_client.is_connected():
-                        # Skip reconnection if waiting for React login
+                        # Skip reconnection if waiting for React login AND no saved tokens available
+                        # Allow trying saved tokens even when waiting, for better recovery
                         if self.waiting_for_react_login:
-                            self.logger.debug(
-                                "⏸️  Waiting for user to login via React - skipping reconnection"
+                            has_saved_tokens = (
+                                self.websocket_client._saved_auth_token is not None
+                                or self.websocket_client.session_token
                             )
-                            await asyncio.sleep(30)
-                            continue
+                            if not has_saved_tokens:
+                                self.logger.debug(
+                                    "⏸️  Waiting for user to login via React - skipping reconnection (no saved tokens)"
+                                )
+                                await asyncio.sleep(30)
+                                continue
+                            else:
+                                self.logger.info(
+                                    "🔄 Attempting reconnection with saved tokens (waiting for React login)"
+                                )
 
                         self.logger.warning(
                             "⚠️ WebSocket disconnected, attempting reconnection..."
@@ -639,6 +649,15 @@ class PettAgent:
                             connected = await self.update_privy_token(
                                 reconnect_token, max_retries=3, auth_timeout=10
                             )
+                            # Fallback: if Privy token auth failed, try all available auth candidates
+                            # This allows recovery using saved session tokens or other valid credentials
+                            if not connected:
+                                self.logger.info(
+                                    "🔄 Privy token auth failed, trying all auth candidates..."
+                                )
+                                connected = (
+                                    await self.websocket_client.connect_and_authenticate()
+                                )
                         else:
                             connected = (
                                 await self.websocket_client.connect_and_authenticate()
@@ -2537,19 +2556,25 @@ class PettAgent:
             self._daily_action_tracker.reset_for_new_epoch(str(current_epoch_end))
             return True
 
-        # Also check if we've passed the epoch end and need to refresh
+        # CRITICAL: If we've passed the epoch end, ALWAYS reset regardless of contract state
+        # This handles cases where:
+        # 1. Contract is slow to update
+        # 2. Someone else called checkpoint and epoch changed
+        # 3. Contract returns stale/cached data
         if now_ts > last_known:
-            # We've passed the last known epoch end, try to get the new one
-            if current_epoch_end != last_known:
-                self.logger.info(
-                    "🔄 Staking epoch boundary crossed: was %s, now %s. "
-                    "Resetting on-chain action counter.",
-                    last_known,
-                    current_epoch_end,
-                )
-                self._last_recorded_epoch_end_ts = current_epoch_end
-                self._daily_action_tracker.reset_for_new_epoch(str(current_epoch_end))
-                return True
+            # We've definitively crossed the epoch boundary - must reset
+            # Use the new epoch end from contract if available, otherwise estimate
+            new_epoch_id = current_epoch_end if current_epoch_end != last_known else now_ts
+            self.logger.info(
+                "🔄 Staking epoch boundary crossed: current_time=%s > last_epoch_end=%s. "
+                "Resetting on-chain action counter. New epoch identifier: %s",
+                now_ts,
+                last_known,
+                new_epoch_id,
+            )
+            self._last_recorded_epoch_end_ts = current_epoch_end
+            self._daily_action_tracker.reset_for_new_epoch(str(new_epoch_id))
+            return True
 
         return False
 
