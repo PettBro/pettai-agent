@@ -515,30 +515,33 @@ class PettAgent:
                 except Exception:
                     pass
                 try:
-                    # Register handler to update olas interface when auth_result is received
-                    async def _handle_auth_result_for_olas(
-                        message: Dict[str, Any],
-                    ) -> None:
-                        """Update olas interface with pet data from auth_result message."""
-                        try:
-                            # Extract pet data from auth_result message
-                            if "data" in message:
-                                data = message.get("data", {})
-                                pet_data = data.get("pet", {})
-                            else:
-                                pet_data = message.get("pet", {})
+                    client_id = id(self.websocket_client)
+                    if self._auth_result_handler_client_id != client_id:
+                        # Register handler to update olas interface when auth_result is received
+                        async def _handle_auth_result_for_olas(
+                            message: Dict[str, Any],
+                        ) -> None:
+                            """Update olas interface with pet data from auth_result message."""
+                            try:
+                                # Extract pet data from auth_result message
+                                if "data" in message:
+                                    data = message.get("data", {})
+                                    pet_data = data.get("pet", {})
+                                else:
+                                    pet_data = message.get("pet", {})
 
-                            if pet_data:
-                                # Update olas interface with pet data (this will check for death)
-                                self.olas.update_pet_data(pet_data)
-                        except Exception as exc:
-                            self.logger.debug(
-                                f"Error updating olas interface from auth_result: {exc}"
-                            )
+                                if pet_data:
+                                    # Update olas interface with pet data (this will check for death)
+                                    self.olas.update_pet_data(pet_data)
+                            except Exception as exc:
+                                self.logger.debug(
+                                    f"Error updating olas interface from auth_result: {exc}"
+                                )
 
-                    self.websocket_client.register_message_handler(
-                        "auth_result", _handle_auth_result_for_olas
-                    )
+                        self.websocket_client.register_message_handler(
+                            "auth_result", _handle_auth_result_for_olas
+                        )
+                        self._auth_result_handler_client_id = client_id
                 except Exception:
                     pass
                 self.waiting_for_react_login = True
