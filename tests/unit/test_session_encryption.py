@@ -4,10 +4,12 @@ Unit tests for session token encryption functionality.
 Tests the encryption, decryption, and secure storage of session tokens.
 """
 
+import base64
 import json
 import os
 import stat
 import tempfile
+import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -24,6 +26,18 @@ from agent.pett_websocket_client import PettWebSocketClient
 
 class TestSessionTokenEncryption:
     """Test suite for session token encryption and secure storage."""
+
+    @staticmethod
+    def _build_fake_jwt(exp_timestamp: int) -> str:
+        """Build an unsigned JWT-like token for expiry parsing tests."""
+
+        def _encode(data: dict) -> str:
+            raw = json.dumps(data, separators=(",", ":")).encode("utf-8")
+            return base64.urlsafe_b64encode(raw).decode("utf-8").rstrip("=")
+
+        header = _encode({"alg": "none", "typ": "JWT"})
+        payload = _encode({"exp": exp_timestamp})
+        return f"{header}.{payload}.signature"
 
     @pytest.fixture
     def temp_dir(self):
@@ -273,6 +287,38 @@ class TestSessionTokenEncryption:
         assert len(candidates) == 1, "Should have only Privy token"
         assert candidates[0][0] == "privy", "Should be Privy auth"
         assert candidates[0][1] == "privy_token_789", "Should have correct token"
+
+    def test_auth_candidates_skip_locally_expired_privy_jwt(self, client):
+        """Expired JWTs should be skipped from auth candidates."""
+        client.session_token = ""
+        expired_jwt = self._build_fake_jwt(int(time.time()) - 60)
+        client.set_privy_token(expired_jwt)
+
+        candidates = client._get_auth_candidates()
+
+        assert candidates == [], "Expired Privy JWT should not be used as candidate"
+        assert client.is_jwt_expired() is True
+
+    def test_same_expired_privy_token_keeps_expired_state(self, client):
+        """Re-setting the same expired token should not clear expiry state."""
+        expired_jwt = self._build_fake_jwt(int(time.time()) - 120)
+        client._mark_privy_jwt_expired("Invalid or expired token", token=expired_jwt)
+
+        client.set_privy_token(expired_jwt)
+
+        assert client.is_jwt_expired() is True
+        assert client.is_known_expired_privy_token(expired_jwt) is True
+
+    def test_new_privy_token_clears_expired_state(self, client):
+        """A different Privy token should clear previous JWT-expired state."""
+        expired_jwt = self._build_fake_jwt(int(time.time()) - 120)
+        fresh_jwt = self._build_fake_jwt(int(time.time()) + 3600)
+        client._mark_privy_jwt_expired("Invalid or expired token", token=expired_jwt)
+
+        client.set_privy_token(fresh_jwt)
+
+        assert client.is_jwt_expired() is False
+        assert client.is_known_expired_privy_token(fresh_jwt) is False
 
 
 if __name__ == "__main__":

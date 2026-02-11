@@ -161,8 +161,11 @@ class FailedAction:
     """
     Tracks a failed action to prevent infinite retry loops.
 
-    When an action fails (e.g., server rejects CONSUMABLES_USE for any reason),
-    we record it here to avoid immediately retrying the same action.
+    When an action fails, we record it here to avoid immediately retrying the
+    same non-consumable action.
+
+    Consumable failures are still recorded for observability but are not
+    cooldown-blocked by is_action_blocked().
 
     Matching is based on action type and params only - the reason string
     is only used for logging/debugging and does not affect matching logic.
@@ -573,18 +576,10 @@ class PetDecisionMaker:
             self.CRITICAL_THRESHOLD,
         )
 
-        # Filter out blocked consumables before selecting
-        blocked = self.get_blocked_consumables()
-        available_consumables = [
-            c
-            for c in context.owned_consumables
-            if c.upper() not in [b.upper() for b in blocked]
-        ]
-
-        # Try consumables first - use best available (non-blocked)
-        if available_consumables:
+        # Try consumables first - always use best owned consumable if available
+        if context.owned_consumables:
             best_consumable = ConsumableSelector.get_any_consumable(
-                available_consumables
+                context.owned_consumables
             )
             if best_consumable:
                 return ActionDecision(
@@ -598,32 +593,28 @@ class PetDecisionMaker:
                     stats_snapshot=stats.to_dict(),
                 )
 
-        # Log if we skipped consumables due to blocking
-        if blocked and context.owned_consumables:
-            self.logger.info(
-                "⏭️ CRITICAL: Skipping blocked consumables: %s (blocked: %s)",
-                context.owned_consumables,
-                blocked,
-            )
-
-        # Try buying consumables - prefer food in critical state (if not blocked)
+        # No consumables owned: force a consumable use attempt.
+        # The websocket layer auto-buys missing consumables and retries use once.
         can_buy, reason = ActionConditions.can_buy_consumable(context)
         if can_buy:
             food_to_buy = ConsumableSelector.get_best_to_buy_for_hunger()
-            if not self.is_action_blocked(
-                ActionType.CONSUMABLES_BUY, {"consumable_id": food_to_buy}
-            ):
-                return ActionDecision(
-                    action=ActionType.CONSUMABLES_BUY,
-                    reason=f"CRITICAL stats - buying {food_to_buy} ({reason})",
-                    should_record_onchain=should_record,
-                    params={"consumable_id": food_to_buy, "amount": 1},
-                    stats_snapshot=stats.to_dict(),
-                )
+            return ActionDecision(
+                action=ActionType.CONSUMABLES_USE,
+                reason=(
+                    f"CRITICAL stats - forcing consumable use with {food_to_buy} "
+                    f"(auto-buy if missing; {reason})"
+                ),
+                should_record_onchain=should_record,
+                params={
+                    "consumable_id": food_to_buy,
+                    "action": "auto_buy_and_use_critical_consumable",
+                },
+                stats_snapshot=stats.to_dict(),
+            )
 
         # Fallback to free actions: RUB first (improves happiness)
         can_rub, reason = ActionConditions.can_rub(stats)
-        if can_rub:
+        if can_rub and not self.is_action_blocked(ActionType.RUB):
             return ActionDecision(
                 action=ActionType.RUB,
                 reason=f"CRITICAL stats, no consumables - rubbing pet ({reason})",
@@ -634,7 +625,7 @@ class PetDecisionMaker:
 
         # Fallback to SHOWER
         can_shower, reason = ActionConditions.can_shower(stats)
-        if can_shower:
+        if can_shower and not self.is_action_blocked(ActionType.SHOWER):
             return ActionDecision(
                 action=ActionType.SHOWER,
                 reason=f"CRITICAL stats, no consumables - showering ({reason})",
@@ -658,16 +649,8 @@ class PetDecisionMaker:
         """Attempt to recover health using consumables."""
         stats = context.stats
 
-        # Filter out blocked consumables before selecting
-        blocked = self.get_blocked_consumables()
-        available_consumables = [
-            c
-            for c in context.owned_consumables
-            if c.upper() not in [b.upper() for b in blocked]
-        ]
-
-        # Get best health item using ConsumableSelector from available (non-blocked)
-        best_health = ConsumableSelector.get_best_health_item(available_consumables)
+        # Get best owned health item first.
+        best_health = ConsumableSelector.get_best_health_item(context.owned_consumables)
 
         if best_health:
             return ActionDecision(
@@ -678,33 +661,23 @@ class PetDecisionMaker:
                 stats_snapshot=stats.to_dict(),
             )
 
-        # Log if we skipped consumables due to blocking
-        if blocked and context.owned_consumables:
-            owned_health = ConsumableSelector.get_best_health_item(
-                context.owned_consumables
-            )
-            if owned_health:
-                self.logger.info(
-                    "⏭️ Skipping blocked health item %s (blocked: %s)",
-                    owned_health,
-                    blocked,
-                )
-
-        # Try buying a health consumable (if not blocked)
+        # No owned health item: force CONSUMABLES_USE so transport can auto-buy then use.
         can_buy, reason = ActionConditions.can_buy_consumable(context)
         if can_buy:
             health_to_buy = ConsumableSelector.get_best_to_buy_for_health()
-            # Check if the item to buy is blocked
-            if not self.is_action_blocked(
-                ActionType.CONSUMABLES_BUY, {"consumable_id": health_to_buy}
-            ):
-                return ActionDecision(
-                    action=ActionType.CONSUMABLES_BUY,
-                    reason=f"Low health ({stats.health:.1f}) - buying {health_to_buy}",
-                    should_record_onchain=should_record,
-                    params={"consumable_id": health_to_buy, "amount": 1},
-                    stats_snapshot=stats.to_dict(),
-                )
+            return ActionDecision(
+                action=ActionType.CONSUMABLES_USE,
+                reason=(
+                    f"Low health ({stats.health:.1f}) - forcing {health_to_buy} "
+                    f"(auto-buy if missing; {reason})"
+                ),
+                should_record_onchain=should_record,
+                params={
+                    "consumable_id": health_to_buy,
+                    "action": "auto_buy_and_use_health_recovery",
+                },
+                stats_snapshot=stats.to_dict(),
+            )
 
         # Can't recover health - return NONE to try next priority
         return ActionDecision(
@@ -720,16 +693,8 @@ class PetDecisionMaker:
         """Attempt to recover hunger using consumables."""
         stats = context.stats
 
-        # Filter out blocked consumables before selecting
-        blocked = self.get_blocked_consumables()
-        available_consumables = [
-            c
-            for c in context.owned_consumables
-            if c.upper() not in [b.upper() for b in blocked]
-        ]
-
-        # Get best food using ConsumableSelector from available (non-blocked)
-        best_food = ConsumableSelector.get_best_food(available_consumables)
+        # Get best owned food first.
+        best_food = ConsumableSelector.get_best_food(context.owned_consumables)
 
         if best_food:
             return ActionDecision(
@@ -740,31 +705,23 @@ class PetDecisionMaker:
                 stats_snapshot=stats.to_dict(),
             )
 
-        # Log if we skipped consumables due to blocking
-        if blocked and context.owned_consumables:
-            owned_food = ConsumableSelector.get_best_food(context.owned_consumables)
-            if owned_food:
-                self.logger.info(
-                    "⏭️ Skipping blocked food item %s (blocked: %s)",
-                    owned_food,
-                    blocked,
-                )
-
-        # Try buying food (if not blocked)
+        # No owned food: force CONSUMABLES_USE so transport can auto-buy then use.
         can_buy, reason = ActionConditions.can_buy_consumable(context)
         if can_buy:
             food_to_buy = ConsumableSelector.get_best_to_buy_for_hunger()
-            # Check if the item to buy is blocked
-            if not self.is_action_blocked(
-                ActionType.CONSUMABLES_BUY, {"consumable_id": food_to_buy}
-            ):
-                return ActionDecision(
-                    action=ActionType.CONSUMABLES_BUY,
-                    reason=f"Low hunger ({stats.hunger:.1f}) - buying {food_to_buy}",
-                    should_record_onchain=should_record,
-                    params={"consumable_id": food_to_buy, "amount": 1},
-                    stats_snapshot=stats.to_dict(),
-                )
+            return ActionDecision(
+                action=ActionType.CONSUMABLES_USE,
+                reason=(
+                    f"Low hunger ({stats.hunger:.1f}) - forcing {food_to_buy} "
+                    f"(auto-buy if missing; {reason})"
+                ),
+                should_record_onchain=should_record,
+                params={
+                    "consumable_id": food_to_buy,
+                    "action": "auto_buy_and_use_hunger_recovery",
+                },
+                stats_snapshot=stats.to_dict(),
+            )
 
         # Can't recover hunger - return NONE to try next priority
         return ActionDecision(
@@ -945,13 +902,21 @@ class PetDecisionMaker:
             reason=reason,
         )
         self._failed_actions.append(failure)
-        self.logger.warning(
-            "⛔ Recorded action failure: %s (params=%s) - will skip for %d seconds. Reason: %s",
-            action.name,
-            params,
-            FailedAction.COOLDOWN_SECONDS,
-            reason,
-        )
+        if action in (ActionType.CONSUMABLES_USE, ActionType.CONSUMABLES_BUY):
+            self.logger.warning(
+                "⚠️ Recorded consumable failure (not blocked): %s (params=%s). Reason: %s",
+                action.name,
+                params,
+                reason,
+            )
+        else:
+            self.logger.warning(
+                "⛔ Recorded action failure: %s (params=%s) - will skip for %d seconds. Reason: %s",
+                action.name,
+                params,
+                FailedAction.COOLDOWN_SECONDS,
+                reason,
+            )
 
     def is_action_blocked(
         self,
@@ -968,6 +933,10 @@ class PetDecisionMaker:
         Returns:
             True if the action should be skipped, False if it can be tried
         """
+        # Consumables are intentionally never blocked: always allow retry/use.
+        if action in (ActionType.CONSUMABLES_USE, ActionType.CONSUMABLES_BUY):
+            return False
+
         self._clear_stale_failures()
         params = params or {}
 
@@ -978,22 +947,12 @@ class PetDecisionMaker:
 
     def get_blocked_consumables(self) -> List[str]:
         """
-        Get list of consumable IDs that are currently blocked.
+        Consumable blocking is disabled.
 
         Returns:
-            List of consumable IDs that should not be used
+            Always returns an empty list.
         """
-        self._clear_stale_failures()
-        blocked = []
-        for failed in self._failed_actions:
-            if failed.action in (
-                ActionType.CONSUMABLES_USE,
-                ActionType.CONSUMABLES_BUY,
-            ):
-                consumable_id = failed.params.get("consumable_id")
-                if consumable_id:
-                    blocked.append(consumable_id)
-        return blocked
+        return []
 
     def _clear_stale_failures(self) -> None:
         """Remove expired failure records."""

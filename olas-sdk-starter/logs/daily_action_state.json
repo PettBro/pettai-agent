@@ -1,14 +1,5 @@
 {
   "actions": [],
-  "display_actions": [
-    {
-      "name": "SHOWER",
-      "timestamp": "2026-01-30T12:59:24.019036+00:00"
-    },
-    {
-      "name": "THROWBALL",
-      "timestamp": "2026-01-30T13:06:25.936437+00:00"
-    }
-  ],
-  "epoch": "2026-01-30"
+  "display_actions": [],
+  "epoch": "2026-02-11"
 }

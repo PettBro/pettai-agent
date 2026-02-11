@@ -343,7 +343,7 @@ class PettAgent:
                 # Use the standard Privy refresh flow so we can auto-register on
                 # "User not found" errors (missing user/pet).
                 connected = await self.update_privy_token(
-                    privy_token, max_retries=5, auth_timeout=20
+                    self.privy_token, max_retries=5, auth_timeout=20
                 )
                 if connected:
                     self.logger.info("✅ WebSocket connected and authenticated")
@@ -894,6 +894,21 @@ class PettAgent:
             self.olas.update_websocket_status(connected=False, authenticated=False)
             return False
 
+        # Avoid tight reconnect loops when the exact same Privy token is already
+        # known to be expired.
+        try:
+            if client.is_known_expired_privy_token(token):
+                self.logger.warning(
+                    "🔑 Privy token is already known expired; attempting session fallback"
+                )
+                return await self._fallback_to_session_or_logout(
+                    reason="known_expired_privy_token",
+                    max_retries=max_retries,
+                    auth_timeout=auth_timeout,
+                )
+        except Exception:
+            pass
+
         connected = await client.refresh_token_and_reconnect(
             token, max_retries=max_retries, auth_timeout=auth_timeout
         )
@@ -912,6 +927,12 @@ class PettAgent:
                     self.olas.update_auth_error(last_error)
                 except Exception:
                     pass
+            if client.is_jwt_expired():
+                return await self._fallback_to_session_or_logout(
+                    reason="privy_auth_failed_jwt_expired",
+                    max_retries=max_retries,
+                    auth_timeout=auth_timeout,
+                )
             requires_registration = self._is_registration_error(last_error)
             if requires_registration:
                 # Attempt automatic registration with a default or configured name
@@ -1125,6 +1146,57 @@ class PettAgent:
             "needs registration",
         ]
         return any(indicator in lowered for indicator in registration_indicators)
+
+    async def _fallback_to_session_or_logout(
+        self,
+        *,
+        reason: str,
+        max_retries: int = 3,
+        auth_timeout: int = 10,
+    ) -> bool:
+        """On Privy expiry, prefer session auth; logout when no valid session exists."""
+        client = self.websocket_client
+        if not client:
+            return False
+
+        try:
+            candidates = client._get_auth_candidates()
+        except Exception:
+            candidates = []
+        session_candidates = [c for c in candidates if c[0] == "session"]
+
+        if session_candidates:
+            labels = ", ".join(f"{label}({auth_type})" for auth_type, _, label in session_candidates)
+            self.logger.warning(
+                "🔄 Privy token expired (%s). Falling back to session auth using: %s",
+                reason,
+                labels,
+            )
+            connected = await client.connect_and_authenticate(
+                max_retries=max_retries, auth_timeout=auth_timeout
+            )
+            if connected:
+                self.waiting_for_react_login = False
+                self.olas.update_websocket_status(connected=True, authenticated=True)
+                self.olas.update_health_status("running", is_transitioning=False)
+                self.olas.update_auth_error(None)
+                return True
+
+            self.logger.error(
+                "❌ Session fallback failed after Privy expiry (%s). Logging out.",
+                reason,
+            )
+        else:
+            self.logger.warning(
+                "🔓 Privy token expired (%s) and no session token is available. Logging out.",
+                reason,
+            )
+
+        await self.logout_privy()
+        self.olas.update_auth_error(
+            "Privy token expired and no valid session token is available. Please log in again."
+        )
+        return False
 
     async def register_pet(
         self,
@@ -1344,8 +1416,26 @@ class PettAgent:
         # 1. saved session token, 2. session token, 3. saved privy token, 4. privy token
         candidates = client._get_auth_candidates()
         if not candidates:
-            result["reason"] = "auth_token_missing"
-            self.logger.warning("⚠️  No auth tokens available for health check")
+            if client.is_jwt_expired():
+                self.logger.warning(
+                    "🔑 Health check detected expired Privy token; trying session fallback or logout"
+                )
+                recovered = await self._fallback_to_session_or_logout(
+                    reason="health_check_no_auth_candidates_after_privy_expiry",
+                    max_retries=2,
+                    auth_timeout=timeout,
+                )
+                result["success"] = bool(recovered)
+                result["reason"] = (
+                    "session_fallback_after_privy_expiry"
+                    if recovered
+                    else "logged_out_missing_session_after_privy_expiry"
+                )
+                result["websocket_connected"] = client.is_connected()
+                result["websocket_authenticated"] = client.is_authenticated()
+            else:
+                result["reason"] = "auth_token_missing"
+                self.logger.warning("⚠️  No auth tokens available for health check")
             return result
 
         # Log available candidates for debugging
@@ -1374,9 +1464,15 @@ class PettAgent:
                     )
                     break
                 else:
-                    self.logger.warning(
-                        f"❌ Health check AUTH failed with {token_label}({auth_type}) token"
-                    )
+                    if auth_type == "privy" and client.is_jwt_expired():
+                        self.logger.debug(
+                            "Health check skipped expired Privy token (%s)",
+                            token_label,
+                        )
+                    else:
+                        self.logger.warning(
+                            f"❌ Health check AUTH failed with {token_label}({auth_type}) token"
+                        )
 
             result["success"] = bool(auth_success)
             result["websocket_connected"] = client.is_connected()
@@ -1409,6 +1505,25 @@ class PettAgent:
                 )
                 self.olas.update_health_status("running", is_transitioning=False)
             else:
+                if client.is_jwt_expired():
+                    self.logger.warning(
+                        "🔑 Health check auth failed due to expired Privy token; trying session fallback or logout"
+                    )
+                    recovered = await self._fallback_to_session_or_logout(
+                        reason="health_check_auth_failed_after_privy_expiry",
+                        max_retries=2,
+                        auth_timeout=timeout,
+                    )
+                    if recovered:
+                        result["success"] = True
+                        result["reason"] = "session_fallback_after_privy_expiry"
+                        result["websocket_connected"] = client.is_connected()
+                        result["websocket_authenticated"] = client.is_authenticated()
+                        return result
+                    result["reason"] = "logged_out_missing_session_after_privy_expiry"
+                    result["websocket_connected"] = client.is_connected()
+                    result["websocket_authenticated"] = client.is_authenticated()
+                    return result
                 result["reason"] = client.get_last_auth_error() or "auth_failed"
 
         return result
@@ -2746,6 +2861,9 @@ class PettAgent:
     async def _ensure_pet_is_awake(self) -> bool:
         """Ensure the pet is awake before performing an action.
 
+        Checks both cached pet data AND the last server error to detect
+        sleep state even when the local cache is stale.
+
         Returns:
             True if pet was sleeping and we woke it, False if already awake
         """
@@ -2754,10 +2872,19 @@ class PettAgent:
 
         try:
             pet_data = self.websocket_client.get_pet_data()
-            if not pet_data:
-                return False
+            is_sleeping = bool(
+                pet_data.get("sleeping", False) if pet_data else False
+            )
 
-            is_sleeping = bool(pet_data.get("sleeping", False))
+            # Also detect sleeping from the last server error (cache may be stale)
+            if not is_sleeping:
+                last_err = self.websocket_client.get_last_action_error()
+                if last_err and "sleeping" in last_err.lower():
+                    self.logger.info(
+                        "😴 Last server error indicates pet is sleeping (cache was stale)"
+                    )
+                    is_sleeping = True
+
             if not is_sleeping:
                 return False
 
@@ -2766,6 +2893,7 @@ class PettAgent:
             woke = await self.websocket_client.sleep_pet(record_on_chain=False)
             if woke:
                 await asyncio.sleep(0.5)  # Give it a moment to fully wake
+                self.websocket_client.clear_last_action_error()
                 self.logger.info("✅ Pet is now awake")
                 return True
             else:
@@ -3052,7 +3180,7 @@ class PettAgent:
             was_sleeping = await self._ensure_pet_is_awake()
 
         success = False
-        max_retries = 2  # Allow one retry if pet is sleeping
+        max_retries = 3  # Allow retries if pet is sleeping
         for attempt in range(max_retries):
             try:
                 result = await action_callable()
@@ -3061,31 +3189,54 @@ class PettAgent:
                 self.logger.error("❌ Action %s raised: %s", normalized_name, exc)
                 break
 
+            if success:
+                break
+
             # Check if action failed due to pet sleeping
-            if not success and self.websocket_client:
+            if self.websocket_client:
                 last_error = self.websocket_client.get_last_action_error()
                 if last_error and "sleeping" in last_error.lower():
                     if attempt < max_retries - 1:
                         self.logger.warning(
-                            "😴 Action failed because pet is sleeping - waking pet and retrying..."
+                            "😴 Action %s failed because pet is sleeping"
+                            " (attempt %d/%d) - waking pet...",
+                            normalized_name,
+                            attempt + 1,
+                            max_retries,
                         )
-                        # Force wake the pet
-                        try:
-                            woke = await self.websocket_client.sleep_pet(
-                                record_on_chain=False
+                        # Use _ensure_pet_is_awake which now checks both
+                        # cache and last error
+                        woke = await self._ensure_pet_is_awake()
+                        if woke:
+                            self.logger.info(
+                                "✅ Pet woken up, retrying %s...",
+                                normalized_name,
                             )
-                            if woke:
-                                await asyncio.sleep(0.5)
-                                self.logger.info("✅ Pet woken up, retrying action...")
-                                self.websocket_client.clear_last_action_error()
-                                continue  # Retry the action
-                            else:
-                                self.logger.warning("⚠️ Failed to wake pet for retry")
-                        except Exception as wake_exc:
-                            self.logger.warning(
-                                "⚠️ Error waking pet for retry: %s", wake_exc
-                            )
-            break  # Exit loop if action succeeded or no retry needed
+                            continue  # Retry the action
+                        else:
+                            # Force wake via sleep toggle as fallback
+                            try:
+                                toggled = await self.websocket_client.sleep_pet(
+                                    record_on_chain=False
+                                )
+                                if toggled:
+                                    await asyncio.sleep(0.5)
+                                    self.websocket_client.clear_last_action_error()
+                                    self.logger.info(
+                                        "✅ Force-toggled sleep, retrying %s...",
+                                        normalized_name,
+                                    )
+                                    continue
+                                else:
+                                    self.logger.warning(
+                                        "⚠️ Failed to wake pet for retry"
+                                    )
+                            except Exception as wake_exc:
+                                self.logger.warning(
+                                    "⚠️ Error waking pet for retry: %s",
+                                    wake_exc,
+                                )
+            break  # Exit loop if no sleeping error or retries exhausted
 
         if (
             not success
