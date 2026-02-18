@@ -1,5 +1,7 @@
+import io
 import logging
 import os
+import sys
 from pathlib import Path
 
 
@@ -16,7 +18,11 @@ def _configure_logging() -> None:
     root_logger.setLevel(numeric_level)
 
     if not root_logger.handlers:
-        stream_handler = logging.StreamHandler()
+        # Wrap stderr in a UTF-8 stream so emojis don't crash on Windows cp1252
+        utf8_stream = io.TextIOWrapper(
+            sys.stderr.buffer, encoding="utf-8", errors="replace", line_buffering=True
+        )
+        stream_handler = logging.StreamHandler(stream=utf8_stream)
         stream_handler.setLevel(numeric_level)
         stream_handler.setFormatter(
             logging.Formatter("%(asctime)s %(name)s %(levelname)s: %(message)s")
@@ -31,7 +37,7 @@ def _configure_logging() -> None:
         and getattr(handler, "baseFilename", None) == str(log_file_path)
         for handler in root_logger.handlers
     ):
-        file_handler = logging.FileHandler(log_file_path)
+        file_handler = logging.FileHandler(log_file_path, encoding="utf-8")
         file_handler.setLevel(numeric_level)
         file_handler.setFormatter(
             logging.Formatter("%(asctime)s %(name)s %(levelname)s: %(message)s")

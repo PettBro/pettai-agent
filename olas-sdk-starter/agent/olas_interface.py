@@ -157,6 +157,8 @@ class OlasInterface:
         self.pet_xp_min: float = 0.0
         self.pet_xp_max: float = 100.0
         self.pet_level: int = 1
+        # Max level cap (pett.ai uses 400; aligns with website level display)
+        self.pet_level_max: int = 400
         self.pet_updated_at: Optional[datetime] = None
 
         # Telemetry buffers (in-memory)
@@ -197,6 +199,7 @@ class OlasInterface:
             "xpMin": self.pet_xp_min,
             "xpMax": self.pet_xp_max,
             "level": self.pet_level,
+            "levelMax": self.pet_level_max,
         }
 
     def _load_environment_variables(self) -> Dict[str, str]:
@@ -1386,6 +1389,7 @@ class OlasInterface:
                     "xpMin": self.pet_xp_min,
                     "xpMax": self.pet_xp_max,
                     "level": self.pet_level,
+                    "levelMax": self.pet_level_max,
                 },
             },
             "pet_last_updated_at": (

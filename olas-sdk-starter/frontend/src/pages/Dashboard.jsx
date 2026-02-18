@@ -510,6 +510,7 @@ const Dashboard = () => {
 							xp={Number(rawStats.xp ?? NaN)}
 							xpMin={Number(rawStats.xpMin ?? NaN)}
 							xpMax={Number(rawStats.xpMax ?? NaN)}
+							levelMax={rawStats.levelMax}
 						/>
 					</div>
 
