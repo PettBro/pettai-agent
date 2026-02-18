@@ -1172,10 +1172,13 @@ class PettWebSocketClient:
             for keyword in (
                 "jwt_expired",
                 "jwt expired",
-                "timestamp check failed",
                 "token expired",
                 "expired token",
                 "expired jwt",
+                "exp claim",
+                "exp=",
+                "token has expired",
+                "jwt_exp",
             )
         )
 
@@ -1483,6 +1486,17 @@ class PettWebSocketClient:
                     return False
 
                 for auth_type, token, label in candidates:
+                    # Skip privy candidates that became known-expired mid-loop
+                    # (e.g. via async _handle_auth_result setting _jwt_expired)
+                    if auth_type == "privy" and self._is_known_expired_privy_token(
+                        token
+                    ):
+                        logger.debug(
+                            "Skipping known expired privy candidate (%s) mid-loop",
+                            label,
+                        )
+                        continue
+
                     if auth_type == "session":
                         logger.debug("🔐 Attempting session auth (%s)...", label)
                         auth_success = await self.authenticate_session(
@@ -1542,6 +1556,15 @@ class PettWebSocketClient:
                         break
 
                 # All candidates failed for this attempt
+                # If JWT is now marked expired, stop retrying — no point
+                # burning through remaining attempts with the same token.
+                if self._jwt_expired and not self._has_any_auth_token():
+                    logger.warning(
+                        "⚠️ JWT expired and no viable auth tokens remain; stopping retries"
+                    )
+                    await self.disconnect()
+                    return False
+
                 if attempt >= 3:
                     logger.warning(
                         f"❌ Authentication attempt {attempt + 1}/{max_retries} failed"
@@ -2150,14 +2173,24 @@ class PettWebSocketClient:
             # Store the error for retry logic
             self._last_auth_error = str(error)
 
-            # Clear saved auth token on authentication failure
-            if self._was_previously_authenticated:
+            error_text = str(error or "")
+
+            # Only clear saved auth token on definitive invalidation errors,
+            # not on transient failures (network timeouts, server errors, etc.)
+            _is_definitive = (
+                self._is_jwt_expired_error(error_text)
+                or self._is_session_token_invalid(error_text)
+                or "user not found" in error_text.lower()
+                or "invalid token" in error_text.lower()
+                or "token invalid" in error_text.lower()
+            )
+            if self._was_previously_authenticated and _is_definitive:
                 logger.info(
-                    "🔑 Clearing saved auth token due to authentication failure"
+                    "🔑 Clearing saved auth token due to definitive auth failure: %s",
+                    error_text,
                 )
                 self.clear_saved_auth_token()
 
-            error_text = str(error or "")
             if self._pending_auth_type == "privy" and self._is_jwt_expired_error(
                 error_text
             ):
@@ -2398,10 +2431,11 @@ class PettWebSocketClient:
                     )
 
     def register_message_handler(self, message_type: str, handler: Callable) -> None:
-        """Register a handler for a specific message type."""
+        """Register a handler for a specific message type (idempotent)."""
         if message_type not in self.message_handlers:
             self.message_handlers[message_type] = []
-        self.message_handlers[message_type].append(handler)
+        if handler not in self.message_handlers[message_type]:
+            self.message_handlers[message_type].append(handler)
 
     # Pet action methods
     async def rub_pet(self, *, record_on_chain: Optional[bool] = None) -> bool:

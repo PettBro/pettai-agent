@@ -1,8 +1,27 @@
-import io
 import logging
 import os
-import sys
+import re
 from pathlib import Path
+
+
+_EMOJI_RE = re.compile(
+    "["
+    "\U0001f300-\U0001f9ff"  # Misc Symbols, Emoticons, etc.
+    "\U00002702-\U000027b0"  # Dingbats
+    "\U0000fe00-\U0000fe0f"  # Variation Selectors
+    "\U0000200d"             # Zero Width Joiner
+    "\U000020e3"             # Combining Enclosing Keycap
+    "]+",
+    flags=re.UNICODE,
+)
+
+
+class _AsciiFormatter(logging.Formatter):
+    """Formatter that strips emoji from log messages for safe console output."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        result = super().format(record)
+        return _EMOJI_RE.sub("", result).strip()
 
 
 def _configure_logging() -> None:
@@ -18,14 +37,10 @@ def _configure_logging() -> None:
     root_logger.setLevel(numeric_level)
 
     if not root_logger.handlers:
-        # Wrap stderr in a UTF-8 stream so emojis don't crash on Windows cp1252
-        utf8_stream = io.TextIOWrapper(
-            sys.stderr.buffer, encoding="utf-8", errors="replace", line_buffering=True
-        )
-        stream_handler = logging.StreamHandler(stream=utf8_stream)
+        stream_handler = logging.StreamHandler()
         stream_handler.setLevel(numeric_level)
         stream_handler.setFormatter(
-            logging.Formatter("%(asctime)s %(name)s %(levelname)s: %(message)s")
+            _AsciiFormatter("%(asctime)s %(name)s %(levelname)s: %(message)s")
         )
         root_logger.addHandler(stream_handler)
 
@@ -48,4 +63,4 @@ def _configure_logging() -> None:
 _configure_logging()
 
 
-__all__ = ["_configure_logging"]
+__all__ = ["_configure_logging", "_AsciiFormatter"]

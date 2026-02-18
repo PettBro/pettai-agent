@@ -149,6 +149,34 @@ class PettAgent:
         self._owned_consumables_updated_at: Optional[datetime] = None
         self._consumables_cache_ttl: timedelta = self.CONSUMABLE_CACHE_TTL
 
+    async def _handle_auth_result_for_olas(self, message: Dict[str, Any]) -> None:
+        """Update olas interface with pet data from auth_result message."""
+        try:
+            if "data" in message:
+                data = message.get("data", {})
+                pet_data = data.get("pet", {})
+            else:
+                pet_data = message.get("pet", {})
+
+            if pet_data:
+                self.olas.update_pet_data(pet_data)
+        except Exception as exc:
+            self.logger.debug(
+                f"Error updating olas interface from auth_result: {exc}"
+            )
+
+    def _ensure_auth_result_handler(self) -> None:
+        """Register the auth_result handler exactly once per websocket client instance."""
+        if not self.websocket_client:
+            return
+        client_id = id(self.websocket_client)
+        if self._auth_result_handler_client_id == client_id:
+            return
+        self.websocket_client.register_message_handler(
+            "auth_result", self._handle_auth_result_for_olas
+        )
+        self._auth_result_handler_client_id = client_id
+
     def get_daily_action_history(self) -> Dict[str, Any]:
         """Return the current snapshot of the daily action tracker."""
         try:
@@ -514,36 +542,7 @@ class PettAgent:
                     self.websocket_client.set_telemetry_recorder(_recorder_msg)
                 except Exception:
                     pass
-                try:
-                    client_id = id(self.websocket_client)
-                    if self._auth_result_handler_client_id != client_id:
-                        # Register handler to update olas interface when auth_result is received
-                        async def _handle_auth_result_for_olas(
-                            message: Dict[str, Any],
-                        ) -> None:
-                            """Update olas interface with pet data from auth_result message."""
-                            try:
-                                # Extract pet data from auth_result message
-                                if "data" in message:
-                                    data = message.get("data", {})
-                                    pet_data = data.get("pet", {})
-                                else:
-                                    pet_data = message.get("pet", {})
-
-                                if pet_data:
-                                    # Update olas interface with pet data (this will check for death)
-                                    self.olas.update_pet_data(pet_data)
-                            except Exception as exc:
-                                self.logger.debug(
-                                    f"Error updating olas interface from auth_result: {exc}"
-                                )
-
-                        self.websocket_client.register_message_handler(
-                            "auth_result", _handle_auth_result_for_olas
-                        )
-                        self._auth_result_handler_client_id = client_id
-                except Exception:
-                    pass
+                self._ensure_auth_result_handler()
                 self.waiting_for_react_login = True
 
             # Initialize Telegram bot if token is available
@@ -783,36 +782,7 @@ class PettAgent:
                 self.websocket_client.set_telemetry_recorder(_recorder_msg)
             except Exception:
                 pass
-            try:
-                client_id = id(self.websocket_client)
-                if self._auth_result_handler_client_id != client_id:
-                    # Register handler to update olas interface when auth_result is received
-                    async def _handle_auth_result_for_olas(
-                        message: Dict[str, Any],
-                    ) -> None:
-                        """Update olas interface with pet data from auth_result message."""
-                        try:
-                            # Extract pet data from auth_result message
-                            if "data" in message:
-                                data = message.get("data", {})
-                                pet_data = data.get("pet", {})
-                            else:
-                                pet_data = message.get("pet", {})
-
-                            if pet_data:
-                                # Update olas interface with pet data (this will check for death)
-                                self.olas.update_pet_data(pet_data)
-                        except Exception as exc:
-                            self.logger.debug(
-                                f"Error updating olas interface from auth_result: {exc}"
-                            )
-
-                    self.websocket_client.register_message_handler(
-                        "auth_result", _handle_auth_result_for_olas
-                    )
-                    self._auth_result_handler_client_id = client_id
-            except Exception:
-                pass
+            self._ensure_auth_result_handler()
         else:
             self.websocket_client.set_privy_token(token)
             try:
@@ -827,36 +797,7 @@ class PettAgent:
                 )
             except Exception:
                 pass
-            try:
-                client_id = id(self.websocket_client)
-                if self._auth_result_handler_client_id != client_id:
-                    # Register handler to update olas interface when auth_result is received
-                    async def _handle_auth_result_for_olas(
-                        message: Dict[str, Any],
-                    ) -> None:
-                        """Update olas interface with pet data from auth_result message."""
-                        try:
-                            # Extract pet data from auth_result message
-                            if "data" in message:
-                                data = message.get("data", {})
-                                pet_data = data.get("pet", {})
-                            else:
-                                pet_data = message.get("pet", {})
-
-                            if pet_data:
-                                # Update olas interface with pet data (this will check for death)
-                                self.olas.update_pet_data(pet_data)
-                        except Exception as exc:
-                            self.logger.debug(
-                                f"Error updating olas interface from auth_result: {exc}"
-                            )
-
-                    self.websocket_client.register_message_handler(
-                        "auth_result", _handle_auth_result_for_olas
-                    )
-                    self._auth_result_handler_client_id = client_id
-            except Exception:
-                pass
+            self._ensure_auth_result_handler()
 
     async def update_privy_token(
         self, privy_token: str, *, max_retries: int = 3, auth_timeout: int = 10
@@ -2507,11 +2448,12 @@ class PettAgent:
             self.logger.warning(f"Staking checkpoint attempt failed: {exc}")
 
     async def _on_client_error_message(self, message: Dict[str, Any]) -> None:
-        """Handle server error messages to auto-recover from low health errors."""
+        """Handle server error messages to auto-recover and mirror pet state."""
         try:
+            # Extract error from nested data.error or top-level error
             error = None
-            if "data" in message:
-                error = message.get("data", {}).get("error")
+            if isinstance(message.get("data"), dict):
+                error = message["data"].get("error")
             if not error:
                 error = message.get("error")
 
@@ -2519,6 +2461,25 @@ class PettAgent:
                 return
 
             error_str = str(error).lower()
+
+            # Mirror pet death/sleep state detected by the websocket client's
+            # _handle_error into the Olas interface so downstream consumers
+            # see the updated state immediately instead of relying on stale cache.
+            if self.websocket_client:
+                pet_data = self.websocket_client.get_pet_data()
+                if pet_data:
+                    state_changed = False
+                    if ("pet is dead" in error_str) or (
+                        "invalid pet state" in error_str and "dead" in error_str
+                    ):
+                        state_changed = True
+                    if "sleeping" in error_str or (
+                        "invalid pet state" in error_str and "sleep" in error_str
+                    ):
+                        state_changed = True
+                    if state_changed:
+                        self.olas.update_pet_data(pet_data)
+
             if (
                 "not have enough health" in error_str
                 or "not enough health" in error_str

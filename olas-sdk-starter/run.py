@@ -6,7 +6,6 @@ Compliant with: https://stack.olas.network/olas-sdk/#step-1-build-the-agent-supp
 
 import argparse
 import asyncio
-import io
 import logging
 import os
 import sys
@@ -52,23 +51,15 @@ def setup_olas_logging() -> logging.Logger:
     log_format = "[%(asctime)s] [%(levelname)s] [agent] %(message)s"
     date_format = "%Y-%m-%d %H:%M:%S"
 
+    # Import the emoji-stripping formatter so console output is safe on all OS
+    from agent import _AsciiFormatter
+
     # Configure root logger
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(_AsciiFormatter(log_format, datefmt=date_format))
     logging.basicConfig(
         level=logging.DEBUG,
-        format=log_format,
-        datefmt=date_format,
-        handlers=[
-            # File handler for log.txt (required by Olas)
-            # logging.FileHandler("log.txt", mode="a", encoding="utf-8"),
-            # Console handler for development — use UTF-8 so emojis don't
-            # crash on Windows cp1252
-            logging.StreamHandler(
-                io.TextIOWrapper(
-                    sys.stdout.buffer, encoding="utf-8", errors="replace",
-                    line_buffering=True,
-                )
-            ),
-        ],
+        handlers=[handler],
     )
 
     # Configure specific logger for our agent
