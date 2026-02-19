@@ -9,7 +9,9 @@ const formatNumber = num => {
 	return Math.floor(n).toLocaleString();
 };
 
-const XpLevel = ({ level, xp, xpMin, xpMax, border = true, margin = true, padding = true, className = '' }) => {
+const MAX_PET_LEVEL = 400; // Aligns with pett.ai website
+
+const XpLevel = ({ level, xp, xpMin, xpMax, levelMax, border = true, margin = true, padding = true, className = '' }) => {
 	const hasAll = [level, xp, xpMin, xpMax].every(v => v !== undefined && v !== null && Number.isFinite(Number(v)));
 
 	const current = Number(xp);
@@ -34,9 +36,12 @@ const XpLevel = ({ level, xp, xpMin, xpMax, border = true, margin = true, paddin
 		.filter(Boolean)
 		.join(' ');
 
+	const levelMaxVal = Number.isFinite(Number(levelMax)) ? Number(levelMax) : MAX_PET_LEVEL;
+	const levelDisplay = `${Number(level)}/${levelMaxVal}`;
+
 	return (
 		<div className={containerClass}>
-			<div className="text-base font-bold text-semantic-accent-bold">LVL {Number(level)}</div>
+			<div className="text-base font-bold text-semantic-accent-bold">LVL {levelDisplay}</div>
 			<div className="level__progress relative rounded-full flex-grow overflow-hidden">
 				<div className="level__progress--bar h-6 rounded-full" style={{ width: `${progressPct}%` }} />
 				<div className="level__progress--text text-sm font-semibold text-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 drop-shadow-sm">

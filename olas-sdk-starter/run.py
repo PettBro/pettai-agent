@@ -51,17 +51,15 @@ def setup_olas_logging() -> logging.Logger:
     log_format = "[%(asctime)s] [%(levelname)s] [agent] %(message)s"
     date_format = "%Y-%m-%d %H:%M:%S"
 
+    # Import the emoji-stripping formatter so console output is safe on all OS
+    from agent import _AsciiFormatter
+
     # Configure root logger
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(_AsciiFormatter(log_format, datefmt=date_format))
     logging.basicConfig(
         level=logging.DEBUG,
-        format=log_format,
-        datefmt=date_format,
-        handlers=[
-            # File handler for log.txt (required by Olas)
-            # logging.FileHandler("log.txt", mode="a"),
-            # Console handler for development
-            logging.StreamHandler(sys.stdout),
-        ],
+        handlers=[handler],
     )
 
     # Configure specific logger for our agent
@@ -153,7 +151,7 @@ async def main(password: Optional[str] = None):
             f"Ethereum private key: {'Found' if ethereum_private_key else 'Not found'}"
         )
         logger.info(f"Withdrawal mode: {withdrawal_mode}")
-        
+
         # Check if session encryption password is provided
         if password:
             logger.info("✅ Session token encryption enabled (using provided password)")

@@ -221,10 +221,10 @@ const formatActionName = name =>
 		.replace(/(^|\s)([a-z])/g, (_, prefix, char) => `${prefix}${char.toUpperCase()}`);
 
 const formatTime = timestamp => {
-	if (!timestamp) return '--:--';
+	if (!timestamp) return '--:--:--';
 	const date = new Date(timestamp);
-	if (Number.isNaN(date.getTime())) return '--:--';
-	return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+	if (Number.isNaN(date.getTime())) return '--:--:--';
+	return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 };
 
 const ACTION_HISTORY_STORAGE_KEY = 'pett:actionHistory';

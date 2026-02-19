@@ -47,6 +47,20 @@ class DailyActionTracker:
             # Same epoch, no reset needed
             return
 
+        # Check if stored_epoch is a staking epoch (timestamp string)
+        # Staking epochs are numeric strings (Unix timestamps), not date formats
+        # If it's a staking epoch, don't reset - let the staking epoch logic handle it
+        if stored_epoch and stored_epoch.isdigit():
+            # This is a staking epoch identifier (timestamp), not a UTC date
+            # Don't interfere with staking epoch resets
+            logger.debug(
+                "Stored epoch %s is a staking epoch identifier; "
+                "skipping daily UTC reset (UTC date would be %s)",
+                stored_epoch,
+                current_epoch,
+            )
+            return
+
         # Epoch changed - reset the counter
         prev_count = len(self._state.get("actions", []))
         prev_epoch = stored_epoch or "unknown"

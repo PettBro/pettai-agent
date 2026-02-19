@@ -109,6 +109,8 @@ class PettAgent:
         self.privy_token = (self.olas.get_env_var("PRIVY_TOKEN") or "").strip()
         self.websocket_url = self.olas.get_env_var("WEBSOCKET_URL", "wss://ws.pett.ai")
         self.session_encryption_password = session_encryption_password
+        # Track which websocket client instance has had one-time handlers installed
+        self._auth_result_handler_client_id: Optional[int] = None
 
         self.logger.info("🐾 Pett Agent initialized")
         # Action scheduler config uration
@@ -129,6 +131,8 @@ class PettAgent:
         self._auth_refresh_lock: asyncio.Lock = asyncio.Lock()
         self._epoch_checkpoint_lock: asyncio.Lock = asyncio.Lock()
         self._last_health_refresh: Optional[datetime] = None
+        self._last_revival_check: Optional[datetime] = None
+        self._revival_check_interval: timedelta = timedelta(seconds=30)
         self._last_known_epoch_end_ts: Optional[int] = None
         self._last_checkpointed_epoch_end_ts: Optional[int] = None
         self._epoch_length_seconds: Optional[int] = None
@@ -144,6 +148,34 @@ class PettAgent:
         self._owned_consumables_cache: Dict[str, "PettAgent.OwnedConsumable"] = {}
         self._owned_consumables_updated_at: Optional[datetime] = None
         self._consumables_cache_ttl: timedelta = self.CONSUMABLE_CACHE_TTL
+
+    async def _handle_auth_result_for_olas(self, message: Dict[str, Any]) -> None:
+        """Update olas interface with pet data from auth_result message."""
+        try:
+            if "data" in message:
+                data = message.get("data", {})
+                pet_data = data.get("pet", {})
+            else:
+                pet_data = message.get("pet", {})
+
+            if pet_data:
+                self.olas.update_pet_data(pet_data)
+        except Exception as exc:
+            self.logger.debug(
+                f"Error updating olas interface from auth_result: {exc}"
+            )
+
+    def _ensure_auth_result_handler(self) -> None:
+        """Register the auth_result handler exactly once per websocket client instance."""
+        if not self.websocket_client:
+            return
+        client_id = id(self.websocket_client)
+        if self._auth_result_handler_client_id == client_id:
+            return
+        self.websocket_client.register_message_handler(
+            "auth_result", self._handle_auth_result_for_olas
+        )
+        self._auth_result_handler_client_id = client_id
 
     def get_daily_action_history(self) -> Dict[str, Any]:
         """Return the current snapshot of the daily action tracker."""
@@ -336,7 +368,11 @@ class PettAgent:
                 self.logger.info(
                     "🔐 Attempting authentication with environment token..."
                 )
-                connected = await self.websocket_client.connect_and_authenticate()
+                # Use the standard Privy refresh flow so we can auto-register on
+                # "User not found" errors (missing user/pet).
+                connected = await self.update_privy_token(
+                    self.privy_token, max_retries=5, auth_timeout=20
+                )
                 if connected:
                     self.logger.info("✅ WebSocket connected and authenticated")
 
@@ -385,31 +421,6 @@ class PettAgent:
                         # Keep Olas pet data in sync on live updates
                         self.websocket_client.register_message_handler(
                             "pet_update", self._on_client_pet_update_message
-                        )
-                        # Update olas interface when auth_result is received (check for death)
-
-                        async def _handle_auth_result_for_olas(
-                            message: Dict[str, Any],
-                        ) -> None:
-                            """Update olas interface with pet data from auth_result message."""
-                            try:
-                                # Extract pet data from auth_result message
-                                if "data" in message:
-                                    data = message.get("data", {})
-                                    pet_data = data.get("pet", {})
-                                else:
-                                    pet_data = message.get("pet", {})
-
-                                if pet_data:
-                                    # Update olas interface with pet data (this will check for death)
-                                    self.olas.update_pet_data(pet_data)
-                            except Exception as exc:
-                                self.logger.debug(
-                                    f"Error updating olas interface from auth_result: {exc}"
-                                )
-
-                        self.websocket_client.register_message_handler(
-                            "auth_result", _handle_auth_result_for_olas
                         )
                     except Exception:
                         pass
@@ -531,33 +542,7 @@ class PettAgent:
                     self.websocket_client.set_telemetry_recorder(_recorder_msg)
                 except Exception:
                     pass
-                try:
-                    # Register handler to update olas interface when auth_result is received
-                    async def _handle_auth_result_for_olas(
-                        message: Dict[str, Any],
-                    ) -> None:
-                        """Update olas interface with pet data from auth_result message."""
-                        try:
-                            # Extract pet data from auth_result message
-                            if "data" in message:
-                                data = message.get("data", {})
-                                pet_data = data.get("pet", {})
-                            else:
-                                pet_data = message.get("pet", {})
-
-                            if pet_data:
-                                # Update olas interface with pet data (this will check for death)
-                                self.olas.update_pet_data(pet_data)
-                        except Exception as exc:
-                            self.logger.debug(
-                                f"Error updating olas interface from auth_result: {exc}"
-                            )
-
-                    self.websocket_client.register_message_handler(
-                        "auth_result", _handle_auth_result_for_olas
-                    )
-                except Exception:
-                    pass
+                self._ensure_auth_result_handler()
                 self.waiting_for_react_login = True
 
             # Initialize Telegram bot if token is available
@@ -621,13 +606,23 @@ class PettAgent:
                 # Check WebSocket connection
                 if self.websocket_client:
                     if not self.websocket_client.is_connected():
-                        # Skip reconnection if waiting for React login
+                        # Skip reconnection if waiting for React login AND no saved tokens available
+                        # Allow trying saved tokens even when waiting, for better recovery
                         if self.waiting_for_react_login:
-                            self.logger.debug(
-                                "⏸️  Waiting for user to login via React - skipping reconnection"
+                            has_saved_tokens = (
+                                self.websocket_client._saved_auth_token is not None
+                                or self.websocket_client.session_token
                             )
-                            await asyncio.sleep(30)
-                            continue
+                            if not has_saved_tokens:
+                                self.logger.debug(
+                                    "⏸️  Waiting for user to login via React - skipping reconnection (no saved tokens)"
+                                )
+                                await asyncio.sleep(30)
+                                continue
+                            else:
+                                self.logger.info(
+                                    "🔄 Attempting reconnection with saved tokens (waiting for React login)"
+                                )
 
                         self.logger.warning(
                             "⚠️ WebSocket disconnected, attempting reconnection..."
@@ -640,9 +635,35 @@ class PettAgent:
                         )
 
                         # Try to reconnect
-                        connected = (
-                            await self.websocket_client.connect_and_authenticate()
-                        )
+                        # Prefer the Privy refresh flow when we have a Privy token,
+                        # since it includes auto-registration for missing users/pets.
+                        reconnect_token = (self.privy_token or "").strip()
+                        if not reconnect_token:
+                            try:
+                                reconnect_token = (
+                                    getattr(self.websocket_client, "privy_token", "")
+                                    or ""
+                                ).strip()
+                            except Exception:
+                                reconnect_token = ""
+
+                        if reconnect_token:
+                            connected = await self.update_privy_token(
+                                reconnect_token, max_retries=3, auth_timeout=10
+                            )
+                            # Fallback: if Privy token auth failed, try all available auth candidates
+                            # This allows recovery using saved session tokens or other valid credentials
+                            if not connected:
+                                self.logger.info(
+                                    "🔄 Privy token auth failed, trying all auth candidates..."
+                                )
+                                connected = (
+                                    await self.websocket_client.connect_and_authenticate()
+                                )
+                        else:
+                            connected = (
+                                await self.websocket_client.connect_and_authenticate()
+                            )
                         if connected:
                             self.logger.info("✅ WebSocket reconnected")
 
@@ -761,31 +782,7 @@ class PettAgent:
                 self.websocket_client.set_telemetry_recorder(_recorder_msg)
             except Exception:
                 pass
-            try:
-                # Register handler to update olas interface when auth_result is received
-                async def _handle_auth_result_for_olas(message: Dict[str, Any]) -> None:
-                    """Update olas interface with pet data from auth_result message."""
-                    try:
-                        # Extract pet data from auth_result message
-                        if "data" in message:
-                            data = message.get("data", {})
-                            pet_data = data.get("pet", {})
-                        else:
-                            pet_data = message.get("pet", {})
-
-                        if pet_data:
-                            # Update olas interface with pet data (this will check for death)
-                            self.olas.update_pet_data(pet_data)
-                    except Exception as exc:
-                        self.logger.debug(
-                            f"Error updating olas interface from auth_result: {exc}"
-                        )
-
-                self.websocket_client.register_message_handler(
-                    "auth_result", _handle_auth_result_for_olas
-                )
-            except Exception:
-                pass
+            self._ensure_auth_result_handler()
         else:
             self.websocket_client.set_privy_token(token)
             try:
@@ -800,31 +797,7 @@ class PettAgent:
                 )
             except Exception:
                 pass
-            try:
-                # Register handler to update olas interface when auth_result is received
-                async def _handle_auth_result_for_olas(message: Dict[str, Any]) -> None:
-                    """Update olas interface with pet data from auth_result message."""
-                    try:
-                        # Extract pet data from auth_result message
-                        if "data" in message:
-                            data = message.get("data", {})
-                            pet_data = data.get("pet", {})
-                        else:
-                            pet_data = message.get("pet", {})
-
-                        if pet_data:
-                            # Update olas interface with pet data (this will check for death)
-                            self.olas.update_pet_data(pet_data)
-                    except Exception as exc:
-                        self.logger.debug(
-                            f"Error updating olas interface from auth_result: {exc}"
-                        )
-
-                self.websocket_client.register_message_handler(
-                    "auth_result", _handle_auth_result_for_olas
-                )
-            except Exception:
-                pass
+            self._ensure_auth_result_handler()
 
     async def update_privy_token(
         self, privy_token: str, *, max_retries: int = 3, auth_timeout: int = 10
@@ -862,6 +835,21 @@ class PettAgent:
             self.olas.update_websocket_status(connected=False, authenticated=False)
             return False
 
+        # Avoid tight reconnect loops when the exact same Privy token is already
+        # known to be expired.
+        try:
+            if client.is_known_expired_privy_token(token):
+                self.logger.warning(
+                    "🔑 Privy token is already known expired; attempting session fallback"
+                )
+                return await self._fallback_to_session_or_logout(
+                    reason="known_expired_privy_token",
+                    max_retries=max_retries,
+                    auth_timeout=auth_timeout,
+                )
+        except Exception:
+            pass
+
         connected = await client.refresh_token_and_reconnect(
             token, max_retries=max_retries, auth_timeout=auth_timeout
         )
@@ -880,6 +868,12 @@ class PettAgent:
                     self.olas.update_auth_error(last_error)
                 except Exception:
                     pass
+            if client.is_jwt_expired():
+                return await self._fallback_to_session_or_logout(
+                    reason="privy_auth_failed_jwt_expired",
+                    max_retries=max_retries,
+                    auth_timeout=auth_timeout,
+                )
             requires_registration = self._is_registration_error(last_error)
             if requires_registration:
                 # Attempt automatic registration with a default or configured name
@@ -1064,6 +1058,20 @@ class PettAgent:
 
     def _get_default_pet_name(self) -> str:
         """Choose a default pet name using env var or a generated fallback."""
+        env_candidates = (
+            "PET_NAME",
+            "PETT_PET_NAME",
+            "PETT_DEFAULT_PET_NAME",
+            "DEFAULT_PET_NAME",
+        )
+        for key in env_candidates:
+            try:
+                value = (self.olas.get_env_var(key) or "").strip()
+            except Exception:
+                value = (os.getenv(key) or "").strip()
+            if value:
+                return value
+
         # Fallback randomized name
         return f"MyPett{random.randint(1, 1000000)}"
 
@@ -1079,6 +1087,57 @@ class PettAgent:
             "needs registration",
         ]
         return any(indicator in lowered for indicator in registration_indicators)
+
+    async def _fallback_to_session_or_logout(
+        self,
+        *,
+        reason: str,
+        max_retries: int = 3,
+        auth_timeout: int = 10,
+    ) -> bool:
+        """On Privy expiry, prefer session auth; logout when no valid session exists."""
+        client = self.websocket_client
+        if not client:
+            return False
+
+        try:
+            candidates = client._get_auth_candidates()
+        except Exception:
+            candidates = []
+        session_candidates = [c for c in candidates if c[0] == "session"]
+
+        if session_candidates:
+            labels = ", ".join(f"{label}({auth_type})" for auth_type, _, label in session_candidates)
+            self.logger.warning(
+                "🔄 Privy token expired (%s). Falling back to session auth using: %s",
+                reason,
+                labels,
+            )
+            connected = await client.connect_and_authenticate(
+                max_retries=max_retries, auth_timeout=auth_timeout
+            )
+            if connected:
+                self.waiting_for_react_login = False
+                self.olas.update_websocket_status(connected=True, authenticated=True)
+                self.olas.update_health_status("running", is_transitioning=False)
+                self.olas.update_auth_error(None)
+                return True
+
+            self.logger.error(
+                "❌ Session fallback failed after Privy expiry (%s). Logging out.",
+                reason,
+            )
+        else:
+            self.logger.warning(
+                "🔓 Privy token expired (%s) and no session token is available. Logging out.",
+                reason,
+            )
+
+        await self.logout_privy()
+        self.olas.update_auth_error(
+            "Privy token expired and no valid session token is available. Please log in again."
+        )
+        return False
 
     async def register_pet(
         self,
@@ -1272,7 +1331,12 @@ class PettAgent:
             return False
 
     async def run_auth_health_check(self, timeout: int = 8) -> Dict[str, Any]:
-        """Trigger a lightweight AUTH call to sync websocket + pet data for UI polling."""
+        """Trigger a lightweight AUTH call to sync websocket + pet data for UI polling.
+
+        Token selection is delegated to PettWebSocketClient._get_auth_candidates()
+        to ensure consistency between the token used by the WebSocket client and
+        the token checked by the health check.
+        """
         result: Dict[str, Any] = {
             "success": False,
             "websocket_connected": bool(
@@ -1288,45 +1352,68 @@ class PettAgent:
             result["reason"] = "websocket_unavailable"
             return result
 
-        session_token = (client.session_token or "").strip()
-        privy_token = (client.privy_token or self.privy_token or "").strip()
-
-        # Log available tokens for debugging
-        token_status = []
-        if session_token:
-            token_status.append("session_token=✓")
-        else:
-            token_status.append("session_token=✗")
-        if privy_token:
-            token_status.append("privy_token=✓")
-        else:
-            token_status.append("privy_token=✗")
-        self.logger.info(f"🔍 Health check tokens available: {', '.join(token_status)}")
-
-        primary_token = session_token or privy_token
-        if not primary_token:
-            result["reason"] = "auth_token_missing"
-            self.logger.warning("⚠️  No auth tokens available for health check")
+        # Delegate token selection to the WebSocket client's _get_auth_candidates()
+        # This ensures we use the same prioritized token order as the client:
+        # 1. saved session token, 2. session token, 3. saved privy token, 4. privy token
+        candidates = client._get_auth_candidates()
+        if not candidates:
+            if client.is_jwt_expired():
+                self.logger.warning(
+                    "🔑 Health check detected expired Privy token; trying session fallback or logout"
+                )
+                recovered = await self._fallback_to_session_or_logout(
+                    reason="health_check_no_auth_candidates_after_privy_expiry",
+                    max_retries=2,
+                    auth_timeout=timeout,
+                )
+                result["success"] = bool(recovered)
+                result["reason"] = (
+                    "session_fallback_after_privy_expiry"
+                    if recovered
+                    else "logged_out_missing_session_after_privy_expiry"
+                )
+                result["websocket_connected"] = client.is_connected()
+                result["websocket_authenticated"] = client.is_authenticated()
+            else:
+                result["reason"] = "auth_token_missing"
+                self.logger.warning("⚠️  No auth tokens available for health check")
             return result
 
-        # Log which token is being used as primary
-        primary_type = "SESSION" if session_token else "PRIVY"
-        self.logger.info(f"🎯 Health check using PRIMARY token type: {primary_type}")
+        # Log available candidates for debugging
+        candidate_info = [f"{label}({auth_type})" for auth_type, _, label in candidates]
+        self.logger.info(f"🔍 Health check candidates: {', '.join(candidate_info)}")
 
         async with self._auth_refresh_lock:
-            auth_success = await client.auth_ping(primary_token, timeout=timeout)
-            if auth_success:
-                self.logger.info(f"✅ Health check AUTH succeeded with {primary_type} token")
-            else:
-                self.logger.warning(f"❌ Health check AUTH failed with {primary_type} token")
+            auth_success = False
 
-            if not auth_success and session_token and privy_token:
-                self.logger.info("🔄 Retrying health check with PRIVY token (fallback)")
-                auth_success = await client.auth_ping(privy_token, timeout=timeout)
-                if auth_success:
-                    self.logger.info("✅ Health check AUTH succeeded with PRIVY token (fallback)")
+            # Try each candidate in priority order until one succeeds
+            for idx, (auth_type, auth_token, token_label) in enumerate(candidates):
+                is_first = idx == 0
+                if is_first:
+                    self.logger.info(
+                        f"🎯 Health check using PRIMARY token: {token_label}({auth_type})"
+                    )
                 else:
-                    self.logger.warning("❌ Health check AUTH failed with PRIVY token (fallback)")
+                    self.logger.info(
+                        f"🔄 Health check trying FALLBACK token: {token_label}({auth_type})"
+                    )
+
+                auth_success = await client.auth_ping(auth_token, timeout=timeout)
+                if auth_success:
+                    self.logger.info(
+                        f"✅ Health check AUTH succeeded with {token_label}({auth_type}) token"
+                    )
+                    break
+                else:
+                    if auth_type == "privy" and client.is_jwt_expired():
+                        self.logger.debug(
+                            "Health check skipped expired Privy token (%s)",
+                            token_label,
+                        )
+                    else:
+                        self.logger.warning(
+                            f"❌ Health check AUTH failed with {token_label}({auth_type}) token"
+                        )
 
             result["success"] = bool(auth_success)
             result["websocket_connected"] = client.is_connected()
@@ -1359,6 +1446,25 @@ class PettAgent:
                 )
                 self.olas.update_health_status("running", is_transitioning=False)
             else:
+                if client.is_jwt_expired():
+                    self.logger.warning(
+                        "🔑 Health check auth failed due to expired Privy token; trying session fallback or logout"
+                    )
+                    recovered = await self._fallback_to_session_or_logout(
+                        reason="health_check_auth_failed_after_privy_expiry",
+                        max_retries=2,
+                        auth_timeout=timeout,
+                    )
+                    if recovered:
+                        result["success"] = True
+                        result["reason"] = "session_fallback_after_privy_expiry"
+                        result["websocket_connected"] = client.is_connected()
+                        result["websocket_authenticated"] = client.is_authenticated()
+                        return result
+                    result["reason"] = "logged_out_missing_session_after_privy_expiry"
+                    result["websocket_connected"] = client.is_connected()
+                    result["websocket_authenticated"] = client.is_authenticated()
+                    return result
                 result["reason"] = client.get_last_auth_error() or "auth_failed"
 
         return result
@@ -1425,6 +1531,53 @@ class PettAgent:
                                             decision = self.decision_engine.decide(
                                                 pet_context
                                             )
+
+                                            # If pet is dead, periodically refresh to check for revival
+                                            if pet_context.is_dead:
+                                                now = datetime.now()
+                                                should_check_revival = (
+                                                    self._last_revival_check is None
+                                                    or (now - self._last_revival_check)
+                                                    >= self._revival_check_interval
+                                                )
+                                                if should_check_revival:
+                                                    self._last_revival_check = now
+                                                    self.logger.info(
+                                                        "💀 Pet is dead - checking server for revival status..."
+                                                    )
+                                                    try:
+                                                        # Do an auth_ping to refresh pet data from server
+                                                        if self.websocket_client:
+                                                            await self.websocket_client.auth_ping()
+                                                            refreshed_pet_data = (
+                                                                self.websocket_client.get_pet_data()
+                                                            )
+                                                            if refreshed_pet_data:
+                                                                self.olas.update_pet_data(
+                                                                    refreshed_pet_data
+                                                                )
+                                                                # Check if pet is now alive
+                                                                if not refreshed_pet_data.get(
+                                                                    "dead", False
+                                                                ):
+                                                                    self.logger.info(
+                                                                        f"✨ Pet {refreshed_pet_data.get('name', 'Unknown')} has been revived! "
+                                                                        "Resuming normal operations."
+                                                                    )
+                                                                    # Reset revival check timer
+                                                                    self._last_revival_check = (
+                                                                        None
+                                                                    )
+                                                                    # Continue to next iteration with fresh state
+                                                                    continue
+                                                                else:
+                                                                    self.logger.debug(
+                                                                        "💀 Pet still dead after server refresh"
+                                                                    )
+                                                    except Exception as e:
+                                                        self.logger.debug(
+                                                            f"Revival check error: {e}"
+                                                        )
 
                                             # Execute the decision
                                             action_success = (
@@ -2295,11 +2448,12 @@ class PettAgent:
             self.logger.warning(f"Staking checkpoint attempt failed: {exc}")
 
     async def _on_client_error_message(self, message: Dict[str, Any]) -> None:
-        """Handle server error messages to auto-recover from low health errors."""
+        """Handle server error messages to auto-recover and mirror pet state."""
         try:
+            # Extract error from nested data.error or top-level error
             error = None
-            if "data" in message:
-                error = message.get("data", {}).get("error")
+            if isinstance(message.get("data"), dict):
+                error = message["data"].get("error")
             if not error:
                 error = message.get("error")
 
@@ -2307,6 +2461,25 @@ class PettAgent:
                 return
 
             error_str = str(error).lower()
+
+            # Mirror pet death/sleep state detected by the websocket client's
+            # _handle_error into the Olas interface so downstream consumers
+            # see the updated state immediately instead of relying on stale cache.
+            if self.websocket_client:
+                pet_data = self.websocket_client.get_pet_data()
+                if pet_data:
+                    state_changed = False
+                    if ("pet is dead" in error_str) or (
+                        "invalid pet state" in error_str and "dead" in error_str
+                    ):
+                        state_changed = True
+                    if "sleeping" in error_str or (
+                        "invalid pet state" in error_str and "sleep" in error_str
+                    ):
+                        state_changed = True
+                    if state_changed:
+                        self.olas.update_pet_data(pet_data)
+
             if (
                 "not have enough health" in error_str
                 or "not enough health" in error_str
@@ -2462,19 +2635,25 @@ class PettAgent:
             self._daily_action_tracker.reset_for_new_epoch(str(current_epoch_end))
             return True
 
-        # Also check if we've passed the epoch end and need to refresh
+        # CRITICAL: If we've passed the epoch end, ALWAYS reset regardless of contract state
+        # This handles cases where:
+        # 1. Contract is slow to update
+        # 2. Someone else called checkpoint and epoch changed
+        # 3. Contract returns stale/cached data
         if now_ts > last_known:
-            # We've passed the last known epoch end, try to get the new one
-            if current_epoch_end != last_known:
-                self.logger.info(
-                    "🔄 Staking epoch boundary crossed: was %s, now %s. "
-                    "Resetting on-chain action counter.",
-                    last_known,
-                    current_epoch_end,
-                )
-                self._last_recorded_epoch_end_ts = current_epoch_end
-                self._daily_action_tracker.reset_for_new_epoch(str(current_epoch_end))
-                return True
+            # We've definitively crossed the epoch boundary - must reset
+            # Use the new epoch end from contract if available, otherwise estimate
+            new_epoch_id = current_epoch_end if current_epoch_end != last_known else now_ts
+            self.logger.info(
+                "🔄 Staking epoch boundary crossed: current_time=%s > last_epoch_end=%s. "
+                "Resetting on-chain action counter. New epoch identifier: %s",
+                now_ts,
+                last_known,
+                new_epoch_id,
+            )
+            self._last_recorded_epoch_end_ts = current_epoch_end
+            self._daily_action_tracker.reset_for_new_epoch(str(new_epoch_id))
+            return True
 
         return False
 
@@ -2643,6 +2822,9 @@ class PettAgent:
     async def _ensure_pet_is_awake(self) -> bool:
         """Ensure the pet is awake before performing an action.
 
+        Checks both cached pet data AND the last server error to detect
+        sleep state even when the local cache is stale.
+
         Returns:
             True if pet was sleeping and we woke it, False if already awake
         """
@@ -2651,10 +2833,19 @@ class PettAgent:
 
         try:
             pet_data = self.websocket_client.get_pet_data()
-            if not pet_data:
-                return False
+            is_sleeping = bool(
+                pet_data.get("sleeping", False) if pet_data else False
+            )
 
-            is_sleeping = bool(pet_data.get("sleeping", False))
+            # Also detect sleeping from the last server error (cache may be stale)
+            if not is_sleeping:
+                last_err = self.websocket_client.get_last_action_error()
+                if last_err and "sleeping" in last_err.lower():
+                    self.logger.info(
+                        "😴 Last server error indicates pet is sleeping (cache was stale)"
+                    )
+                    is_sleeping = True
+
             if not is_sleeping:
                 return False
 
@@ -2663,6 +2854,7 @@ class PettAgent:
             woke = await self.websocket_client.sleep_pet(record_on_chain=False)
             if woke:
                 await asyncio.sleep(0.5)  # Give it a moment to fully wake
+                self.websocket_client.clear_last_action_error()
                 self.logger.info("✅ Pet is now awake")
                 return True
             else:
@@ -2908,8 +3100,12 @@ class PettAgent:
                             self.logger.error("❌ SLEEP action raised: %s", exc)
                             success = False
 
-                        # Log progress if successful
+                        # Record and log progress if successful
                         if success:
+                            # Record for UI (Latest activity) so it appears even when the frontend was not open
+                            self._daily_action_tracker.record_display_action(
+                                normalized_name
+                            )
                             await self._log_action_progress(
                                 normalized_name,
                                 skipped_onchain_recording=skipped_onchain_recording,
@@ -2945,11 +3141,63 @@ class PettAgent:
             was_sleeping = await self._ensure_pet_is_awake()
 
         success = False
-        try:
-            result = await action_callable()
-            success = bool(result)
-        except Exception as exc:
-            self.logger.error("❌ Action %s raised: %s", normalized_name, exc)
+        max_retries = 3  # Allow retries if pet is sleeping
+        for attempt in range(max_retries):
+            try:
+                result = await action_callable()
+                success = bool(result)
+            except Exception as exc:
+                self.logger.error("❌ Action %s raised: %s", normalized_name, exc)
+                break
+
+            if success:
+                break
+
+            # Check if action failed due to pet sleeping
+            if self.websocket_client:
+                last_error = self.websocket_client.get_last_action_error()
+                if last_error and "sleeping" in last_error.lower():
+                    if attempt < max_retries - 1:
+                        self.logger.warning(
+                            "😴 Action %s failed because pet is sleeping"
+                            " (attempt %d/%d) - waking pet...",
+                            normalized_name,
+                            attempt + 1,
+                            max_retries,
+                        )
+                        # Use _ensure_pet_is_awake which now checks both
+                        # cache and last error
+                        woke = await self._ensure_pet_is_awake()
+                        if woke:
+                            self.logger.info(
+                                "✅ Pet woken up, retrying %s...",
+                                normalized_name,
+                            )
+                            continue  # Retry the action
+                        else:
+                            # Force wake via sleep toggle as fallback
+                            try:
+                                toggled = await self.websocket_client.sleep_pet(
+                                    record_on_chain=False
+                                )
+                                if toggled:
+                                    await asyncio.sleep(0.5)
+                                    self.websocket_client.clear_last_action_error()
+                                    self.logger.info(
+                                        "✅ Force-toggled sleep, retrying %s...",
+                                        normalized_name,
+                                    )
+                                    continue
+                                else:
+                                    self.logger.warning(
+                                        "⚠️ Failed to wake pet for retry"
+                                    )
+                            except Exception as wake_exc:
+                                self.logger.warning(
+                                    "⚠️ Error waking pet for retry: %s",
+                                    wake_exc,
+                                )
+            break  # Exit loop if no sleeping error or retries exhausted
 
         if (
             not success
