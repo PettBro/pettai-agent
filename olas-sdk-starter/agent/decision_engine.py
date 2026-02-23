@@ -323,7 +323,6 @@ class ActionConditions:
 
     Conditions (action can only be performed if condition is met):
     - RUB: hygiene < 75
-    - SHOWER: hygiene < 75
     - SLEEP: always possible
     - THROWBALL: health >= 15 OR hunger >= 15 OR energy >= 15
     - CONSUMABLES_USE: we have any consumable
@@ -402,10 +401,6 @@ class ActionConditions:
         if can:
             possible.append((ActionType.SLEEP, reason))
 
-        can, reason = cls.can_shower(context.stats)
-        if can:
-            possible.append((ActionType.SHOWER, reason))
-
         can, reason = cls.can_rub(context.stats)
         if can:
             possible.append((ActionType.RUB, reason))
@@ -434,7 +429,7 @@ class PetDecisionMaker:
     2. LOW_ENERGY: If energy < 25 and not critical, sleep
     3. LOW_HEALTH: If health < 70, use health consumable
     4. LOW_HUNGER: If hunger < 70, use food consumable
-    5. LOW_HYGIENE: If hygiene < 70, shower
+    5. LOW_HYGIENE: If hygiene < 70, rub
     6. LOW_HAPPINESS: If happiness < 70, throwball or rub
     7. MAINTENANCE: Otherwise, perform any valid action (prefer throwball for tokens)
 
@@ -540,13 +535,13 @@ class PetDecisionMaker:
                 self._record_decision(decision)
                 return decision
 
-        # Priority 5: LOW_HYGIENE - shower
+        # Priority 5: LOW_HYGIENE - rub
         if stats.hygiene < self.LOW_STAT_THRESHOLD:
-            can_shower, reason = ActionConditions.can_shower(stats)
-            if can_shower:
+            can_rub, reason = ActionConditions.can_rub(stats)
+            if can_rub:
                 decision = ActionDecision(
-                    action=ActionType.SHOWER,
-                    reason=f"Low hygiene ({stats.hygiene:.1f}) - showering",
+                    action=ActionType.RUB,
+                    reason=f"Low hygiene ({stats.hygiene:.1f}) - rubbing",
                     should_record_onchain=should_record,
                     stats_snapshot=stats.to_dict(),
                 )
@@ -623,23 +618,12 @@ class PetDecisionMaker:
                 stats_snapshot=stats.to_dict(),
             )
 
-        # Fallback to SHOWER
-        can_shower, reason = ActionConditions.can_shower(stats)
-        if can_shower and not self.is_action_blocked(ActionType.SHOWER):
-            return ActionDecision(
-                action=ActionType.SHOWER,
-                reason=f"CRITICAL stats, no consumables - showering ({reason})",
-                should_record_onchain=should_record,
-                fallback_from=ActionType.RUB,
-                stats_snapshot=stats.to_dict(),
-            )
-
         # Ultimate fallback: SLEEP (always possible)
         return ActionDecision(
             action=ActionType.SLEEP,
             reason="CRITICAL stats - sleeping as last resort",
             should_record_onchain=should_record,
-            fallback_from=ActionType.SHOWER,
+            fallback_from=ActionType.RUB,
             stats_snapshot=stats.to_dict(),
         )
 
@@ -787,16 +771,6 @@ class PetDecisionMaker:
                 )
         else:
             self.logger.debug("🔁 Skipping maintenance THROWBALL - blocked by recent failure")
-
-        # Try shower
-        can_shower, reason = ActionConditions.can_shower(stats)
-        if can_shower:
-            return ActionDecision(
-                action=ActionType.SHOWER,
-                reason=f"Maintenance: showering ({reason})",
-                should_record_onchain=should_record,
-                stats_snapshot=stats.to_dict(),
-            )
 
         # Try rub
         can_rub, reason = ActionConditions.can_rub(stats)
@@ -1028,7 +1002,8 @@ async def execute_decision(
         )
 
     if decision.action == ActionType.SHOWER:
-        return await executor.execute_shower(decision.should_record_onchain)
+        log.info("Remapping SHOWER decision to RUB")
+        return await executor.execute_rub(decision.should_record_onchain)
 
     if decision.action == ActionType.RUB:
         return await executor.execute_rub(decision.should_record_onchain)

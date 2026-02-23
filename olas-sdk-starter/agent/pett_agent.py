@@ -2054,9 +2054,10 @@ class PettAgent:
                 )
 
             elif decision.action == ActionType.SHOWER:
+                self.logger.info("🔁 SHOWER decision remapped to RUB")
                 return await self._execute_action_with_tracking(
-                    "SHOWER",
-                    lambda: client.shower_pet(record_on_chain=record_on_chain),
+                    "RUB",
+                    lambda: client.rub_pet(record_on_chain=record_on_chain),
                     treat_already_clean_as_success=True,
                     skipped_onchain_recording=not record_on_chain,
                 )
@@ -2289,9 +2290,9 @@ class PettAgent:
             return True
 
         if hygiene < self.LOW_THRESHOLD:
-            self.logger.info("Economy mode: hygiene low; showering for free gains")
+            self.logger.info("Economy mode: hygiene low; rubbing for free gains")
             await self._execute_action_with_tracking(
-                "SHOWER", client.shower_pet, treat_already_clean_as_success=True
+                "RUB", client.rub_pet, treat_already_clean_as_success=True
             )
             return True
 
@@ -2970,7 +2971,7 @@ class PettAgent:
     ) -> bool:
         """Execute an action with fallback chain and retry logic.
 
-        Fallback order: Primary -> RUB -> SHOWER -> CONSUMABLES_USE -> Random consumable -> THROWBALL -> SLEEP
+        Fallback order: Primary -> RUB -> CONSUMABLES_USE -> Random consumable -> THROWBALL -> SLEEP
 
         Args:
             client: WebSocket client
@@ -2992,8 +2993,6 @@ class PettAgent:
         # Add fallbacks based on primary action
         if normalized_primary != "RUB":
             fallback_actions.append(("RUB", client.rub_pet, True))
-        if normalized_primary != "SHOWER":
-            fallback_actions.append(("SHOWER", client.shower_pet, True))
         if normalized_primary != "CONSUMABLES_USE":
             # Try to use owned consumables
             async def try_use_consumable() -> bool:
@@ -3337,9 +3336,17 @@ class PettAgent:
 
         # THROWBALL is preferred to farm tokens when any core stat allows it.
         can_throwball = True
+        health = 0.0
+        hunger = 0.0
+        energy = 0.0
         try:
             pet_data = client.get_pet_data() or {}
-            stats = pet_data.get("stats", {}) if isinstance(pet_data, dict) else {}
+            stats: Dict[str, Any] = {}
+            if isinstance(pet_data, dict):
+                # Websocket pet snapshots expose PetStats; keep "stats" as backward-compatible fallback.
+                raw_stats = pet_data.get("PetStats") or pet_data.get("stats") or {}
+                if isinstance(raw_stats, dict):
+                    stats = raw_stats
             health = self._to_float(stats.get("health", 0))
             hunger = self._to_float(stats.get("hunger", 0))
             energy = self._to_float(stats.get("energy", 0))
@@ -3357,16 +3364,15 @@ class PettAgent:
             )
         else:
             self.logger.info(
-                "Low-balance fallback: skipping THROWBALL because core stats are too low"
+                "Low-balance fallback: skipping THROWBALL because core stats are too low "
+                "(health=%.1f, hunger=%.1f, energy=%.1f)",
+                health,
+                hunger,
+                energy,
             )
 
         fallback_actions.extend(
             [
-                (
-                    "SHOWER",
-                    lambda: client.shower_pet(record_on_chain=record_on_chain),
-                    True,
-                ),
                 ("RUB", lambda: client.rub_pet(record_on_chain=record_on_chain), True),
                 (
                     "SLEEP",
@@ -3450,7 +3456,7 @@ class PettAgent:
         happiness_deficit = max(0.0, 100.0 - happiness)
 
         if hygiene_deficit > 50.0:
-            add_candidate(hygiene_deficit + 10.0, "SHOWER", client.shower_pet, True)
+            add_candidate(hygiene_deficit + 10.0, "RUB", client.rub_pet, True)
 
             if happiness_deficit > 6.0:
                 add_candidate(happiness_deficit, "RUB", client.rub_pet, False)
@@ -3491,7 +3497,7 @@ class PettAgent:
     async def _random_action(self, client: PettWebSocketClient) -> None:
         actions = [
             (client.rub_pet, "rub"),
-            (client.shower_pet, "shower"),
+            (client.rub_pet, "rub"),
             (client.throw_ball, "throw_ball"),
             (client.throw_ball, "throw_ball"),
             (client.throw_ball, "throw_ball"),
@@ -3857,17 +3863,20 @@ class PettAgent:
 
         if random.random() < 0.05:
             self.logger.info(
-                "🎲 Random variance: performing random_action instead of shower"
+                "🎲 Random variance: performing random_action instead of rub"
             )
             await self._random_action(client)
             return
 
-        # Priority 1: low hygiene -> shower
+        # Priority 1: low hygiene -> rub
         if hygiene < self.LOW_THRESHOLD:
             # Small randomness to occasionally do a different engaging action
-            self.logger.info("🚿 Low hygiene detected; showering pet")
+            self.logger.info("🧼 Low hygiene detected; rubbing pet")
             success = await self._execute_action_with_fallbacks(
-                client, "SHOWER", client.shower_pet
+                client,
+                "RUB",
+                client.rub_pet,
+                treat_already_clean_as_success=True,
             )
             if success:
                 return
