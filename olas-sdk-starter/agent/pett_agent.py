@@ -1584,6 +1584,23 @@ class PettAgent:
                                                 await self._execute_decision(decision)
                                             )
 
+                                            # --- Last-resort fallback ---
+                                            # If the primary decision (and its own
+                                            # internal fallbacks) all failed, force a
+                                            # guaranteed free action so we ALWAYS
+                                            # record at least one on-chain tx per
+                                            # cycle.
+                                            if not action_success:
+                                                self.logger.warning(
+                                                    "⚠️ Primary decision %s failed; "
+                                                    "running last-resort fallback to "
+                                                    "guarantee an on-chain action",
+                                                    decision.action.name,
+                                                )
+                                                action_success = await self._execute_low_balance_fallback_action(
+                                                    record_on_chain=decision.should_record_onchain,
+                                                )
+
                                             # Only update scheduler timestamps if action was successful
                                             if action_success:
                                                 self.last_action_at = datetime.now()
@@ -3327,74 +3344,58 @@ class PettAgent:
     async def _execute_low_balance_fallback_action(
         self, *, record_on_chain: bool
     ) -> bool:
-        """Run free actions when consumable purchase/use fails due to low balance."""
+        """Run free actions when consumable purchase/use fails due to low balance.
+
+        The goal is to **always** execute a real action that the server
+        acknowledges so that an on-chain tx can be recorded.  Actions that
+        produce a server error (e.g. "already clean") are NOT treated as
+        success here — they don't generate a verification payload and
+        therefore cannot be recorded on-chain.  We keep trying the next
+        candidate until one truly succeeds.
+        """
         if not self.websocket_client:
             return False
 
         client = self.websocket_client
-        fallback_actions: List[Tuple[str, Callable[[], Awaitable[bool]], bool]] = []
 
-        # THROWBALL is preferred to farm tokens when any core stat allows it.
-        can_throwball = True
-        health = 0.0
-        hunger = 0.0
-        energy = 0.0
-        try:
-            pet_data = client.get_pet_data() or {}
-            stats: Dict[str, Any] = {}
-            if isinstance(pet_data, dict):
-                # Websocket pet snapshots expose PetStats; keep "stats" as backward-compatible fallback.
-                raw_stats = pet_data.get("PetStats") or pet_data.get("stats") or {}
-                if isinstance(raw_stats, dict):
-                    stats = raw_stats
-            health = self._to_float(stats.get("health", 0))
-            hunger = self._to_float(stats.get("hunger", 0))
-            energy = self._to_float(stats.get("energy", 0))
-            can_throwball = any(value >= 15.0 for value in (health, hunger, energy))
-        except Exception:
-            can_throwball = True
+        # Build the ordered list of free fallback actions.
+        # We always include all of them; the server will reject if stats are
+        # too low for a given action and we simply move on to the next one.
+        fallback_actions: List[Tuple[str, Callable[[], Awaitable[bool]]]] = [
+            (
+                "THROWBALL",
+                lambda: client.throw_ball(record_on_chain=record_on_chain),
+            ),
+            (
+                "RUB",
+                lambda: client.rub_pet(record_on_chain=record_on_chain),
+            ),
+            (
+                "SLEEP",
+                lambda: client.sleep_pet(record_on_chain=record_on_chain),
+            ),
+        ]
 
-        if can_throwball:
-            fallback_actions.append(
-                (
-                    "THROWBALL",
-                    lambda: client.throw_ball(record_on_chain=record_on_chain),
-                    False,
-                )
-            )
-        else:
-            self.logger.info(
-                "Low-balance fallback: skipping THROWBALL because core stats are too low "
-                "(health=%.1f, hunger=%.1f, energy=%.1f)",
-                health,
-                hunger,
-                energy,
-            )
-
-        fallback_actions.extend(
-            [
-                ("RUB", lambda: client.rub_pet(record_on_chain=record_on_chain), True),
-                (
-                    "SLEEP",
-                    lambda: client.sleep_pet(record_on_chain=record_on_chain),
-                    False,
-                ),
-            ]
-        )
-
-        for action_name, action_callable, allow_clean in fallback_actions:
+        for action_name, action_callable in fallback_actions:
             self.logger.info("🔁 Low-balance fallback: trying %s", action_name)
+            # Never treat "already clean" as success in the fallback path —
+            # an "already clean" response has no verification payload, so it
+            # cannot produce an on-chain tx.  We need a *real* success.
             success = await self._execute_action_with_tracking(
                 action_name,
                 action_callable,
-                treat_already_clean_as_success=allow_clean,
+                treat_already_clean_as_success=False,
                 skipped_onchain_recording=not record_on_chain,
             )
             if success:
                 self.logger.info("✅ Low-balance fallback action succeeded: %s", action_name)
                 return True
+            self.logger.info(
+                "🔁 Low-balance fallback: %s did not succeed, trying next",
+                action_name,
+            )
 
-        self.logger.warning("⚠️ Low-balance fallback actions failed")
+        self.logger.warning("⚠️ All low-balance fallback actions failed")
         return False
 
     def _needs_structured_actions(self) -> bool:
