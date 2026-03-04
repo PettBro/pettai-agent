@@ -38,36 +38,51 @@ const Icon = {
 		</svg>
 	),
 	Brain: ({ className, width = 16, height = 16, ...props }) => (
-		<svg className={className} xmlns="http://www.w3.org/2000/svg" width={width} height={height} viewBox="0 0 24 24" fill="none" {...props}>
-			<path d="M12 2a4 4 0 0 0-4 4v1a3 3 0 0 0-3 3v1a3 3 0 0 0 1.1 2.3A4 4 0 0 0 9 18h6a4 4 0 0 0 2.9-4.7A3 3 0 0 0 19 11v-1a3 3 0 0 0-3-3V6a4 4 0 0 0-4-4z" stroke="currentColor" strokeWidth="1.5" fill="none" />
-			<path d="M12 2v20M9 7h6M8 12h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+		<svg className={className} xmlns="http://www.w3.org/2000/svg" width={width} height={height} viewBox="0 0 24 24" fill="currentColor" {...props}>
+			<path d="M13 3a4 4 0 0 1 4 4 3.99 3.99 0 0 1 2 3.46V11a4 4 0 0 1-1.17 2.83A4 4 0 0 1 14 21h-1v-8.5a1.5 1.5 0 0 0-3 0V21h-1a4 4 0 0 1-3.83-7.17A4 4 0 0 1 4 11v-.54A3.99 3.99 0 0 1 6 7a4 4 0 0 1 7-2.64A3.98 3.98 0 0 1 13 3z" />
 		</svg>
 	),
 };
 
 // ─── Action detail map ──────────────────────────────────────────────────────
 const ACTION_DETAILS = {
-	THROW_BALL: { title: 'Tossed the ball', description: 'Played fetch; Happiness went up after tossing the ball.', stat: 'Happiness', statKey: 'happiness' },
-	THROWBALL:  { title: 'Played fetch', description: 'Had some fun; Happiness went up after tossing the ball.', stat: 'Happiness', statKey: 'happiness' },
-	RUB:        { title: 'Received pets', description: 'Soaked up affection; Happiness feels cozy now.', stat: 'Happiness', statKey: 'happiness' },
-	SLEEP:      { title: 'Slept soundly', description: 'Slept to recharge Energy for the next adventure.', stat: 'Energy', statKey: 'energy' },
-	SHOWER:     { title: 'Fresh and clean', description: 'Took a shower; Hygiene feels sparkling again.', stat: 'Hygiene', statKey: 'hygiene' },
-	CONSUMABLES_USE: { title: 'Used a consumable', description: 'Improved stats by consuming an item.', stat: 'Health', statKey: 'health' },
-	CONSUMABLES_BUY: { title: 'Restocked supplies', description: 'Picked up items to keep Hunger and Health in check.', stat: 'Hunger & Health', statKey: 'hunger' },
-	ACCESSORY_USE:   { title: 'Styled up', description: 'Used an accessory; Happiness sparkled with style.', stat: 'Happiness', statKey: 'happiness' },
-	ACCESSORY_BUY:   { title: 'New accessory', description: 'Bought something shiny; Happiness is excited to wear it.', stat: 'Happiness', statKey: 'happiness' },
-	HOTEL_CHECK_IN:  { title: 'Hotel check-in', description: 'Checked into the hotel to protect Energy overnight.', stat: 'Energy', statKey: 'energy' },
-	HOTEL_CHECK_OUT: { title: 'Hotel check-out', description: 'Checked out feeling refreshed and ready.', stat: 'Energy', statKey: 'energy' },
-	HOTEL_BUY:       { title: 'Hotel upgrade', description: 'Upgraded comfort levels; boosts future Energy recovery.', stat: 'Energy', statKey: 'energy' },
+	THROW_BALL: { title: 'Tossed the ball', stat: 'Happiness', statKey: 'happiness' },
+	THROWBALL: { title: 'Played fetch', stat: 'Happiness', statKey: 'happiness' },
+	RUB: { title: 'Received pets', stat: 'Happiness', statKey: 'happiness' },
+	SLEEP: { title: 'Slept soundly', stat: 'Energy', statKey: 'energy' },
+	SHOWER: { title: 'Fresh and clean', stat: 'Hygiene', statKey: 'hygiene' },
+	CONSUMABLES_USE: { title: 'Used a consumable', stat: 'Health', statKey: 'health' },
+	CONSUMABLES_BUY: { title: 'Restocked supplies', stat: 'Hunger & Health', statKey: 'hunger' },
+	ACCESSORY_USE: { title: 'Styled up', stat: 'Happiness', statKey: 'happiness' },
+	ACCESSORY_BUY: { title: 'New accessory', stat: 'Happiness', statKey: 'happiness' },
+	HOTEL_CHECK_IN: { title: 'Hotel check-in', stat: 'Energy', statKey: 'energy' },
+	HOTEL_CHECK_OUT: { title: 'Hotel check-out', stat: 'Energy', statKey: 'energy' },
+	HOTEL_BUY: { title: 'Hotel upgrade', stat: 'Energy', statKey: 'energy' },
+};
+
+// Fallback reasons when no decision_log exists (explains WHY the action was chosen)
+const ACTION_FALLBACK_REASON = {
+	THROW_BALL: 'Happiness was the most urgent stat, playing fetch restores it while earning tokens.',
+	THROWBALL: 'Happiness was the most urgent stat, playing fetch restores it while earning tokens.',
+	RUB: 'Happiness needed a boost and rubbing was the best available option.',
+	SLEEP: 'Energy was critically low, sleeping is the only way to restore it.',
+	SHOWER: 'Hygiene was dropping fast, showering gives a large hygiene restore plus tokens/XP.',
+	CONSUMABLES_USE: 'A stat was running low, used a consumable to restore it before it became critical.',
+	CONSUMABLES_BUY: 'Inventory was low on consumables, restocking to prepare for future stat drops.',
+	ACCESSORY_USE: 'Used an accessory to give happiness a quick bump.',
+	ACCESSORY_BUY: 'Bought an accessory to have happiness boosters ready.',
+	HOTEL_CHECK_IN: 'Energy was at risk of dropping too low, hotel protects it overnight.',
+	HOTEL_CHECK_OUT: 'Hotel stay complete, energy is now restored and ready to go.',
+	HOTEL_BUY: 'Upgraded hotel for better energy recovery in future stays.',
 };
 
 // ─── Stat styles & icons ────────────────────────────────────────────────────
 const STAT_STYLES = {
-	hunger:    { accent: 'bg-global-brand-60', chip: 'bg-global-brand-60 text-white border-transparent', color: '#7257FF' },
-	health:    { accent: 'bg-global-red-60', chip: 'bg-global-red-60 text-white border-transparent', color: '#D04648' },
-	energy:    { accent: 'bg-global-yellow-60', chip: 'bg-global-yellow-60 text-gray-900 border-transparent', color: '#F4A716' },
+	hunger: { accent: 'bg-global-brand-60', chip: 'bg-global-brand-60 text-white border-transparent', color: '#7257FF' },
+	health: { accent: 'bg-global-red-60', chip: 'bg-global-red-60 text-white border-transparent', color: '#D04648' },
+	energy: { accent: 'bg-global-yellow-60', chip: 'bg-global-yellow-60 text-gray-900 border-transparent', color: '#F4A716' },
 	happiness: { accent: 'bg-global-green-60', chip: 'bg-global-green-60 text-white border-transparent', color: '#6DAA2C' },
-	hygiene:   { accent: 'bg-global-blue-60', chip: 'bg-global-blue-60 text-white border-transparent', color: '#0A69FA' },
+	hygiene: { accent: 'bg-global-blue-60', chip: 'bg-global-blue-60 text-white border-transparent', color: '#0A69FA' },
 };
 
 const STAT_ICON = {
@@ -88,8 +103,29 @@ const STAT_SYMBOLS = {
 
 const MODE_CONFIG = {
 	survival: { label: 'SURVIVAL', bg: 'bg-red-500/20', text: 'text-red-300', border: 'border-red-400/30', symbol: '\u{1F6A8}' },
-	normal:   { label: 'NORMAL', bg: 'bg-blue-500/15', text: 'text-blue-300', border: 'border-blue-400/25', symbol: '\u{2699}' },
-	farming:  { label: 'FARMING', bg: 'bg-green-500/15', text: 'text-green-300', border: 'border-green-400/25', symbol: '\u{1F4B0}' },
+	normal: { label: 'NORMAL', bg: 'bg-blue-500/15', text: 'text-blue-300', border: 'border-blue-400/25', symbol: '\u{2699}' },
+	farming: { label: 'FARMING', bg: 'bg-green-500/15', text: 'text-green-300', border: 'border-green-400/25', symbol: '\u{1F4B0}' },
+};
+
+// ─── Per-action stat effects ────────────────────────────────────────────────
+const ACTION_EFFECTS = {
+	THROW_BALL: { happiness: '+', hunger: '-', energy: '-', hygiene: '-' },
+	THROWBALL: { happiness: '+', hunger: '-', energy: '-', hygiene: '-' },
+	RUB: { happiness: '+' },
+	SLEEP: { energy: '+' },
+	SHOWER: { hygiene: '+' },
+	CONSUMABLES_USE: { hunger: '+', health: '+', energy: '+' },
+	CONSUMABLES_BUY: {},
+	ACCESSORY_USE: { happiness: '+' },
+	ACCESSORY_BUY: {},
+	HOTEL_CHECK_IN: { energy: '+' },
+	HOTEL_CHECK_OUT: { energy: '+' },
+	HOTEL_BUY: {},
+};
+
+const EFFECT_STYLES = {
+	'+': { text: 'text-green-300', bg: 'bg-green-500/15', border: 'border-green-400/20', prefix: '+' },
+	'-': { text: 'text-red-300', bg: 'bg-red-500/15', border: 'border-red-400/20', prefix: '-' },
 };
 
 const renderStatIcon = statKey => {
@@ -193,6 +229,30 @@ const AlternativesList = ({ alternatives }) => {
 	);
 };
 
+// ─── Stat effect chips (e.g. "+ Happiness", "- Energy") ─────────────────────
+const StatEffectChips = ({ actionKey }) => {
+	const effects = ACTION_EFFECTS[actionKey];
+	if (!effects || Object.keys(effects).length === 0) return null;
+	return (
+		<div className="flex flex-wrap gap-1.5">
+			{Object.entries(effects).map(([stat, dir]) => {
+				const style = EFFECT_STYLES[dir];
+				return (
+					<span
+						key={stat}
+						className={clsx(
+							'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border',
+							style.bg, style.text, style.border,
+						)}
+					>
+						{style.prefix} {stat.charAt(0).toUpperCase() + stat.slice(1)}
+					</span>
+				);
+			})}
+		</div>
+	);
+};
+
 // ─── Main component ─────────────────────────────────────────────────────────
 const ActionHistory = () => {
 	const navigate = useNavigate();
@@ -200,14 +260,9 @@ const ActionHistory = () => {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null);
 	const [isInfoOpen, setIsInfoOpen] = useState(false);
-	const [expandedCards, setExpandedCards] = useState({});
 	const bubbleHoverRef = useRef(false);
 	const closeTimerRef = useRef(null);
 	const styleRef = useRef(null);
-
-	const toggleExpand = useCallback((id) => {
-		setExpandedCards(prev => ({ ...prev, [id]: !prev[id] }));
-	}, []);
 
 	const handleInfoOpen = useCallback(() => {
 		setIsInfoOpen(true);
@@ -246,7 +301,7 @@ const ActionHistory = () => {
 			};
 			setHistory(next);
 			if (actions.length > 0 && typeof window !== 'undefined') {
-				try { window.localStorage.setItem(ACTION_HISTORY_STORAGE_KEY, JSON.stringify(next)); } catch {}
+				try { window.localStorage.setItem(ACTION_HISTORY_STORAGE_KEY, JSON.stringify(next)); } catch { }
 			}
 		} catch (err) {
 			console.error('[ActionHistory] Failed to load action history', err);
@@ -284,10 +339,13 @@ const ActionHistory = () => {
 				// Extract decision log from action metadata
 				const decisionLog = action.metadata?.decision_log ?? null;
 
+				const matchedKey = ACTION_DETAILS[normalized] ? normalized : (ACTION_DETAILS[compactKey] ? compactKey : normalized);
+
 				return {
 					id: `${normalized || rawName}-${action.timestamp || index}`,
+					normalizedKey: matchedKey,
 					title: details.title,
-					description: details.description,
+					fallbackReason: ACTION_FALLBACK_REASON[matchedKey] || null,
 					stat: details.stat,
 					statKey: details.statKey ?? null,
 					time: formatTime(action.timestamp),
@@ -383,9 +441,6 @@ const ActionHistory = () => {
 											const statStyle = entry.statKey ? STAT_STYLES[entry.statKey] : null;
 											const dl = entry.decisionLog;
 											const mode = dl?.mode ? MODE_CONFIG[dl.mode] : null;
-											const isExpanded = expandedCards[entry.id] ?? false;
-											const hasDecisionLog = !!dl;
-
 											const isLastEntry = index === entries.length - 1;
 											const isFirstEntry = index === 0;
 
@@ -429,9 +484,12 @@ const ActionHistory = () => {
 																	)}
 																</div>
 
-																{/* AI reasoning (replaces generic description when available) */}
-																<p className="text-xs text-white/80 leading-relaxed break-words">
-																	{dl?.reasoning || entry.description}
+																{/* Stat effect chips: + Happiness, - Energy, etc. */}
+																<StatEffectChips actionKey={entry.normalizedKey} />
+
+																{/* WHY section */}
+																<p className="text-xs text-white/60 leading-relaxed break-words">
+																	{dl?.reasoning || entry.fallbackReason || 'Action was chosen based on current stat urgency.'}
 																</p>
 
 																{/* Stats snapshot mini-bars (always shown when available) */}
@@ -449,52 +507,24 @@ const ActionHistory = () => {
 																	</div>
 																)}
 
-																{/* Stat chip + expand toggle */}
-																<div className="flex items-center gap-2 mt-1">
-																	{entry.stat && (
-																		<span className={clsx('inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide border border-white/10 bg-white/5 text-white/90', statStyle?.chip)}>
-																			{entry.stat}
-																		</span>
-																	)}
-																	{hasDecisionLog && (
-																		<button
-																			type="button"
-																			onClick={() => toggleExpand(entry.id)}
-																			className="ml-auto inline-flex items-center gap-1 text-[10px] text-white/40 hover:text-white/70 transition-colors"
-																			aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
-																		>
-																			<Icon.Brain width={12} height={12} />
-																			<Icon.ChevronDown
-																				width={12} height={12}
-																				className={clsx('transition-transform duration-200', isExpanded && 'rotate-180')}
-																			/>
-																		</button>
-																	)}
-																</div>
-
-																{/* Expanded details */}
-																{isExpanded && dl && (
-																	<div className="mt-2 pt-2 border-t border-white/10 space-y-2 text-left">
-																		{/* Urgency scores */}
-																		{dl.urgencyScores && (
-																			<div>
-																				<p className="text-[9px] uppercase tracking-widest text-white/40 mb-1">Urgency</p>
-																				<div className="flex flex-wrap gap-x-3 gap-y-0.5">
-																					{Object.entries(dl.urgencyScores).map(([stat, score]) => (
-																						<span key={stat} className="inline-flex items-center gap-1 text-[10px] text-white/50">
-																							<UrgencyDot score={score} />
-																							<span>{STAT_SYMBOLS[stat] || stat}</span>
-																							<span className="font-mono tabular-nums">{score.toFixed(0)}</span>
-																						</span>
-																					))}
-																				</div>
-																			</div>
-																		)}
-
-																		{/* Alternatives */}
-																		<AlternativesList alternatives={dl.alternativesConsidered} />
+																{/* Urgency scores (when decision log available) */}
+																{dl?.urgencyScores && (
+																	<div className="mt-1">
+																		<p className="text-[9px] uppercase tracking-widest text-white/40 mb-1">Urgency</p>
+																		<div className="flex flex-wrap gap-x-3 gap-y-0.5">
+																			{Object.entries(dl.urgencyScores).map(([stat, score]) => (
+																				<span key={stat} className="inline-flex items-center gap-1 text-[10px] text-white/50">
+																					<UrgencyDot score={score} />
+																					<span>{STAT_SYMBOLS[stat] || stat}</span>
+																					<span className="font-mono tabular-nums">{score.toFixed(0)}</span>
+																				</span>
+																			))}
+																		</div>
 																	</div>
 																)}
+
+																{/* Alternatives (when decision log available) */}
+																{dl && <AlternativesList alternatives={dl.alternativesConsidered} />}
 															</div>
 														</div>
 													</div>

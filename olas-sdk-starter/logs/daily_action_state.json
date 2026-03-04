@@ -1,5 +1,46 @@
 {
   "actions": [],
-  "display_actions": [],
+  "display_actions": [
+    {
+      "name": "THROWBALL",
+      "timestamp": "2026-03-04T20:41:51.075367+00:00"
+    },
+    {
+      "name": "THROWBALL",
+      "timestamp": "2026-03-04T20:52:41.162270+00:00"
+    },
+    {
+      "name": "THROWBALL",
+      "timestamp": "2026-03-04T20:58:39.356676+00:00"
+    },
+    {
+      "name": "THROWBALL",
+      "timestamp": "2026-03-04T21:06:01.445000+00:00"
+    },
+    {
+      "name": "THROWBALL",
+      "timestamp": "2026-03-04T21:17:47.552333+00:00"
+    },
+    {
+      "name": "THROWBALL",
+      "timestamp": "2026-03-04T21:25:54.495227+00:00"
+    },
+    {
+      "name": "THROWBALL",
+      "timestamp": "2026-03-04T21:32:54.863013+00:00"
+    },
+    {
+      "name": "THROWBALL",
+      "timestamp": "2026-03-04T21:36:28.860033+00:00"
+    },
+    {
+      "name": "THROWBALL",
+      "timestamp": "2026-03-04T21:42:20.090443+00:00"
+    },
+    {
+      "name": "THROWBALL",
+      "timestamp": "2026-03-04T21:50:02.508378+00:00"
+    }
+  ],
   "epoch": "2026-03-04"
 }
