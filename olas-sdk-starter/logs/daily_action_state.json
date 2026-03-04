@@ -1,22 +1,5 @@
 {
   "actions": [],
-  "display_actions": [
-    {
-      "name": "THROWBALL",
-      "timestamp": "2026-02-20T12:33:32.729457+00:00"
-    },
-    {
-      "name": "THROWBALL",
-      "timestamp": "2026-02-20T12:40:33.051340+00:00"
-    },
-    {
-      "name": "THROWBALL",
-      "timestamp": "2026-02-20T12:47:33.436095+00:00"
-    },
-    {
-      "name": "THROWBALL",
-      "timestamp": "2026-02-20T12:54:36.041229+00:00"
-    }
-  ],
-  "epoch": "2026-02-20"
+  "display_actions": [],
+  "epoch": "2026-03-04"
 }

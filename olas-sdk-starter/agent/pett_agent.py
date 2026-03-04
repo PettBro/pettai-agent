@@ -87,11 +87,13 @@ class PettAgent:
         logger: logging.Logger,
         is_production: bool = True,
         session_encryption_password: Optional[str] = None,
+        web_port: int = 8716,
     ):
         """Initialize the Pett Agent."""
         self.olas = olas_interface
         self.logger = logger
         self.is_production = is_production
+        self.web_port = web_port
         self.running = False
         self.olas.register_agent(self)
 
@@ -293,7 +295,7 @@ class PettAgent:
             self.olas.update_health_status("initializing", is_transitioning=True)
 
             # Start Olas web server for health checks
-            await self.olas.start_web_server()
+            await self.olas.start_web_server(port=self.web_port)
 
             # Initialize WebSocket client (but don't fail if token is expired)
             if self.privy_token:
