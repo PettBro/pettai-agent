@@ -555,7 +555,10 @@ class PetDecisionMaker:
 
     def decide(self, context: PetContext) -> ActionDecision:
         stats = context.stats
-        should_record = context.needs_more_onchain_actions
+        # Always record on-chain every 7-minute tick — not just until the
+        # epoch minimum is reached.  This guarantees continuous on-chain
+        # activity regardless of pet stats or epoch progress.
+        should_record = True
 
         self._log_context(context)
         urgency = compute_urgency_scores(stats)
@@ -590,8 +593,8 @@ class PetDecisionMaker:
                 return self._finalize(
                     ActionDecision(
                         action=ActionType.SLEEP,
-                        reason=f"Still resting - energy ({stats.energy:.1f}) < {WAKE_ENERGY_THRESHOLD}",
-                        should_record_onchain=should_record,
+                        reason=f"Still resting - energy ({stats.energy:.1f}) < {WAKE_ENERGY_THRESHOLD} - wake+resleep for on-chain record",
+                        should_record_onchain=True,
                         params={"stay_asleep": True},
                         stats_snapshot=stats.to_dict(),
                     ),

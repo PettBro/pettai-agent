@@ -2052,8 +2052,10 @@ class PettAgent:
 
         try:
             if decision.action == ActionType.SLEEP:
+                stay_asleep = decision.params.get("stay_asleep", False)
                 wake_first = decision.params.get("wake_first", False)
-                if wake_first:
+
+                if stay_asleep or wake_first:
                     # Wake first by calling sleep_pet (it toggles sleep state)
                     # Then sleep again to get an on-chain record
                     self.logger.info(
