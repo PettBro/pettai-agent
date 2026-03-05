@@ -27,7 +27,7 @@ def main() -> None:
         return
 
     try:
-        asyncio.run(run_main(password=args.password, port=args.port))
+        asyncio.run(run_main(password=args.password))
     except KeyboardInterrupt:
         print("\n🛑 Agent stopped by user")
         sys.exit(0)
