@@ -343,6 +343,148 @@ class TestLowStatsPetScenarios(unittest.TestCase):
         )
 
 
+class TestDecisionEngineSleepingWithCriticalStats(unittest.TestCase):
+    """Test that sleeping pets with critical stats don't stay asleep."""
+
+    def test_sleeping_management_checks_other_stats(self):
+        """Sleeping management should NOT short-circuit when other stats are critical."""
+        engine_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "olas-sdk-starter",
+            "agent",
+            "decision_engine.py",
+        )
+        with open(engine_path, "r") as f:
+            source = f.read()
+
+        # Find the sleeping management section (the actual code, not docstring)
+        sleep_mgmt = source.find("# --- Sleeping management ---")
+        assert sleep_mgmt != -1
+
+        # Find the survival check section
+        survival_check = source.find("Critical survival check", sleep_mgmt)
+        assert survival_check != -1
+
+        between = source[sleep_mgmt:survival_check]
+
+        assert "health" in between.lower(), (
+            "Sleeping management must check health before defaulting to SLEEP"
+        )
+        assert "hunger" in between.lower(), (
+            "Sleeping management must check hunger before defaulting to SLEEP"
+        )
+        assert "critical_threshold" in between.lower(), (
+            "Sleeping management must compare stats against CRITICAL_THRESHOLD"
+        )
+
+    def test_sleeping_with_zero_stats_falls_through_to_survival(self):
+        """A sleeping pet with all stats at 0 must NOT get SLEEP decision."""
+        engine_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "olas-sdk-starter",
+            "agent",
+            "decision_engine.py",
+        )
+        with open(engine_path, "r") as f:
+            source = f.read()
+
+        sleep_mgmt_start = source.find("# --- Sleeping management ---")
+        survival_start = source.find("Critical survival check")
+        sleep_section = source[sleep_mgmt_start:survival_start]
+
+        returns_in_sleep = sleep_section.count("return self._finalize")
+        stat_guards = sleep_section.count("_other_stats_ok") or \
+                      sleep_section.count("CRITICAL_THRESHOLD")
+
+        assert stat_guards >= returns_in_sleep, (
+            f"Found {returns_in_sleep} return(s) in sleeping management but only "
+            f"{stat_guards} stat guard(s). Every SLEEP return must be guarded "
+            "so critical pets fall through to survival mode"
+        )
+
+
+class TestSurvivalModePriority(unittest.TestCase):
+    """Test survival mode checks health/hunger before energy."""
+
+    def _read_engine(self):
+        engine_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "olas-sdk-starter",
+            "agent",
+            "decision_engine.py",
+        )
+        with open(engine_path, "r") as f:
+            return f.read()
+
+    def test_health_checked_before_energy(self):
+        """Health must be checked before energy in survival mode."""
+        source = self._read_engine()
+        survival_start = source.find("def _check_survival")
+        assert survival_start != -1
+        survival_body = source[survival_start:]
+
+        health_pos = survival_body.find("Health critical")
+        energy_pos = survival_body.find("Energy critical")
+        assert health_pos != -1, "Health critical check not found in survival"
+        assert energy_pos != -1, "Energy critical check not found in survival"
+        assert health_pos < energy_pos, (
+            "Health must be checked BEFORE energy in survival mode "
+            "(health doesn't recover passively, energy does via sleep)"
+        )
+
+    def test_hunger_checked_before_energy(self):
+        """Hunger must be checked before energy in survival mode."""
+        source = self._read_engine()
+        survival_start = source.find("def _check_survival")
+        survival_body = source[survival_start:]
+
+        hunger_pos = survival_body.find("Hunger critical")
+        energy_pos = survival_body.find("Energy critical")
+        assert hunger_pos != -1, "Hunger critical check not found"
+        assert energy_pos != -1, "Energy critical check not found"
+        assert hunger_pos < energy_pos, (
+            "Hunger must be checked BEFORE energy in survival mode"
+        )
+
+    def test_health_always_returns_action(self):
+        """When health is critical, survival must ALWAYS return an action (never fall through)."""
+        source = self._read_engine()
+        survival_start = source.find("def _check_survival")
+        survival_body = source[survival_start:]
+
+        # Extract the health critical section
+        health_start = survival_body.find("Health critical")
+        hunger_start = survival_body.find("Hunger critical")
+        health_section = survival_body[health_start:hunger_start]
+
+        # The health section must have an unconditional return (auto-buy)
+        # not guarded by can_buy
+        returns = health_section.count("return self._finalize")
+        assert returns >= 2, (
+            f"Health critical section has {returns} return(s), needs at least 2: "
+            "one for owned potion, one for auto-buy (unconditional)"
+        )
+
+    def test_hunger_always_returns_action(self):
+        """When hunger is critical, survival must ALWAYS return an action."""
+        source = self._read_engine()
+        survival_start = source.find("def _check_survival")
+        survival_body = source[survival_start:]
+
+        hunger_start = survival_body.find("Hunger critical")
+        energy_start = survival_body.find("Energy critical")
+        hunger_section = survival_body[hunger_start:energy_start]
+
+        returns = hunger_section.count("return self._finalize")
+        assert returns >= 2, (
+            f"Hunger critical section has {returns} return(s), needs at least 2: "
+            "one for owned food, one for auto-buy (unconditional)"
+        )
+
+
 class TestActionSequencing(unittest.TestCase):
     """Test that actions are always sent one at a time."""
 
