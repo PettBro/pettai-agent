@@ -109,7 +109,7 @@ class OlasInterface:
         self.app: Optional[web.Application] = None
         self.runner: Optional[web.AppRunner] = None
         self.site: Optional[web.TCPSite] = None
-        self.web_port: int = 8716  # Fixed port (Olas SDK / deployment contract)
+        self.web_port: int = 8716  # Default port, updated when server starts
 
         # Environment variables (Olas SDK requirement)
         self.env_vars: Dict[str, str] = self._load_environment_variables()
@@ -1813,10 +1813,41 @@ class OlasInterface:
             self.logger.error(f"❌ React build failed: {e}")
             return False
 
-    async def start_web_server(self, enable_react: bool = True) -> None:
+    async def _bind_with_fallback(self, preferred_port: int, max_scan: int = 200) -> int:
+        """Try to bind to preferred_port; if in use, scan upward for an available port.
+
+        Returns the port that was successfully bound.
+        """
+        candidates = [preferred_port] + list(range(preferred_port + 1, preferred_port + 1 + max_scan))
+        for candidate in candidates:
+            try:
+                self.site = web.TCPSite(self.runner, "0.0.0.0", candidate)
+                await self.site.start()
+                if candidate != preferred_port:
+                    self.logger.info(
+                        f"Port {preferred_port} was in use, bound to port {candidate} instead"
+                    )
+                return candidate
+            except OSError as e:
+                if "address already in use" in str(e).lower() or e.errno == 98 or e.errno == 48:
+                    self.logger.debug(f"Port {candidate} in use, trying next...")
+                    continue
+                raise
+
+        # Fallback: OS-assigned ephemeral port
+        self.logger.warning("No port found in scan range, using OS-assigned ephemeral port")
+        self.site = web.TCPSite(self.runner, "0.0.0.0", 0)
+        await self.site.start()
+        # Extract the actual port from the bound socket
+        bound_port = self.site._server.sockets[0].getsockname()[1]
+        return bound_port
+
+    async def start_web_server(
+        self, port: int = 8716, enable_react: bool = True
+    ) -> None:
         """Start web server for health checks and UI (Olas SDK requirement)."""
         try:
-            port = 8716  # Fixed port (Olas SDK / deployment contract)
+            # Store the actual port being used
             self.web_port = port
             self.app = web.Application()
 
@@ -1890,22 +1921,23 @@ class OlasInterface:
             await self.runner.setup()
 
             # Bind to 0.0.0.0 to allow access from outside Docker container
-            self.site = web.TCPSite(self.runner, "0.0.0.0", port)
-            await self.site.start()
+            # Try the requested port first, then scan upward if it's in use
+            bound_port = await self._bind_with_fallback(port)
+            self.web_port = bound_port
 
             self.logger.info(
-                f"🌐 Web server started on http://0.0.0.0:{port} (access via http://localhost:{port} or http://127.0.0.1:{port})"
+                f"🌐 Web server started on http://0.0.0.0:{bound_port} (access via http://localhost:{bound_port} or http://127.0.0.1:{bound_port})"
             )
             if self.react_enabled:
                 self.logger.info(
-                    f"🎨 React App available at http://localhost:{port}/ or http://127.0.0.1:{port}/ (Dashboard at /dashboard)"
+                    f"🎨 React App available at http://localhost:{bound_port}/ or http://127.0.0.1:{bound_port}/ (Dashboard at /dashboard)"
                 )
                 self.logger.info(
-                    f"🏥 Health API: http://localhost:{port}/api/health (also http://127.0.0.1:{port}/api/health)"
+                    f"🏥 Health API: http://localhost:{bound_port}/api/health (also http://127.0.0.1:{bound_port}/api/health)"
                 )
             else:
                 self.logger.info(
-                    f"🏥 Health API: http://localhost:{port}/api/health (also http://127.0.0.1:{port}/api/health)"
+                    f"🏥 Health API: http://localhost:{bound_port}/api/health (also http://127.0.0.1:{bound_port}/api/health)"
                 )
 
         except Exception as e:
