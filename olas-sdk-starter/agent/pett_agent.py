@@ -310,6 +310,9 @@ class PettAgent:
                     self.websocket_client.set_onchain_success_recorder(
                         self._get_onchain_success_recorder_callback()
                     )
+                    self.websocket_client.set_daily_action_tracker(
+                        self._daily_action_tracker
+                    )
                     try:
                         recorder = self.olas.get_action_recorder()
                         if recorder and recorder.is_enabled:
@@ -491,6 +494,9 @@ class PettAgent:
                     )
                     self.websocket_client.set_onchain_success_recorder(
                         self._get_onchain_success_recorder_callback()
+                    )
+                    self.websocket_client.set_daily_action_tracker(
+                        self._daily_action_tracker
                     )
                     try:
                         recorder2 = self.olas.get_action_recorder()
@@ -732,6 +738,9 @@ class PettAgent:
                 self.websocket_client.set_onchain_success_recorder(
                     self._get_onchain_success_recorder_callback()
                 )
+                self.websocket_client.set_daily_action_tracker(
+                    self._daily_action_tracker
+                )
                 try:
                     recorder = self.olas.get_action_recorder()
                     if recorder and recorder.is_enabled:
@@ -792,6 +801,9 @@ class PettAgent:
                 )
                 self.websocket_client.set_onchain_success_recorder(
                     self._get_onchain_success_recorder_callback()
+                )
+                self.websocket_client.set_daily_action_tracker(
+                    self._daily_action_tracker
                 )
             except Exception:
                 pass
