@@ -87,13 +87,12 @@ class PettAgent:
         logger: logging.Logger,
         is_production: bool = True,
         session_encryption_password: Optional[str] = None,
-        web_port: int = 8716,
     ):
         """Initialize the Pett Agent."""
         self.olas = olas_interface
         self.logger = logger
         self.is_production = is_production
-        self.web_port = web_port
+        self.web_port = 8716  # Fixed port (Olas SDK / deployment contract)
         self.running = False
         self.olas.register_agent(self)
 
@@ -234,12 +233,8 @@ class PettAgent:
         return record_success
 
     def _get_web_port(self) -> int:
-        """Get the actual web server port, checking ReactServerManager first if available, then OlasInterface."""
-        # Check if ReactServerManager is being used (for dev mode)
-        if hasattr(self, "react_server_manager") and self.react_server_manager:
-            return self.react_server_manager.port
-        # Fallback to OlasInterface web port
-        return getattr(self.olas, "web_port", 8716)
+        """Return the fixed web server port."""
+        return 8716
 
     # TypedDicts for pet data shape
     class PetTokensDict(TypedDict, total=False):
@@ -295,10 +290,8 @@ class PettAgent:
             self.logger.info("🚀 Initializing Pett Agent components...")
             self.olas.update_health_status("initializing", is_transitioning=True)
 
-            # Start Olas web server for health checks (port may change if preferred is in use)
-            await self.olas.start_web_server(port=self.web_port)
-            # Sync with actual bound port (may differ if preferred port was in use)
-            self.web_port = self.olas.web_port
+            # Start Olas web server for health checks
+            await self.olas.start_web_server()
 
             # Initialize WebSocket client (but don't fail if token is expired)
             if self.privy_token:

@@ -136,7 +136,7 @@ def check_withdrawal_mode() -> bool:
     return False
 
 
-async def main(password: Optional[str] = None, port: int = 8716):
+async def main(password: Optional[str] = None):
     """Main entry point for the Pett Agent."""
     logger = setup_olas_logging()
     logger.info("🚀 Starting Pett Agent with Olas SDK compliance")
@@ -174,7 +174,6 @@ async def main(password: Optional[str] = None, port: int = 8716):
             logger=logger,
             is_production=True,
             session_encryption_password=password,
-            web_port=port,
         )
 
         # Start the agent
@@ -196,13 +195,6 @@ def parse_args() -> argparse.Namespace:
     """Parse CLI arguments for the agent runner."""
     parser = argparse.ArgumentParser(description="Run the Pett Agent.")
     parser.add_argument(
-        "port",
-        type=int,
-        nargs="?",
-        default=8716,
-        help="Port for the agent front-end web server (default: 8716).",
-    )
-    parser.add_argument(
         "--password",
         type=str,
         help="Password to decrypt the Ethereum private key.",
@@ -223,7 +215,7 @@ if __name__ == "__main__":
         sys.exit(0)
 
     try:
-        asyncio.run(main(password=cli_args.password, port=cli_args.port))
+        asyncio.run(main(password=cli_args.password))
     except KeyboardInterrupt:
         print("\n🛑 Agent stopped by user")
         sys.exit(0)
